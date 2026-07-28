@@ -1,18 +1,21 @@
-import { createServer } from 'node:http';
+import { buildApp } from './app.js';
+import { loadEnv } from './env.js';
 
-const host = process.env.HOST ?? '0.0.0.0';
-const port = Number(process.env.PORT ?? 3333);
+const env = loadEnv();
+const app = await buildApp({ env });
 
-const server = createServer((req, res) => {
-  if (req.url === '/health') {
-    res.writeHead(200, { 'content-type': 'application/json' });
-    res.end(JSON.stringify({ status: 'ok' }));
-    return;
-  }
-  res.writeHead(404, { 'content-type': 'application/json' });
-  res.end(JSON.stringify({ error: 'not_found' }));
-});
+for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+  process.once(signal, async () => {
+    app.log.info({ signal }, 'shutting down');
+    await app.close();
+    process.exit(0);
+  });
+}
 
-server.listen(port, host, () => {
-  console.log(`pollo backend listening on http://localhost:${port}`);
-});
+try {
+  await app.listen({ host: env.HOST, port: env.PORT });
+  app.log.info(`API docs available at http://localhost:${env.PORT}/docs`);
+} catch (error) {
+  app.log.error(error);
+  process.exit(1);
+}
