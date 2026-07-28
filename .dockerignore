@@ -1,0 +1,11 @@
+node_modules
+**/node_modules
+**/dist
+.git
+.env
+.env.*
+docs
+infra
+README.md
+justfile
+biome.json
