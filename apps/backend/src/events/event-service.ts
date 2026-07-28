@@ -1,0 +1,133 @@
+import type { ExactLocation, Location } from '../schemas/location.js';
+import type { Admin, Message, SendMessage, Subscriber } from '../schemas/messages.js';
+import type { PositionsMessage } from '../schemas/wire.js';
+import type { Bus } from './bus.js';
+import type { GraphStore } from './graph-store.js';
+
+export interface EventServiceOptions {
+  id: string;
+  location: ExactLocation;
+  adminId: string;
+  graphStore: GraphStore;
+  bus: Bus;
+}
+
+/**
+ * Pure IO for a live event: holds the connections (admin + subscribers), fans
+ * out messages, persists the graph (REST reads + worker hydration) and
+ * publishes mutations to the ingest stream. ALL position math lives in the
+ * worker — no simulation ever runs here, never on the event loop.
+ */
+export class EventService {
+  private readonly id: string;
+  private readonly location: ExactLocation;
+  private readonly admin: Admin;
+  private readonly subscribers = new Map<string, SendMessage>();
+  private readonly graphStore: GraphStore;
+  private readonly bus: Bus;
+
+  constructor({ id, location, adminId, graphStore, bus }: EventServiceOptions) {
+    this.id = id;
+    this.location = location;
+    this.graphStore = graphStore;
+    this.bus = bus;
+    this.admin = { userId: adminId, sendMessage: undefined };
+  }
+
+  getAdminId() {
+    return this.admin.userId;
+  }
+
+  getLocation() {
+    return this.location;
+  }
+
+  setAdminConnection(send: SendMessage) {
+    this.admin.sendMessage = send;
+  }
+
+  clearAdminConnection() {
+    this.admin.sendMessage = undefined;
+  }
+
+  async getSubscribers() {
+    const metadata = await this.graphStore.listNodesMetadata();
+
+    return Object.entries(metadata).map(([deviceId, data]) => ({
+      deviceId,
+      location: data.location,
+    }));
+  }
+
+  async getEventGraph() {
+    return await this.graphStore.getEventGraph();
+  }
+
+  notifyAdmin(message: Message) {
+    this.admin.sendMessage?.(message);
+  }
+
+  publish(message: Message) {
+    this.notifyAdmin(message);
+
+    for (const sendMessage of this.subscribers.values()) {
+      sendMessage(message);
+    }
+  }
+
+  subscribe({ deviceId, location, sendMessage }: Subscriber) {
+    this.publish({ type: 'USER_JOINED', deviceId, location });
+
+    this.subscribers.set(deviceId, sendMessage);
+
+    // The store copy exists for REST reads and worker hydration; the stream
+    // publish is what actually drives the simulation.
+    void this.graphStore.addNode(deviceId);
+    void this.graphStore.setNodeLocation(deviceId, location);
+    this.bus.publishIngest(this.id, { op: 'JOIN', deviceId, location });
+  }
+
+  setDistanceToDevice(from: string, to: string, distance: number | null) {
+    if (distance === null) {
+      void this.graphStore.removeEdge(from, to);
+    } else {
+      void this.graphStore.setEdge({ from, to, value: distance });
+    }
+
+    this.notifyAdmin({ type: 'DISTANCE_REPORT', from, to, distance });
+
+    this.bus.publishIngest(this.id, { op: 'DISTANCE', from, to, distance });
+  }
+
+  updateSubscriberLocation(deviceId: string, location: Location) {
+    if (!this.subscribers.has(deviceId)) return;
+
+    this.notifyAdmin({ type: 'LOCATION_UPDATE_REPORT', deviceId, location });
+    void this.graphStore.setNodeLocation(deviceId, location);
+
+    this.bus.publishIngest(this.id, { op: 'LOCATION_UPDATE', deviceId, location });
+  }
+
+  unsubscribe(deviceId: string) {
+    if (!this.subscribers.has(deviceId)) return;
+
+    this.subscribers.delete(deviceId);
+    void this.graphStore.removeNode(deviceId);
+
+    this.publish({ type: 'USER_LEFT', deviceId });
+
+    this.bus.publishIngest(this.id, { op: 'LEAVE', deviceId });
+  }
+
+  /**
+   * Fans out worker-computed positions (called by the positions subscription).
+   * Only position travels — brightness is client-side.
+   */
+  broadcastPositions(message: PositionsMessage) {
+    for (const { deviceId, position } of message.points) {
+      this.subscribers.get(deviceId)?.({ type: 'SET_POINT', position });
+
+      this.notifyAdmin({ type: 'SET_POINT_REPORT', deviceId, position });
+    }
+  }
+}
