@@ -1,0 +1,28 @@
+# deps
+node_modules/
+
+# builds
+dist/
+build/
+*.tsbuildinfo
+
+# rust
+target/
+
+# env & secrets — NEVER commit (only .env.example)
+.env
+.env.*
+!.env.example
+
+# logs / tmp
+*.log
+.DS_Store
+
+# editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+agents/
+.claude/
+.agents/

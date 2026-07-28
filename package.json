@@ -1,0 +1,24 @@
+{
+  "name": "pollo",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Sync a million fireflies — monorepo (greenfield)",
+  "workspaces": [
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "npm run dev --workspace=@pollo/backend",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "format": "biome format --write .",
+    "lint": "biome lint .",
+    "check": "biome check --write .",
+    "ci": "biome ci ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.6"
+  }
+}
