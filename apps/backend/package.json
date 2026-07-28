@@ -11,9 +11,9 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "test": "vitest run --project unit",
-    "test:integration": "vitest run --project integration",
-    "test:e2e": "vitest run --project e2e",
-    "test:all": "vitest run"
+    "test:integration": "vitest run --project integration --no-file-parallelism",
+    "test:e2e": "vitest run --project e2e --no-file-parallelism",
+    "test:all": "npm run test && npm run test:integration && npm run test:e2e"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.1",
@@ -31,6 +31,7 @@
     "zod": "^3.24.0"
   },
   "devDependencies": {
+    "@types/ioredis-mock": "^8.2.7",
     "@types/node": "^20.12.7",
     "@types/ws": "^8.5.12",
     "ioredis-mock": "^8.9.0",

@@ -9,6 +9,12 @@ export const messageSchemas = {
     token: z.string(),
   }),
 
+  // Sent by the server once the admin socket is authenticated. Without it the
+  // client has no way to know when it is safe to rely on report messages.
+  AUTH_ACK: z.object({
+    type: z.literal('AUTHENTICATION_ACK'),
+  }),
+
   JOIN: z.object({
     type: z.literal('JOIN'),
     deviceId: z.string(),
@@ -69,6 +75,7 @@ export const messageSchemas = {
 
 export const messageSchema = z.discriminatedUnion('type', [
   messageSchemas.AUTH,
+  messageSchemas.AUTH_ACK,
   messageSchemas.JOIN,
   messageSchemas.LOCATION_UPDATE,
   messageSchemas.LOCATION_UPDATE_REPORT,

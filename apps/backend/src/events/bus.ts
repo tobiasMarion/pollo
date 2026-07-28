@@ -67,10 +67,15 @@ export class RedisStreamsBus implements Bus {
   subscribePositions(eventId: string, onMessage: (message: PositionsMessage) => void) {
     const connection = this.redis.duplicate();
     const key = streamKeys.positions(eventId);
-    let lastId = '$';
     let running = true;
 
     const loop = async () => {
+      // '$' would only anchor once the duplicated connection finishes its
+      // handshake — entries published in that window would be silently lost.
+      // Snapshot the baseline through the main (already connected) client so
+      // "everything after subscribe()" is what actually gets delivered.
+      let lastId = await this.resolveBaselineId(key);
+
       while (running) {
         try {
           const response = (await connection.xread('BLOCK', 5000, 'STREAMS', key, lastId)) as Array<
@@ -82,6 +87,7 @@ export class RedisStreamsBus implements Bus {
           for (const [, entries] of response) {
             for (const [id, fields] of entries) {
               lastId = id;
+              this.logger.debug({ eventId, entryId: id }, 'positions entry received');
               this.handleEntry(fields, onMessage);
             }
           }
@@ -101,6 +107,20 @@ export class RedisStreamsBus implements Bus {
         connection.disconnect();
       },
     };
+  }
+
+  private async resolveBaselineId(key: string): Promise<string> {
+    try {
+      const latest = (await this.redis.xrevrange(key, '+', '-', 'COUNT', 1)) as Array<
+        [string, string[]]
+      >;
+      return latest[0]?.[0] ?? '0';
+    } catch (error) {
+      this.logger.error({ err: error, key }, 'failed to resolve stream baseline; replaying');
+      // Replaying from the start is safe: positions are last-write-wins and
+      // keyframes reconcile any stale delta.
+      return '0';
+    }
   }
 
   private handleEntry(fields: string[], onMessage: (message: PositionsMessage) => void) {

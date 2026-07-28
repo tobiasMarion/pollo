@@ -98,6 +98,7 @@ export class EventRegistry {
       adminId,
       graphStore: new GraphStore(this.redis, id),
       bus: this.bus,
+      logger: this.logger,
     });
 
     this.services.set(id, service);

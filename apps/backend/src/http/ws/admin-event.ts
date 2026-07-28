@@ -55,6 +55,7 @@ export function handleAdminSocket(
 
         event = service;
         event.setAdminConnection((message) => sendMessage(socket, message));
+        sendMessage(socket, { type: 'AUTHENTICATION_ACK' });
         break;
       }
 

@@ -1,3 +1,4 @@
+import type { FastifyBaseLogger } from 'fastify';
 import type { ExactLocation, Location } from '../schemas/location.js';
 import type { Admin, Message, SendMessage, Subscriber } from '../schemas/messages.js';
 import type { PositionsMessage } from '../schemas/wire.js';
@@ -10,6 +11,7 @@ export interface EventServiceOptions {
   adminId: string;
   graphStore: GraphStore;
   bus: Bus;
+  logger?: FastifyBaseLogger;
 }
 
 /**
@@ -25,13 +27,33 @@ export class EventService {
   private readonly subscribers = new Map<string, SendMessage>();
   private readonly graphStore: GraphStore;
   private readonly bus: Bus;
+  private readonly logger: FastifyBaseLogger | undefined;
 
-  constructor({ id, location, adminId, graphStore, bus }: EventServiceOptions) {
+  private pendingStoreWrites: Promise<unknown> = Promise.resolve();
+
+  constructor({ id, location, adminId, graphStore, bus, logger }: EventServiceOptions) {
     this.id = id;
     this.location = location;
     this.graphStore = graphStore;
     this.bus = bus;
+    this.logger = logger;
     this.admin = { userId: adminId, sendMessage: undefined };
+  }
+
+  /**
+   * Store writes stay off the hot path (never awaited by callers), but they
+   * must apply in dispatch order — otherwise a removeEdge can overtake the
+   * setEdge that preceded it and resurrect the edge.
+   */
+  private enqueueStoreWrite(write: () => Promise<unknown>) {
+    this.pendingStoreWrites = this.pendingStoreWrites
+      .then(write)
+      .catch((error) => this.logger?.error({ err: error }, 'graph store write failed'));
+  }
+
+  /** Resolves once every store write dispatched so far has been applied. */
+  async settled() {
+    await this.pendingStoreWrites;
   }
 
   getAdminId() {
@@ -82,16 +104,16 @@ export class EventService {
 
     // The store copy exists for REST reads and worker hydration; the stream
     // publish is what actually drives the simulation.
-    void this.graphStore.addNode(deviceId);
-    void this.graphStore.setNodeLocation(deviceId, location);
+    this.enqueueStoreWrite(() => this.graphStore.addNode(deviceId));
+    this.enqueueStoreWrite(() => this.graphStore.setNodeLocation(deviceId, location));
     this.bus.publishIngest(this.id, { op: 'JOIN', deviceId, location });
   }
 
   setDistanceToDevice(from: string, to: string, distance: number | null) {
     if (distance === null) {
-      void this.graphStore.removeEdge(from, to);
+      this.enqueueStoreWrite(() => this.graphStore.removeEdge(from, to));
     } else {
-      void this.graphStore.setEdge({ from, to, value: distance });
+      this.enqueueStoreWrite(() => this.graphStore.setEdge({ from, to, value: distance }));
     }
 
     this.notifyAdmin({ type: 'DISTANCE_REPORT', from, to, distance });
@@ -103,7 +125,7 @@ export class EventService {
     if (!this.subscribers.has(deviceId)) return;
 
     this.notifyAdmin({ type: 'LOCATION_UPDATE_REPORT', deviceId, location });
-    void this.graphStore.setNodeLocation(deviceId, location);
+    this.enqueueStoreWrite(() => this.graphStore.setNodeLocation(deviceId, location));
 
     this.bus.publishIngest(this.id, { op: 'LOCATION_UPDATE', deviceId, location });
   }
@@ -112,7 +134,7 @@ export class EventService {
     if (!this.subscribers.has(deviceId)) return;
 
     this.subscribers.delete(deviceId);
-    void this.graphStore.removeNode(deviceId);
+    this.enqueueStoreWrite(() => this.graphStore.removeNode(deviceId));
 
     this.publish({ type: 'USER_LEFT', deviceId });
 
