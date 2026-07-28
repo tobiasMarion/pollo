@@ -41,6 +41,10 @@ npm run test:all -w @pollo/backend
 Integration and e2e run against a dedicated `pollo_test` database and Redis
 logical db 1 — they never touch dev data.
 
+CI (GitHub Actions) runs the same pipeline on every PR — Biome, typecheck,
+migrations, all three test tiers — plus a job that builds the production
+image and boots the full stack against its healthcheck.
+
 ## Production
 
 One VPS, one command. Fill the secrets in `.env`, then:

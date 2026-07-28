@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://pollo:pollo@localhost:5432/pollo?schema=public
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: pollo
+          POSTGRES_PASSWORD: pollo
+          POSTGRES_DB: pollo
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pollo -d pollo"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint and format (Biome)
+        run: npm run ci
+
+      - name: Generate Prisma client
+        run: npm run db:generate -w @pollo/backend
+
+      - name: Typecheck
+        run: npm run typecheck -w @pollo/backend
+
+      - name: Migrations apply cleanly
+        run: npm run db:migrate -w @pollo/backend
+
+      - name: Unit tests
+        run: npm run test -w @pollo/backend
+
+      - name: Integration tests
+        run: npm run test:integration -w @pollo/backend
+
+      - name: E2E tests
+        run: npm run test:e2e -w @pollo/backend
+
+  docker:
+    runs-on: ubuntu-latest
+    env:
+      POSTGRES_PASSWORD: ci-password
+      JWT_SECRET: ci-secret-0123456789abcdef
+      GITHUB_OAUTH_CLIENT_ID: ci-client-id
+      GITHUB_OAUTH_CLIENT_SECRET: ci-client-secret
+      GITHUB_OAUTH_CLIENT_REDIRECT_URI: http://localhost:3000/api/auth/callback
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build production image
+        run: docker compose -f infra/compose.prod.yaml build
+
+      - name: Boot the stack and check health
+        run: |
+          docker compose -f infra/compose.prod.yaml up -d --wait
+          curl -sf http://localhost:3333/health
+
+      - name: Dump logs on failure
+        if: failure()
+        run: docker compose -f infra/compose.prod.yaml logs
+
+      - name: Teardown
+        if: always()
+        run: docker compose -f infra/compose.prod.yaml down -v
