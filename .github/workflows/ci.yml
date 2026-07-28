@@ -40,9 +40,9 @@ jobs:
           --health-timeout 3s
           --health-retries 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -79,7 +79,7 @@ jobs:
       GITHUB_OAUTH_CLIENT_SECRET: ci-client-secret
       GITHUB_OAUTH_CLIENT_REDIRECT_URI: http://localhost:3000/api/auth/callback
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Build production image
         run: docker compose -f infra/compose.prod.yaml build

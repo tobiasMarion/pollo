@@ -17,10 +17,15 @@ export default async function setup() {
   });
 
   try {
-    await admin.$executeRawUnsafe('CREATE DATABASE pollo_test');
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (!message.includes('already exists')) throw error;
+    // Postgres has no CREATE DATABASE IF NOT EXISTS, and letting it fail would
+    // leave an ERROR line in the server log on every run.
+    const [existing] = await admin.$queryRaw<
+      unknown[]
+    >`SELECT 1 FROM pg_database WHERE datname = 'pollo_test'`;
+
+    if (!existing) {
+      await admin.$executeRawUnsafe('CREATE DATABASE pollo_test');
+    }
   } finally {
     await admin.$disconnect();
   }
