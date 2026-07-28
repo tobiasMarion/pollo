@@ -1,6 +1,7 @@
 import { execSync } from 'node:child_process';
-import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { Redis } from 'ioredis';
+import { PrismaClient } from '../src/generated/prisma/client.js';
 import { TEST_DATABASE_URL, TEST_REDIS_URL } from './test-env.js';
 
 /**
@@ -10,7 +11,9 @@ import { TEST_DATABASE_URL, TEST_REDIS_URL } from './test-env.js';
  */
 export default async function setup() {
   const admin = new PrismaClient({
-    datasourceUrl: TEST_DATABASE_URL.replace('/pollo_test', '/pollo'),
+    adapter: new PrismaPg({
+      connectionString: TEST_DATABASE_URL.replace('/pollo_test', '/pollo'),
+    }),
   });
 
   try {
@@ -22,8 +25,9 @@ export default async function setup() {
     await admin.$disconnect();
   }
 
-  execSync('npx prisma db push --skip-generate', {
-    env: { ...process.env, DATABASE_URL: TEST_DATABASE_URL },
+  // --url pins the target database explicitly — never trust env precedence
+  // when the alternative is truncating the dev database by accident.
+  execSync(`npx prisma db push --url "${TEST_DATABASE_URL}"`, {
     stdio: 'pipe',
   });
 

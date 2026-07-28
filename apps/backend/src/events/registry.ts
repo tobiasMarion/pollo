@@ -1,6 +1,6 @@
-import type { PrismaClient } from '@prisma/client';
 import type { FastifyBaseLogger } from 'fastify';
 import type { Redis } from 'ioredis';
+import type { PrismaClient } from '../generated/prisma/client.js';
 import type { CreateEvent } from '../schemas/event.js';
 import { type ExactLocation, exactLocationSchema } from '../schemas/location.js';
 import type { Bus, PositionsSubscription } from './bus.js';

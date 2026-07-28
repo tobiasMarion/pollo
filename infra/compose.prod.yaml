@@ -40,7 +40,7 @@ services:
       [
         'sh',
         '-c',
-        'npx prisma migrate deploy --schema apps/backend/prisma/schema.prisma && node apps/backend/dist/server.js',
+        'npx prisma migrate deploy --config apps/backend/prisma.config.ts && node apps/backend/dist/server.js',
       ]
     environment:
       NODE_ENV: production

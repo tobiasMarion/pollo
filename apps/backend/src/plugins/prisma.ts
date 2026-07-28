@@ -1,5 +1,6 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 import fastifyPlugin from 'fastify-plugin';
+import { PrismaClient } from '../generated/prisma/client.js';
 
 export interface PrismaPluginOptions {
   client?: PrismaClient;
@@ -7,7 +8,11 @@ export interface PrismaPluginOptions {
 
 export const prismaPlugin = fastifyPlugin<PrismaPluginOptions>(
   async (app, options) => {
-    const prisma = options.client ?? new PrismaClient();
+    const prisma =
+      options.client ??
+      new PrismaClient({
+        adapter: new PrismaPg({ connectionString: app.env.DATABASE_URL }),
+      });
 
     app.decorate('prisma', prisma);
 

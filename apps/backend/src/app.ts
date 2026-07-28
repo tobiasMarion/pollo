@@ -2,7 +2,6 @@ import fastifyCors from '@fastify/cors';
 import fastifyJwt from '@fastify/jwt';
 import fastifySwagger from '@fastify/swagger';
 import fastifyWebsocket from '@fastify/websocket';
-import type { PrismaClient } from '@prisma/client';
 import scalarApiReference from '@scalar/fastify-api-reference';
 import { fastify } from 'fastify';
 import {
@@ -14,6 +13,7 @@ import {
 import type { Redis } from 'ioredis';
 import type { Env } from './env.js';
 import type { Bus } from './events/bus.js';
+import type { PrismaClient } from './generated/prisma/client.js';
 import { errorHandler } from './http/error-handler.js';
 import { routes } from './http/routes/index.js';
 import { createLogger, type Logger } from './logger.js';
