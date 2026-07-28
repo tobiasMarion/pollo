@@ -1,9 +1,11 @@
 name: CI
 
+# pull_request tests the merge preview; the ruleset requires branches to be up
+# to date with main, so what lands after merge is exactly what was tested —
+# no need to re-run on push to main.
 on:
-  push:
-    branches: [main]
   pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
