@@ -10,9 +10,7 @@ export async function createTestApp() {
 type TestApp = Awaited<ReturnType<typeof createTestApp>>;
 
 export async function truncateDatabase(app: TestApp) {
-  await app.prisma.$executeRawUnsafe(
-    'TRUNCATE TABLE "events", "accounts", "tokens", "users" CASCADE',
-  );
+  await app.prisma.$executeRawUnsafe('TRUNCATE TABLE "events", "accounts", "users" CASCADE');
 }
 
 export async function createUser(app: TestApp, email = `user-${Date.now()}@test.dev`) {

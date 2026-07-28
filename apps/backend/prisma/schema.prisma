@@ -8,34 +8,17 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(uuid())
-  name         String?
-  email        String   @unique
-  passwordHash String?  @map("password_hash")
-  avatarUrl    String?  @map("avatar_url")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id        String   @id @default(uuid())
+  name      String?
+  email     String   @unique
+  avatarUrl String?  @map("avatar_url")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  tokens   Token[]
   accounts Account[]
   events   Event[]
 
   @@map("users")
-}
-
-enum TokenType {
-  PASSWORD_RECOVER
-}
-
-model Token {
-  id        String    @id @default(uuid())
-  type      TokenType
-  createdAt DateTime  @default(now()) @map("created_at")
-
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId String @map("user_id")
-
-  @@map("tokens")
 }
 
 enum AccountProvider {
