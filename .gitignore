@@ -6,6 +6,9 @@ dist/
 build/
 *.tsbuildinfo
 
+# generated code (recreated by `prisma generate`)
+apps/backend/src/generated/
+
 # rust
 target/
 
