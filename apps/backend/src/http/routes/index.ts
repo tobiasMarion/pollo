@@ -8,6 +8,7 @@ import { getEvent } from './events/get-event.js';
 import { getEventByLocation } from './events/get-event-by-location.js';
 import { getEventGraph } from './events/get-event-graph.js';
 import { getParticipants } from './events/get-participants.js';
+import { listMyEvents } from './events/list-my-events.js';
 import { healthRoute } from './health.js';
 
 export async function routes(app: FastifyInstance) {
@@ -20,6 +21,7 @@ export async function routes(app: FastifyInstance) {
 
   // Events (REST)
   await app.register(createEvent);
+  await app.register(listMyEvents);
   await app.register(getEventByLocation);
   await app.register(getEvent);
   await app.register(getParticipants);
