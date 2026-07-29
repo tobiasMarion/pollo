@@ -1,6 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
+import { z } from 'zod';
 import { ApiError } from '$lib/api/client';
-import type { EventType } from '$lib/api/types';
 import { serverApi } from '$lib/server/api';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -10,49 +10,53 @@ export const load: PageServerLoad = async ({ locals, fetch }) => {
   return { events: await api.listMyEvents() };
 };
 
-function parseCoordinate(value: FormDataEntryValue | null, limit: number): number | null {
-  const parsed = Number(value);
+const COORDINATE_MESSAGE = 'Coordinates must be decimal degrees — latitude ±90, longitude ±180.';
 
-  if (typeof value !== 'string' || value.trim() === '' || !Number.isFinite(parsed)) return null;
-
-  return Math.abs(parsed) <= limit ? parsed : null;
+/**
+ * Form fields arrive as strings, and an empty one coerces to 0 — which is a
+ * valid coordinate. Hence the explicit non-empty check before the conversion.
+ */
+function coordinate(limit: number) {
+  return z
+    .string()
+    .trim()
+    .min(1, COORDINATE_MESSAGE)
+    .transform(Number)
+    .refine((value) => Number.isFinite(value) && Math.abs(value) <= limit, COORDINATE_MESSAGE);
 }
+
+const createEventFormSchema = z.object({
+  name: z.string().trim().min(1, 'Give the event a name.'),
+  type: z.enum(['TORCH', 'SCREEN'], {
+    errorMap: () => ({ message: 'Pick how the devices light up.' }),
+  }),
+  latitude: coordinate(90),
+  longitude: coordinate(180),
+});
 
 export const actions: Actions = {
   default: async ({ request, locals, fetch }) => {
     const form = await request.formData();
 
-    const name = String(form.get('name') ?? '').trim();
-    const type = String(form.get('type') ?? '') as EventType;
-    const latitude = parseCoordinate(form.get('latitude'), 90);
-    const longitude = parseCoordinate(form.get('longitude'), 180);
+    // Echoed back on failure so the page can repaint what was typed.
     const values = {
-      name,
-      type,
+      name: String(form.get('name') ?? ''),
+      type: String(form.get('type') ?? ''),
       latitude: String(form.get('latitude') ?? ''),
       longitude: String(form.get('longitude') ?? ''),
     };
 
-    if (!name) {
-      return fail(400, { ...values, error: 'Give the event a name.' });
-    }
+    const result = createEventFormSchema.safeParse(values);
 
-    if (type !== 'TORCH' && type !== 'SCREEN') {
-      return fail(400, { ...values, error: 'Pick how the devices light up.' });
-    }
-
-    if (latitude === null || longitude === null) {
-      return fail(400, {
-        ...values,
-        error: 'Coordinates must be decimal degrees — latitude ±90, longitude ±180.',
-      });
+    if (!result.success) {
+      return fail(400, { ...values, error: result.error.issues[0].message });
     }
 
     const api = serverApi({ fetch, locals });
     let eventId: string;
 
     try {
-      eventId = await api.createEvent({ name, type, latitude, longitude });
+      eventId = await api.createEvent(result.data);
     } catch (error) {
       const message = error instanceof ApiError ? error.message : 'Could not reach the Pollo API.';
       return fail(502, { ...values, error: message });

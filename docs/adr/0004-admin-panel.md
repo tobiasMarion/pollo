@@ -39,6 +39,11 @@ authority.
 - **Effect parameters are previewed, not simulated.** The panel derives each
   pixel's delay from the cue's own numbers to show the shape of a cue on the
   field. The device client renders the real thing.
+- **Zod validates the environment and the forms**, as on the backend. The env
+  check runs from `hooks.server.ts` rather than at import time: `$env/dynamic/*`
+  is a runtime value, and reading it during the build — which has none of the
+  secrets — would fail every build. The container refuses to start on a bad
+  environment.
 - **Types are mirrored by hand** from `apps/backend/src/schemas`. The shared
   contracts package ADR 0001 planned is still deferred; the backend remains the
   source of truth.
