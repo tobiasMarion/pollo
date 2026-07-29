@@ -47,7 +47,12 @@ authority.
 
 - `just dev` and `just web` are the two development processes; CI typechecks
   both apps and builds the panel.
-- The panel is **not in the production compose yet**. It builds to a Node
-  server via `@sveltejs/adapter-node` and still needs an image and a service.
+- The panel ships in the production compose as its own image, built with
+  `@sveltejs/adapter-node`. It declares no runtime dependencies, so the runtime
+  stage is the bundle and nothing else — no `node_modules` in the image.
+- The API has **two addresses in production**: the public one the browser uses
+  (and needs for the WebSocket) and the compose-internal one the panel's server
+  uses. Collapsing them into one variable breaks whichever side is not on the
+  same host.
 - Closing an event is still not exposed over HTTP, so the panel cannot do it
   either.

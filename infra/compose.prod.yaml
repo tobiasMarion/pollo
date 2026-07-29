@@ -68,6 +68,36 @@ services:
       start_period: 20s
     restart: unless-stopped
 
+  web:
+    build:
+      context: ..
+      dockerfile: infra/docker/web.Dockerfile
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+      # adapter-node checks the Origin of form posts against this, so it must
+      # be the address the operator actually types.
+      ORIGIN: ${WEB_ORIGIN:?set WEB_ORIGIN in .env}
+      # Public: also used by the browser for the admin WebSocket.
+      PUBLIC_POLLO_API_URL: ${PUBLIC_POLLO_API_URL:?set PUBLIC_POLLO_API_URL in .env}
+      # Private: inside the compose network the public host does not resolve.
+      POLLO_API_INTERNAL_URL: http://api:3333
+      GITHUB_OAUTH_CLIENT_ID: ${GITHUB_OAUTH_CLIENT_ID:?}
+      GITHUB_OAUTH_CLIENT_REDIRECT_URI: ${GITHUB_OAUTH_CLIENT_REDIRECT_URI:?}
+    ports:
+      - '3000:3000'
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3000/health']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
 volumes:
   pg_data:
   redis_data:

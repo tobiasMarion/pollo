@@ -57,14 +57,16 @@ One VPS, one command. Fill the secrets in `.env`, then:
 
 ```bash
 just prod-build
-just prod-up                  # API on :3333; migrations applied on boot
+just prod-up                  # API on :3333, panel on :3000
 ```
 
-Postgres and Redis stay internal to the compose network; only the API is
-published. `just prod-logs` and `just prod-down` do what they say.
+Migrations are applied on boot and the panel waits for the API to be healthy.
+Postgres and Redis stay internal to the compose network; only the API and the
+panel are published. `just prod-logs` and `just prod-down` do what they say.
 
-The admin panel is not in the production stack yet — it builds to a Node
-server (`npm run build -w @pollo/web`, then `node apps/web/build`) and still
-needs its own image and compose service.
+Two addresses matter and they are not the same one: `PUBLIC_POLLO_API_URL` is
+what the operator's browser uses, WebSocket included, while the panel's own
+server reaches the API inside the network at `http://api:3333`. `WEB_ORIGIN`
+must be the address the panel is served from, or form posts are rejected.
 
 Without `just`, every command lives in the [`justfile`](justfile).
