@@ -119,7 +119,7 @@ onMount(() => {
 
   /** A device the worker has not placed yet: shown, but not as light. */
   function drawUnplaced(point: Vector3) {
-    context.strokeStyle = 'rgba(152, 145, 171, 0.55)';
+    context.strokeStyle = 'rgba(158, 151, 176, 0.55)';
     context.lineWidth = 1;
     context.beginPath();
     context.arc(toScreenX(point.x), toScreenY(point.y), 3.5, 0, Math.PI * 2);
@@ -224,7 +224,7 @@ onMount(() => {
     const length = meters * scale;
     const y = height - 24;
 
-    context.strokeStyle = 'rgba(115, 108, 138, 0.7)';
+    context.strokeStyle = 'rgba(124, 118, 137, 0.7)';
     context.lineWidth = 1;
     context.beginPath();
     context.moveTo(24, y);
@@ -235,7 +235,7 @@ onMount(() => {
     context.lineTo(24 + length, y + 4);
     context.stroke();
 
-    context.fillStyle = 'rgba(152, 145, 171, 0.9)';
+    context.fillStyle = 'rgba(158, 151, 176, 0.9)';
     context.font = '11px "Space Mono", monospace';
     context.fillText(`${meters} m`, 24, y - 10);
   }

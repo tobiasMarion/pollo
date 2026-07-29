@@ -1,11 +1,12 @@
 @import "tailwindcss";
 
 /**
- * Pollo has no brand hue — the whole interface is one violet-grey ramp plus
- * starlight, which is what a field of points at night actually looks like.
+ * The background is black — actually black, not a very dark colour. The violet
+ * only appears as things get lighter: borders barely, text clearly, and the
+ * brightest surface most of all. There is no brand hue beyond that.
+ *
  * The panel is driven in the dark, so only live data is allowed to read as
- * bright: a device that is present, a cue that is firing. Chrome, labels and
- * borders stay in the dusk ramp.
+ * bright: a device that is present, a cue that is firing.
  *
  * Space Grotesk and Space Mono carry the tone: relaxed and a bit quirky on the
  * surface, unmistakably instrument-like where the numbers are.
@@ -15,19 +16,19 @@
   --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Space Mono", ui-monospace, "SF Mono", monospace;
 
-  /* Surfaces. */
-  --color-dusk-950: #0a0810;
-  --color-dusk-900: #12101b;
-  --color-dusk-800: #1e1a2b;
-  --color-dusk-700: #2b2639;
-  --color-dusk-600: #3a3450;
+  /* Surfaces. Black, then barely-lifted greys that only hint at the violet. */
+  --color-dusk-950: #000000;
+  --color-dusk-900: #0b0a0d;
+  --color-dusk-800: #16151a;
+  --color-dusk-700: #222027;
+  --color-dusk-600: #33303c;
 
-  /* Text and chrome. */
-  --color-dusk-500: #736c8a;
-  --color-dusk-400: #9891ab;
-  --color-dusk-300: #c2bcd2;
-  --color-dusk-200: #ddd9e8;
-  --color-dusk-100: #efedf5;
+  /* Text and chrome — the violet is unmistakable up here. */
+  --color-dusk-500: #7c7689;
+  --color-dusk-400: #9e97b0;
+  --color-dusk-300: #c5bfd6;
+  --color-dusk-200: #ded9ea;
+  --color-dusk-100: #efedf7;
 
   /* The brightest surface in the interface. */
   --color-starlight: #f5f2fc;
