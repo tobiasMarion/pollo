@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+/**
+ * Pollo runs at night, outdoors, on a laptop held by someone whose eyes are
+ * dark-adapted. The whole surface is kept at low luminance and one rule holds
+ * everywhere: chrome never glows, only light data does. Accent colors are
+ * reserved for the pixels themselves, live state, and fired cues — buttons,
+ * borders and labels stay in the night/mist ramps.
+ */
+@theme {
+  /* Night sky, desaturated blue-green rather than neutral black. */
+  --color-night-950: #05090a;
+  --color-night-900: #0a1113;
+  --color-night-850: #0e1719;
+  --color-night-800: #111a1c;
+  --color-night-700: #1b2628;
+  --color-night-600: #263436;
+
+  /* Text and chrome. */
+  --color-mist-500: #6d8082;
+  --color-mist-400: #8ea1a2;
+  --color-mist-200: #c3d0cf;
+  --color-mist-100: #dde7e6;
+
+  /* Light data. Firefly is the pixel light (~560 nm); torch is the flashlight. */
+  --color-firefly-500: #c6f04a;
+  --color-firefly-300: #dff58f;
+  --color-torch-500: #ffb454;
+  --color-alarm-500: #ff6b5a;
+
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "IBM Plex Sans Condensed", "IBM Plex Sans", ui-sans-serif, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
+}
+
+@layer base {
+  html {
+    background-color: var(--color-night-950);
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--color-night-950);
+    color: var(--color-mist-100);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background-color: color-mix(in oklab, var(--color-firefly-500) 30%, transparent);
+    color: var(--color-mist-100);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-firefly-500);
+    outline-offset: 2px;
+  }
+
+  /* Coordinates, device ids and distances are read as columns, not prose. */
+  [data-numeric] {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@utility eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-mist-500);
+}
