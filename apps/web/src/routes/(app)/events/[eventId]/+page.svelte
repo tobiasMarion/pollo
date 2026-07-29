@@ -1,5 +1,6 @@
 <script lang="ts">
 import { onMount } from 'svelte';
+import EffectConsole from '$lib/components/EffectConsole.svelte';
 import FieldCanvas from '$lib/components/FieldCanvas.svelte';
 import { type ConnectionStatus, EventConsole } from '$lib/event-console.svelte';
 import { toFieldPixels } from '$lib/field';
@@ -111,6 +112,11 @@ onMount(() => {
       </section>
 
       <aside class="min-h-0 overflow-y-auto border-neutral-800 border-t lg:border-t-0 lg:border-l">
+        <EffectConsole
+          disabled={live?.status !== 'live'}
+          onfire={(effect) => live?.fireEffect(effect)}
+        />
+
         <h2 class="eyebrow sticky top-0 bg-neutral-950 px-5 py-3">Devices</h2>
 
         {#if devices.length === 0}
