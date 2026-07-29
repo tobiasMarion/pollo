@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { BadRequestError } from '../../errors.js';
+import { validationErrorResponseSchema } from '../../responses.js';
 
 const accessTokenResponseSchema = z.object({
   access_token: z.string(),
@@ -21,14 +22,43 @@ export async function authenticateWithGithub(app: FastifyInstance) {
     '/sessions/github',
     {
       schema: {
+        operationId: 'authenticateWithGithub',
         tags: ['Auth'],
         summary: 'Authenticate with GitHub',
-        description: 'Exchanges a GitHub OAuth authorization code for a JWT.',
+        description: [
+          'Exchanges the single-use code from the OAuth redirect for a JWT. Signup and',
+          'login are the same call: the user is created on first sight.',
+          '',
+          'Users are keyed by the GitHub **email**, so an account without one cannot',
+          'authenticate. The token carries the user id in `sub` and expires in 7 days.',
+        ].join('\n'),
         body: z.object({
-          code: z.string(),
+          code: z
+            .string()
+            .describe('The single-use authorization code GitHub put on the redirect URI.'),
         }),
         response: {
-          201: z.object({ token: z.string() }),
+          201: z
+            .object({
+              token: z.string().describe('Signed JWT. `sub` is the user id; expires in 7 days.'),
+            })
+            .describe('Authenticated. The user was created if this was a first login.'),
+          400: validationErrorResponseSchema.describe(
+            'The body is missing `code`, GitHub rejected the code, the GitHub ' +
+              'profile did not match the expected shape, or the account has no email.',
+          ),
+        },
+        examples: {
+          body: { code: '8f4a1c2e9b7d6f0a3e5c' },
+          response: {
+            201: {
+              token:
+                'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.' +
+                'eyJzdWIiOiI1MGY5NDk3OS1hZmVhLTRmMDktYTJkYi0yYTM0YmI3NDA2MTQifQ.' +
+                'Yd0mQ0m2n7cKQhqjJ0lF9r3lY0kFf3sQeM8p9cZ1v2A',
+            },
+            400: { message: 'Could not exchange the GitHub authorization code.' },
+          },
         },
       },
     },
