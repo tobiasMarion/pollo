@@ -77,9 +77,14 @@ export async function authenticateWithGithub(app: FastifyInstance) {
         headers: { Accept: 'application/json' },
       });
 
-      const tokenResult = accessTokenResponseSchema.safeParse(await tokenResponse.json());
+      const tokenPayload = await tokenResponse.json();
+      const tokenResult = accessTokenResponseSchema.safeParse(tokenPayload);
 
       if (!tokenResult.success) {
+        // GitHub answers 200 with `{ error, error_description }` for a reused
+        // code, a wrong secret or a redirect_uri that does not match. Without
+        // this line every one of them looks identical from the outside.
+        request.log.warn({ github: tokenPayload }, 'GitHub token exchange failed');
         throw new BadRequestError('Could not exchange the GitHub authorization code.');
       }
 
