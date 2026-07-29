@@ -21,6 +21,10 @@ logs:
 dev:
     npm run dev --workspace=@pollo/backend
 
+# Run the admin panel on the host with hot-reload (needs the API up)
+web:
+    npm run dev --workspace=@pollo/web
+
 # Apply Prisma migrations (dev datastores must be up)
 migrate:
     npm run db:migrate --workspace=@pollo/backend

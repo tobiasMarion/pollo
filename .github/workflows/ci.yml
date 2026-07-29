@@ -56,7 +56,10 @@ jobs:
         run: npm run db:generate -w @pollo/backend
 
       - name: Typecheck
-        run: npm run typecheck -w @pollo/backend
+        run: npm run typecheck
+
+      - name: Build the admin panel
+        run: npm run build -w @pollo/web
 
       - name: Migrations apply cleanly
         run: npm run db:migrate -w @pollo/backend
