@@ -101,7 +101,7 @@ onMount(() => {
   const toScreenY = (y: number) => height / 2 - (y - originY) * scale;
 
   function drawEdges(list: Edge[], positions: Map<string, Vector3>) {
-    context.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    context.strokeStyle = 'rgba(245, 242, 252, 0.09)';
     context.lineWidth = 1;
     context.beginPath();
 
@@ -119,7 +119,7 @@ onMount(() => {
 
   /** A device the worker has not placed yet: shown, but not as light. */
   function drawUnplaced(point: Vector3) {
-    context.strokeStyle = 'rgba(163, 163, 163, 0.5)';
+    context.strokeStyle = 'rgba(152, 145, 171, 0.55)';
     context.lineWidth = 1;
     context.beginPath();
     context.arc(toScreenX(point.x), toScreenY(point.y), 3.5, 0, Math.PI * 2);
@@ -132,15 +132,15 @@ onMount(() => {
     const core = 2 + glow * 1.6;
     const halo = context.createRadialGradient(x, y, 0, x, y, core * 7);
 
-    halo.addColorStop(0, `rgba(255, 255, 255, ${0.1 + glow * 0.4})`);
-    halo.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    halo.addColorStop(0, `rgba(245, 242, 252, ${0.1 + glow * 0.4})`);
+    halo.addColorStop(1, 'rgba(245, 242, 252, 0)');
 
     context.fillStyle = halo;
     context.beginPath();
     context.arc(x, y, core * 7, 0, Math.PI * 2);
     context.fill();
 
-    context.fillStyle = `rgba(255, 255, 255, ${0.5 + glow * 0.5})`;
+    context.fillStyle = `rgba(245, 242, 252, ${0.5 + glow * 0.5})`;
     context.beginPath();
     context.arc(x, y, core, 0, Math.PI * 2);
     context.fill();
@@ -150,7 +150,7 @@ onMount(() => {
   function drawWavefront(effect: Effect, elapsed: number, center: Vector3) {
     const meters = (seconds: number, perUnit: number) => (perUnit > 0 ? seconds / perUnit : 0);
 
-    context.strokeStyle = 'rgba(255, 255, 255, 0.28)';
+    context.strokeStyle = 'rgba(245, 242, 252, 0.3)';
     context.lineWidth = 1.5;
     context.beginPath();
 
@@ -224,7 +224,7 @@ onMount(() => {
     const length = meters * scale;
     const y = height - 24;
 
-    context.strokeStyle = 'rgba(115, 115, 115, 0.6)';
+    context.strokeStyle = 'rgba(115, 108, 138, 0.7)';
     context.lineWidth = 1;
     context.beginPath();
     context.moveTo(24, y);
@@ -235,8 +235,8 @@ onMount(() => {
     context.lineTo(24 + length, y + 4);
     context.stroke();
 
-    context.fillStyle = 'rgba(163, 163, 163, 0.9)';
-    context.font = '11px "IBM Plex Mono", monospace';
+    context.fillStyle = 'rgba(152, 145, 171, 0.9)';
+    context.font = '11px "Space Mono", monospace';
     context.fillText(`${meters} m`, 24, y - 10);
   }
 

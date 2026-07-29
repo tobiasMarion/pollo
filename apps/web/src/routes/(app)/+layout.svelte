@@ -4,7 +4,7 @@ let { data, children } = $props();
 
 <div class="flex min-h-svh flex-col">
   <header
-    class="flex items-center justify-between gap-4 border-neutral-800 border-b px-5 py-3 md:px-8"
+    class="flex items-center justify-between gap-4 border-dusk-800 border-b px-5 py-3 md:px-8"
   >
     <a href="/" class="font-display font-bold text-lg tracking-tight">Pollo</a>
 
@@ -15,14 +15,14 @@ let { data, children } = $props();
           alt=""
           width="24"
           height="24"
-          class="size-6 rounded-full ring-1 ring-neutral-800"
+          class="size-6 rounded-full ring-1 ring-dusk-800"
         />
       {/if}
-      <span class="hidden text-neutral-400 text-sm sm:inline">{data.user.name ?? data.user.email}</span>
+      <span class="hidden text-dusk-400 text-sm sm:inline">{data.user.name ?? data.user.email}</span>
       <form method="POST" action="/logout">
         <button
           type="submit"
-          class="text-neutral-500 text-sm transition-colors hover:text-neutral-200"
+          class="text-dusk-500 text-sm transition-colors hover:text-dusk-200"
         >
           Sign out
         </button>

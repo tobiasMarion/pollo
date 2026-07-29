@@ -1,41 +1,62 @@
 @import "tailwindcss";
 
 /**
- * Pollo is monochrome on purpose. The panel is driven in the dark, next to a
- * running event, and the only thing on screen that should read as bright is
- * live data: a device that is present, a cue that is firing. Everything else —
- * chrome, labels, borders — stays in the grey ramp.
+ * Pollo has no brand hue — the whole interface is one violet-grey ramp plus
+ * starlight, which is what a field of points at night actually looks like.
+ * The panel is driven in the dark, so only live data is allowed to read as
+ * bright: a device that is present, a cue that is firing. Chrome, labels and
+ * borders stay in the dusk ramp.
  *
- * Colors come from Tailwind's neutral scale and plain white; there is no brand
- * hue to keep in sync.
+ * Space Grotesk and Space Mono carry the tone: relaxed and a bit quirky on the
+ * surface, unmistakably instrument-like where the numbers are.
  */
 @theme {
-  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "IBM Plex Sans Condensed", "IBM Plex Sans", ui-sans-serif, sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
+  --font-sans: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Space Mono", ui-monospace, "SF Mono", monospace;
+
+  /* Surfaces. */
+  --color-dusk-950: #0a0810;
+  --color-dusk-900: #12101b;
+  --color-dusk-800: #1e1a2b;
+  --color-dusk-700: #2b2639;
+  --color-dusk-600: #3a3450;
+
+  /* Text and chrome. */
+  --color-dusk-500: #736c8a;
+  --color-dusk-400: #9891ab;
+  --color-dusk-300: #c2bcd2;
+  --color-dusk-200: #ddd9e8;
+  --color-dusk-100: #efedf5;
+
+  /* The brightest surface in the interface. */
+  --color-starlight: #f5f2fc;
+  --color-starlight-bright: #fefdff;
+
+  --radius-panel: 0.5rem;
 }
 
 @layer base {
   html {
-    background-color: var(--color-neutral-950);
+    background-color: var(--color-dusk-950);
     color-scheme: dark;
   }
 
   body {
-    background-color: var(--color-neutral-950);
-    color: var(--color-neutral-200);
+    background-color: var(--color-dusk-950);
+    color: var(--color-dusk-200);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
 
   ::selection {
-    background-color: var(--color-neutral-700);
-    color: var(--color-white);
+    background-color: var(--color-dusk-700);
+    color: var(--color-starlight);
   }
 
   :focus-visible {
-    outline: 2px solid var(--color-neutral-100);
+    outline: 2px solid var(--color-starlight);
     outline-offset: 2px;
   }
 
@@ -49,15 +70,23 @@
 @utility eyebrow {
   font-family: var(--font-mono);
   font-size: 0.6875rem;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--color-neutral-500);
+  color: var(--color-dusk-500);
 }
 
 /** Failures carry no hue, so they are marked by a rule instead. */
 @utility notice {
-  border-left: 2px solid var(--color-white);
-  background-color: var(--color-neutral-900);
+  border-left: 2px solid var(--color-starlight);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-dusk-900);
   padding: 0.5rem 0.75rem;
-  color: var(--color-neutral-100);
+  color: var(--color-dusk-100);
+}
+
+/** Inputs, selects and the surfaces that behave like them. */
+@utility field {
+  border: 1px solid var(--color-dusk-800);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-dusk-900);
 }

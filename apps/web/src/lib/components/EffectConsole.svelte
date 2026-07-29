@@ -60,16 +60,16 @@ const timeFormatter = new Intl.DateTimeFormat('en-GB', {
 });
 </script>
 
-<section class="border-neutral-800 border-b px-5 py-4">
+<section class="border-dusk-800 border-b px-5 py-4">
   <h2 class="eyebrow">Cue</h2>
 
-  <div class="mt-3 grid grid-cols-4 gap-px bg-neutral-800">
+  <div class="mt-3 grid grid-cols-4 gap-px overflow-hidden rounded-lg bg-dusk-800">
     {#each cues as cue (cue)}
       <button
         type="button"
         onclick={() => (name = cue)}
         aria-pressed={name === cue}
-        class="bg-neutral-950 py-2 text-[0.6875rem] tracking-wider transition-colors hover:bg-neutral-900 aria-pressed:bg-neutral-200 aria-pressed:text-neutral-950"
+        class="bg-dusk-950 py-2 text-[0.6875rem] tracking-wider transition-colors hover:bg-dusk-900 aria-pressed:bg-starlight aria-pressed:text-dusk-950"
         data-numeric
       >
         {cue}
@@ -77,15 +77,15 @@ const timeFormatter = new Intl.DateTimeFormat('en-GB', {
     {/each}
   </div>
 
-  <p class="mt-3 text-neutral-500 text-xs">{descriptions[name]}</p>
+  <p class="mt-3 text-dusk-500 text-xs">{descriptions[name]}</p>
 
   <div class="mt-4 flex flex-col gap-3">
     {#if name === 'PULSE'}
       <label class="flex items-center justify-between gap-3 text-sm">
-        <span class="text-neutral-400">Frame</span>
+        <span class="text-dusk-400">Frame</span>
         <select
           bind:value={pulse.coordinateType}
-          class="border border-neutral-800 bg-neutral-900 px-2 py-1 text-xs"
+          class="field px-2 py-1 text-xs"
           data-numeric
         >
           <option value="RELATIVE">RELATIVE</option>
@@ -94,34 +94,34 @@ const timeFormatter = new Intl.DateTimeFormat('en-GB', {
       </label>
 
       <label class="flex items-center justify-between gap-3 text-sm">
-        <span class="text-neutral-400">Lit for <span class="text-neutral-500">s</span></span>
+        <span class="text-dusk-400">Lit for <span class="text-dusk-500">s</span></span>
         <input
           type="number"
           bind:value={pulse.activeTime}
           min="0"
           step="0.1"
-          class="w-20 border border-neutral-800 bg-neutral-900 px-2 py-1 text-right text-xs"
+          class="w-20 field px-2 py-1 text-right text-xs"
           data-numeric
         />
       </label>
 
       <label class="flex items-center justify-between gap-3 text-sm">
-        <span class="text-neutral-400">Spread <span class="text-neutral-500">s/m</span></span>
+        <span class="text-dusk-400">Spread <span class="text-dusk-500">s/m</span></span>
         <input
           type="number"
           bind:value={pulse.spreadDelayPerUnit}
           min="0"
           step="0.005"
-          class="w-20 border border-neutral-800 bg-neutral-900 px-2 py-1 text-right text-xs"
+          class="w-20 field px-2 py-1 text-right text-xs"
           data-numeric
         />
       </label>
     {:else if name === 'WAVE'}
       <label class="flex items-center justify-between gap-3 text-sm">
-        <span class="text-neutral-400">Axis</span>
+        <span class="text-dusk-400">Axis</span>
         <select
           bind:value={wave.direction}
-          class="border border-neutral-800 bg-neutral-900 px-2 py-1 text-xs"
+          class="field px-2 py-1 text-xs"
           data-numeric
         >
           <option value="X">X — east</option>
@@ -131,85 +131,85 @@ const timeFormatter = new Intl.DateTimeFormat('en-GB', {
       </label>
 
       <label class="flex items-center justify-between gap-3 text-sm">
-        <span class="text-neutral-400">Lit for <span class="text-neutral-500">s</span></span>
+        <span class="text-dusk-400">Lit for <span class="text-dusk-500">s</span></span>
         <input
           type="number"
           bind:value={wave.activeTime}
           min="0"
           step="0.1"
-          class="w-20 border border-neutral-800 bg-neutral-900 px-2 py-1 text-right text-xs"
+          class="w-20 field px-2 py-1 text-right text-xs"
           data-numeric
         />
       </label>
 
       <label class="flex items-center justify-between gap-3 text-sm">
-        <span class="text-neutral-400">Spread <span class="text-neutral-500">s/m</span></span>
+        <span class="text-dusk-400">Spread <span class="text-dusk-500">s/m</span></span>
         <input
           type="number"
           bind:value={wave.spreadDelayPerUnit}
           min="0"
           step="0.005"
-          class="w-20 border border-neutral-800 bg-neutral-900 px-2 py-1 text-right text-xs"
+          class="w-20 field px-2 py-1 text-right text-xs"
           data-numeric
         />
       </label>
     {:else if name === 'ROTATE'}
       <label class="flex items-center justify-between gap-3 text-sm">
-        <span class="text-neutral-400">Lit for <span class="text-neutral-500">s</span></span>
+        <span class="text-dusk-400">Lit for <span class="text-dusk-500">s</span></span>
         <input
           type="number"
           bind:value={rotate.activeTime}
           min="0"
           step="0.1"
-          class="w-20 border border-neutral-800 bg-neutral-900 px-2 py-1 text-right text-xs"
+          class="w-20 field px-2 py-1 text-right text-xs"
           data-numeric
         />
       </label>
 
       <label class="flex items-center justify-between gap-3 text-sm">
-        <span class="text-neutral-400">Spread <span class="text-neutral-500">s/rad</span></span>
+        <span class="text-dusk-400">Spread <span class="text-dusk-500">s/rad</span></span>
         <input
           type="number"
           bind:value={rotate.spreadDelayPerRadian}
           min="0"
           step="0.05"
-          class="w-20 border border-neutral-800 bg-neutral-900 px-2 py-1 text-right text-xs"
+          class="w-20 field px-2 py-1 text-right text-xs"
           data-numeric
         />
       </label>
     {:else}
       <label class="flex items-center justify-between gap-3 text-sm">
-        <span class="text-neutral-400">Lit for <span class="text-neutral-500">s</span></span>
+        <span class="text-dusk-400">Lit for <span class="text-dusk-500">s</span></span>
         <input
           type="number"
           bind:value={spiral.activeTime}
           min="0"
           step="0.1"
-          class="w-20 border border-neutral-800 bg-neutral-900 px-2 py-1 text-right text-xs"
+          class="w-20 field px-2 py-1 text-right text-xs"
           data-numeric
         />
       </label>
 
       <label class="flex items-center justify-between gap-3 text-sm">
-        <span class="text-neutral-400">Outwards <span class="text-neutral-500">m/s</span></span>
+        <span class="text-dusk-400">Outwards <span class="text-dusk-500">m/s</span></span>
         <input
           type="number"
           bind:value={spiral.radialSpeed}
           min="0"
           step="0.5"
-          class="w-20 border border-neutral-800 bg-neutral-900 px-2 py-1 text-right text-xs"
+          class="w-20 field px-2 py-1 text-right text-xs"
           data-numeric
         />
       </label>
 
       <label class="flex items-center justify-between gap-3 text-sm">
-        <span class="text-neutral-400">Turning <span class="text-neutral-500">rad/s</span></span>
+        <span class="text-dusk-400">Turning <span class="text-dusk-500">rad/s</span></span>
         <input
           type="number"
           bind:value={spiral.angularSpeed}
           min="0"
           step="0.5"
-          class="w-20 border border-neutral-800 bg-neutral-900 px-2 py-1 text-right text-xs"
+          class="w-20 field px-2 py-1 text-right text-xs"
           data-numeric
         />
       </label>
@@ -220,12 +220,12 @@ const timeFormatter = new Intl.DateTimeFormat('en-GB', {
     type="button"
     onclick={fire}
     {disabled}
-    class="mt-4 w-full bg-neutral-200 py-2.5 font-medium text-neutral-950 transition-colors hover:bg-white disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-500"
+    class="mt-4 w-full rounded-lg bg-starlight py-2.5 font-medium text-dusk-950 transition-colors hover:bg-starlight-bright disabled:cursor-not-allowed disabled:bg-dusk-800 disabled:text-dusk-500"
   >
     Fire {name}
   </button>
 
-  <p class="mt-2 h-4 text-neutral-500 text-xs" data-numeric>
+  <p class="mt-2 h-4 text-dusk-500 text-xs" data-numeric>
     {#if disabled}
       Waiting for the socket
     {:else if firedAt}

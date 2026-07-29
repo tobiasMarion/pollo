@@ -10,7 +10,7 @@ let { data } = $props();
   <div class="w-full max-w-sm">
     <p class="eyebrow">Control panel</p>
     <h1 class="mt-3 font-display text-6xl font-bold leading-none tracking-tight">Pollo</h1>
-    <p class="mt-3 text-neutral-400">
+    <p class="mt-3 text-dusk-400">
       Every phone in the crowd is one pixel. Sign in to open an event and drive them.
     </p>
 
@@ -21,7 +21,7 @@ let { data } = $props();
     <a
       href="/auth/github"
       data-sveltekit-reload
-      class="mt-8 flex items-center justify-center gap-2.5 bg-neutral-200 px-4 py-3 font-medium text-neutral-950 transition-colors hover:bg-white"
+      class="mt-8 flex items-center justify-center gap-2.5 bg-starlight rounded-lg px-4 py-3 font-medium text-dusk-950 transition-colors hover:bg-starlight-bright"
     >
       <svg viewBox="0 0 16 16" class="size-4" fill="currentColor" aria-hidden="true">
         <path
@@ -31,7 +31,7 @@ let { data } = $props();
       Continue with GitHub
     </a>
 
-    <p class="mt-4 text-neutral-500 text-xs">
+    <p class="mt-4 text-dusk-500 text-xs">
       Pollo uses your GitHub email as your identity. Nothing else is read.
     </p>
   </div>

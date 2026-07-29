@@ -47,36 +47,36 @@ function useMyLocation() {
   <section>
     <div class="flex items-baseline justify-between">
       <h1 class="eyebrow">Your events</h1>
-      <span class="text-neutral-500 text-xs" data-numeric>{data.events.length}</span>
+      <span class="text-dusk-500 text-xs" data-numeric>{data.events.length}</span>
     </div>
 
     {#if data.events.length === 0}
-      <p class="mt-4 border border-neutral-800 px-4 py-8 text-center text-neutral-400">
+      <p class="mt-4 rounded-lg border border-dusk-800 px-4 py-8 text-center text-dusk-400">
         No events yet. Open one and the phones nearby can find it.
       </p>
     {:else}
-      <ul class="mt-4 border-neutral-800 border-t">
+      <ul class="mt-4 border-dusk-800 border-t">
         {#each data.events as event (event.id)}
-          <li class="border-neutral-800 border-b">
+          <li class="border-dusk-800 border-b">
             <a
               href="/events/{event.id}"
-              class="grid grid-cols-[auto_1fr_auto] items-center gap-x-4 gap-y-1 px-2 py-3.5 transition-colors hover:bg-neutral-900 sm:grid-cols-[auto_1fr_5rem_11rem_5rem]"
+              class="grid grid-cols-[auto_1fr_auto] items-center gap-x-4 gap-y-1 rounded-lg px-3 py-3.5 transition-colors hover:bg-dusk-900 sm:grid-cols-[auto_1fr_5rem_11rem_5rem]"
             >
               {#if event.status === 'OPEN'}
-                <span class="size-2 rounded-full bg-white" title="Open"></span>
+                <span class="size-2 rounded-full bg-starlight" title="Open"></span>
               {:else}
-                <span class="size-2 rounded-full ring-1 ring-neutral-600" title="Finished"></span>
+                <span class="size-2 rounded-full ring-1 ring-dusk-600" title="Finished"></span>
               {/if}
 
               <span class="truncate font-medium">{event.name}</span>
 
-              <span class="hidden text-neutral-500 text-xs sm:block" data-numeric>{event.type}</span>
+              <span class="hidden text-dusk-500 text-xs sm:block" data-numeric>{event.type}</span>
 
-              <span class="col-start-2 text-neutral-500 text-xs sm:col-start-4" data-numeric>
+              <span class="col-start-2 text-dusk-500 text-xs sm:col-start-4" data-numeric>
                 {formatCoordinates(event.latitude, event.longitude)}
               </span>
 
-              <span class="hidden text-neutral-500 text-xs sm:block" data-numeric>
+              <span class="hidden text-dusk-500 text-xs sm:block" data-numeric>
                 {formatTimestamp(event.createdAt)}
               </span>
             </a>
@@ -86,31 +86,31 @@ function useMyLocation() {
     {/if}
   </section>
 
-  <aside class="lg:border-neutral-800 lg:border-l lg:pl-8">
+  <aside class="lg:border-dusk-800 lg:border-l lg:pl-8">
     <h2 class="eyebrow">Open an event</h2>
 
     <form method="POST" use:enhance class="mt-4 flex flex-col gap-4">
       <label class="flex flex-col gap-1.5">
-        <span class="text-neutral-400 text-sm">Name</span>
+        <span class="text-dusk-400 text-sm">Name</span>
         <input
           name="name"
           bind:value={name}
           required
           placeholder="Opening night"
-          class="border border-neutral-800 bg-neutral-900 px-3 py-2 placeholder:text-neutral-500/60"
+          class="field px-3 py-2 placeholder:text-dusk-500/60"
         />
       </label>
 
       <fieldset class="flex flex-col gap-1.5">
-        <legend class="mb-1.5 text-neutral-400 text-sm">Devices light up with</legend>
+        <legend class="mb-1.5 text-dusk-400 text-sm">Devices light up with</legend>
         <div class="grid grid-cols-2 gap-2">
           {#each [['TORCH', 'the flashlight'], ['SCREEN', 'the display']] as [value, description] (value)}
             <label
-              class="flex cursor-pointer flex-col gap-0.5 border border-neutral-800 px-3 py-2 transition-colors has-checked:border-neutral-400 has-checked:bg-neutral-800"
+              class="flex cursor-pointer flex-col gap-0.5 rounded-lg border border-dusk-800 px-3 py-2 transition-colors has-checked:border-dusk-400 has-checked:bg-dusk-800"
             >
               <input type="radio" name="type" {value} bind:group={type} class="sr-only" />
               <span class="text-sm" data-numeric>{value}</span>
-              <span class="text-neutral-500 text-xs">{description}</span>
+              <span class="text-dusk-500 text-xs">{description}</span>
             </label>
           {/each}
         </div>
@@ -118,26 +118,26 @@ function useMyLocation() {
 
       <div class="grid grid-cols-2 gap-2">
         <label class="flex flex-col gap-1.5">
-          <span class="text-neutral-400 text-sm">Latitude</span>
+          <span class="text-dusk-400 text-sm">Latitude</span>
           <input
             name="latitude"
             bind:value={latitude}
             required
             inputmode="decimal"
             placeholder="-29.68420"
-            class="border border-neutral-800 bg-neutral-900 px-3 py-2 placeholder:text-neutral-500/60"
+            class="field px-3 py-2 placeholder:text-dusk-500/60"
             data-numeric
           />
         </label>
         <label class="flex flex-col gap-1.5">
-          <span class="text-neutral-400 text-sm">Longitude</span>
+          <span class="text-dusk-400 text-sm">Longitude</span>
           <input
             name="longitude"
             bind:value={longitude}
             required
             inputmode="decimal"
             placeholder="-53.80690"
-            class="border border-neutral-800 bg-neutral-900 px-3 py-2 placeholder:text-neutral-500/60"
+            class="field px-3 py-2 placeholder:text-dusk-500/60"
             data-numeric
           />
         </label>
@@ -147,12 +147,12 @@ function useMyLocation() {
         type="button"
         onclick={useMyLocation}
         disabled={locating}
-        class="self-start text-neutral-500 text-xs underline underline-offset-4 transition-colors hover:text-neutral-200 disabled:opacity-50"
+        class="self-start text-dusk-500 text-xs underline underline-offset-4 transition-colors hover:text-dusk-200 disabled:opacity-50"
       >
         {locating ? 'Reading your location…' : 'Use my location'}
       </button>
 
-      <p class="text-neutral-500 text-xs">
+      <p class="text-dusk-500 text-xs">
         These are the coordinates the event radiates from, not where you stand.
       </p>
 
@@ -166,7 +166,7 @@ function useMyLocation() {
 
       <button
         type="submit"
-        class="bg-neutral-200 px-4 py-2.5 font-medium text-neutral-950 transition-colors hover:bg-white"
+        class="bg-starlight rounded-lg px-4 py-2.5 font-medium text-dusk-950 transition-colors hover:bg-starlight-bright"
       >
         Open event
       </button>

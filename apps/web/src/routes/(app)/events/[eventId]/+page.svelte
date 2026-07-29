@@ -45,9 +45,9 @@ onMount(() => {
 
 <div class="flex min-h-0 flex-1 flex-col">
   <div
-    class="flex flex-wrap items-center gap-x-6 gap-y-2 border-neutral-800 border-b px-5 py-3 md:px-8"
+    class="flex flex-wrap items-center gap-x-6 gap-y-2 border-dusk-800 border-b px-5 py-3 md:px-8"
   >
-    <a href="/" class="text-neutral-500 text-sm transition-colors hover:text-neutral-100">
+    <a href="/" class="text-dusk-500 text-sm transition-colors hover:text-dusk-100">
       ← Events
     </a>
 
@@ -55,27 +55,27 @@ onMount(() => {
 
     <span class="eyebrow" data-numeric>{data.event.type}</span>
 
-    <span class="text-neutral-500 text-xs" data-numeric>
+    <span class="text-dusk-500 text-xs" data-numeric>
       {formatCoordinates(data.event.latitude, data.event.longitude)}
     </span>
 
     <div class="ml-auto flex items-center gap-5 text-xs">
-      <span class="text-neutral-500" data-numeric>
+      <span class="text-dusk-500" data-numeric>
         {devices.length} device{devices.length === 1 ? '' : 's'}
       </span>
-      <span class="text-neutral-500" data-numeric>{edges.length} edges</span>
+      <span class="text-dusk-500" data-numeric>{edges.length} edges</span>
 
       {#if live}
         <span class="flex items-center gap-2">
           <span
             class="size-2 rounded-full {live.status === 'live'
-              ? 'bg-white'
-              : 'ring-1 ring-neutral-500'}"
+              ? 'bg-starlight'
+              : 'ring-1 ring-dusk-500'}"
           ></span>
-          <span class="text-neutral-300">{statusLabels[live.status]}</span>
+          <span class="text-dusk-300">{statusLabels[live.status]}</span>
         </span>
       {:else if data.event.status === 'FINISHED'}
-        <span class="text-neutral-500">Finished</span>
+        <span class="text-dusk-500">Finished</span>
       {/if}
     </div>
   </div>
@@ -93,7 +93,7 @@ onMount(() => {
 
         {#if pixels.length === 0}
           <p
-            class="pointer-events-none absolute inset-0 flex items-center justify-center px-8 text-center text-neutral-500"
+            class="pointer-events-none absolute inset-0 flex items-center justify-center px-8 text-center text-dusk-500"
           >
             {#if live?.status === 'rejected'}
               {live.error}
@@ -104,35 +104,35 @@ onMount(() => {
         {/if}
 
         {#if unplaced > 0}
-          <p class="pointer-events-none absolute right-5 bottom-5 text-neutral-500 text-xs">
+          <p class="pointer-events-none absolute right-5 bottom-5 text-dusk-500 text-xs">
             <span data-numeric>{unplaced}</span> shown from GPS — outlines are devices the worker
             has not placed yet.
           </p>
         {/if}
       </section>
 
-      <aside class="min-h-0 overflow-y-auto border-neutral-800 border-t lg:border-t-0 lg:border-l">
+      <aside class="min-h-0 overflow-y-auto border-dusk-800 border-t lg:border-t-0 lg:border-l">
         <EffectConsole
           disabled={live?.status !== 'live'}
           onfire={(effect) => live?.fireEffect(effect)}
         />
 
-        <h2 class="eyebrow sticky top-0 bg-neutral-950 px-5 py-3">Devices</h2>
+        <h2 class="eyebrow sticky top-0 bg-dusk-950 px-5 py-3">Devices</h2>
 
         {#if devices.length === 0}
-          <p class="px-5 pb-5 text-neutral-500 text-sm">Nobody has joined yet.</p>
+          <p class="px-5 pb-5 text-dusk-500 text-sm">Nobody has joined yet.</p>
         {:else}
           <ul class="pb-5">
             {#each devices as device (device.deviceId)}
               <li class="flex items-center gap-3 px-5 py-2">
                 <span
                   class="size-1.5 shrink-0 rounded-full {device.position
-                    ? 'bg-white'
-                    : 'ring-1 ring-neutral-500'}"
+                    ? 'bg-starlight'
+                    : 'ring-1 ring-dusk-500'}"
                 ></span>
                 <span class="flex-1 truncate text-sm" data-numeric>{device.deviceId}</span>
                 {#if device.location}
-                  <span class="text-neutral-500 text-xs" data-numeric>
+                  <span class="text-dusk-500 text-xs" data-numeric>
                     ±{Math.round(device.location.horizontalAccuracy)} m
                   </span>
                 {/if}

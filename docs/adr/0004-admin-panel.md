@@ -23,9 +23,10 @@ authority.
   the server with it. **The one exception is the event console**, where the
   token is sent to the browser: the admin socket authenticates in band, since
   a header is not an option on upgrade.
-- **The interface is monochrome.** Black, white and greys, no brand hue.
-  Brightness alone carries meaning — live data reads white, chrome stays grey —
-  which is also what survives a laptop screen outdoors at night.
+- **One ramp, no brand hue.** The interface is a single violet-grey ramp plus
+  starlight, in Space Grotesk and Space Mono. Brightness alone carries meaning —
+  live data reads bright, chrome stays grey — which is also what survives a
+  laptop screen outdoors at night.
 - **Devices without a position are drawn from their own GPS**, as outlines
   rather than pixels. The Rust worker (phase 3) is what places pixels; until it
   lands the console would otherwise be empty, and the distinction has to stay
