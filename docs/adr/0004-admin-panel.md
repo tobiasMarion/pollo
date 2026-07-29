@@ -28,6 +28,10 @@ authority.
   get lighter and never as a brand hue. Brightness alone carries meaning — live
   data reads bright, chrome stays grey — which is also what survives a laptop
   screen outdoors at night.
+- **Effects are fired from a deck of pads**, one tap or one number key each.
+  The deck is for finding out what a cue looks like on a real crowd, so it
+  ships ready-made cues rather than parameter fields; composing cues by hand is
+  a separate flow, not built yet.
 - **Devices without a position are drawn from their own GPS**, as outlines
   rather than pixels. The Rust worker (phase 3) is what places pixels; until it
   lands the console would otherwise be empty, and the distinction has to stay

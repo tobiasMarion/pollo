@@ -1,6 +1,6 @@
 <script lang="ts">
 import { onMount } from 'svelte';
-import EffectConsole from '$lib/components/EffectConsole.svelte';
+import EffectDeck from '$lib/components/EffectDeck.svelte';
 import FieldCanvas from '$lib/components/FieldCanvas.svelte';
 import { type ConnectionStatus, EventConsole } from '$lib/event-console.svelte';
 import { toFieldPixels } from '$lib/field';
@@ -88,35 +88,37 @@ onMount(() => {
     </p>
   {:else}
     <div class="grid min-h-0 flex-1 lg:grid-cols-[1fr_18rem]">
-      <section class="relative min-h-[55svh] lg:min-h-0">
-        <FieldCanvas {pixels} {edges} lastEffect={live?.lastEffect ?? null} />
+      <section class="flex min-h-0 flex-col">
+        <div class="relative min-h-[40svh] flex-1">
+          <FieldCanvas {pixels} {edges} lastEffect={live?.lastEffect ?? null} />
 
-        {#if pixels.length === 0}
-          <p
-            class="pointer-events-none absolute inset-0 flex items-center justify-center px-8 text-center text-dusk-500"
-          >
-            {#if live?.status === 'rejected'}
-              {live.error}
-            {:else}
-              No devices yet. Phones within about a kilometre can find this event and join.
-            {/if}
-          </p>
-        {/if}
+          {#if pixels.length === 0}
+            <p
+              class="pointer-events-none absolute inset-0 flex items-center justify-center px-8 text-center text-dusk-500"
+            >
+              {#if live?.status === 'rejected'}
+                {live.error}
+              {:else}
+                No devices yet. Phones within about a kilometre can find this event and join.
+              {/if}
+            </p>
+          {/if}
 
-        {#if unplaced > 0}
-          <p class="pointer-events-none absolute right-5 bottom-5 text-dusk-500 text-xs">
-            <span data-numeric>{unplaced}</span> shown from GPS — outlines are devices the worker
-            has not placed yet.
-          </p>
-        {/if}
-      </section>
+          {#if unplaced > 0}
+            <p class="pointer-events-none absolute right-5 bottom-5 text-dusk-500 text-xs">
+              <span data-numeric>{unplaced}</span> shown from GPS — outlines are devices the worker
+              has not placed yet.
+            </p>
+          {/if}
+        </div>
 
-      <aside class="min-h-0 overflow-y-auto border-dusk-800 border-t lg:border-t-0 lg:border-l">
-        <EffectConsole
+        <EffectDeck
           disabled={live?.status !== 'live'}
           onfire={(effect) => live?.fireEffect(effect)}
         />
+      </section>
 
+      <aside class="min-h-0 overflow-y-auto border-dusk-800 border-t lg:border-t-0 lg:border-l">
         <h2 class="eyebrow sticky top-0 bg-dusk-950 px-5 py-3">Devices</h2>
 
         {#if devices.length === 0}
