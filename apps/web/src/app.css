@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+/**
+ * The background is black — actually black, not a very dark colour. The violet
+ * only appears as things get lighter: borders barely, text clearly, and the
+ * brightest surface most of all. There is no brand hue beyond that.
+ *
+ * The panel is driven in the dark, so only live data is allowed to read as
+ * bright: a device that is present, a cue that is firing.
+ *
+ * Space Grotesk and Space Mono carry the tone: relaxed and a bit quirky on the
+ * surface, unmistakably instrument-like where the numbers are.
+ */
+@theme {
+  --font-sans: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Space Mono", ui-monospace, "SF Mono", monospace;
+
+  /* Surfaces. Black, then barely-lifted greys that only hint at the violet. */
+  --color-dusk-950: #000000;
+  --color-dusk-900: #0b0a0d;
+  --color-dusk-800: #16151a;
+  --color-dusk-700: #222027;
+  --color-dusk-600: #33303c;
+
+  /* Text and chrome — the violet is unmistakable up here. */
+  --color-dusk-500: #7c7689;
+  --color-dusk-400: #9e97b0;
+  --color-dusk-300: #c5bfd6;
+  --color-dusk-200: #ded9ea;
+  --color-dusk-100: #efedf7;
+
+  /* The brightest surface in the interface. */
+  --color-starlight: #f5f2fc;
+  --color-starlight-bright: #fefdff;
+
+  --radius-panel: 0.5rem;
+}
+
+@layer base {
+  html {
+    background-color: var(--color-dusk-950);
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--color-dusk-950);
+    color: var(--color-dusk-200);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background-color: var(--color-dusk-700);
+    color: var(--color-starlight);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-starlight);
+    outline-offset: 2px;
+  }
+
+  /* Coordinates, device ids and distances are read as columns, not prose. */
+  [data-numeric] {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@utility eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-dusk-500);
+}
+
+/** Failures carry no hue, so they are marked by a rule instead. */
+@utility notice {
+  border-left: 2px solid var(--color-starlight);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-dusk-900);
+  padding: 0.5rem 0.75rem;
+  color: var(--color-dusk-100);
+}
+
+/** Inputs, selects and the surfaces that behave like them. */
+@utility field {
+  border: 1px solid var(--color-dusk-800);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-dusk-900);
+}

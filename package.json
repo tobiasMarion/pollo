@@ -11,8 +11,10 @@
   },
   "scripts": {
     "dev": "npm run dev --workspace=@pollo/backend",
+    "dev:web": "npm run dev --workspace=@pollo/web",
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
     "format": "biome format --write .",
     "lint": "biome lint .",
     "check": "biome check --write .",

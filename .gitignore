@@ -6,8 +6,9 @@ dist/
 build/
 *.tsbuildinfo
 
-# generated code (recreated by `prisma generate`)
+# generated code (recreated by `prisma generate` / `svelte-kit sync`)
 apps/backend/src/generated/
+apps/web/.svelte-kit/
 
 # rust
 target/

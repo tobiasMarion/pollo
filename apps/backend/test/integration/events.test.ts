@@ -76,6 +76,43 @@ describe('event REST routes', () => {
     expect(missing.statusCode).toBe(404);
   });
 
+  it('GET /events lists only the events of the caller, newest first', async () => {
+    const first = await app.inject({
+      method: 'POST',
+      url: '/events',
+      payload,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const second = await app.inject({
+      method: 'POST',
+      url: '/events',
+      payload: { ...payload, name: 'Second Night' },
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    const mine = await app.inject({
+      method: 'GET',
+      url: '/events',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(mine.statusCode).toBe(200);
+    expect(mine.json<{ events: Array<{ id: string }> }>().events.map(({ id }) => id)).toEqual([
+      second.json().eventId,
+      first.json().eventId,
+    ]);
+
+    const { token: strangerToken } = await createUser(app, `stranger-list-${Date.now()}@test.dev`);
+    const theirs = await app.inject({
+      method: 'GET',
+      url: '/events',
+      headers: { authorization: `Bearer ${strangerToken}` },
+    });
+    expect(theirs.json().events).toEqual([]);
+
+    const anonymous = await app.inject({ method: 'GET', url: '/events' });
+    expect(anonymous.statusCode).toBe(401);
+  });
+
   it('GET /events/around finds the closest open event within ~1km', async () => {
     const created = await app.inject({
       method: 'POST',
