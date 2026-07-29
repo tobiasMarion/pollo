@@ -1,13 +1,17 @@
 <script lang="ts">
 import { untrack } from 'svelte';
 import { enhance } from '$app/forms';
+import type { EventType } from '$lib/api/types';
 import { formatCoordinates, formatTimestamp } from '$lib/format';
 
 let { data, form } = $props();
 
-// Seeded from the action result for the no-JavaScript path, where the page
-// comes back fresh. Under `enhance` the component survives a failed submit
-// and these already hold what the operator typed — do not overwrite them.
+// Every field is local state, seeded once from the action result for the
+// no-JavaScript path. Reading them straight off `form` in the markup would
+// re-apply that stale snapshot on each render — filling in the coordinates
+// would then wipe whatever else had been typed.
+let name = $state(untrack(() => form?.name) ?? '');
+let type = $state<EventType>(untrack(() => form?.type as EventType) ?? 'TORCH');
 let latitude = $state(untrack(() => form?.latitude) ?? '');
 let longitude = $state(untrack(() => form?.longitude) ?? '');
 let locating = $state(false);
@@ -90,7 +94,7 @@ function useMyLocation() {
         <span class="text-neutral-400 text-sm">Name</span>
         <input
           name="name"
-          value={form?.name ?? ''}
+          bind:value={name}
           required
           placeholder="Opening night"
           class="border border-neutral-800 bg-neutral-900 px-3 py-2 placeholder:text-neutral-500/60"
@@ -104,13 +108,7 @@ function useMyLocation() {
             <label
               class="flex cursor-pointer flex-col gap-0.5 border border-neutral-800 px-3 py-2 transition-colors has-checked:border-neutral-400 has-checked:bg-neutral-800"
             >
-              <input
-                type="radio"
-                name="type"
-                {value}
-                checked={(form?.type ?? 'TORCH') === value}
-                class="sr-only"
-              />
+              <input type="radio" name="type" {value} bind:group={type} class="sr-only" />
               <span class="text-sm" data-numeric>{value}</span>
               <span class="text-neutral-500 text-xs">{description}</span>
             </label>
