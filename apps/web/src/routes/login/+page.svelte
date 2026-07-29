@@ -1,6 +1,4 @@
 <script lang="ts">
-import FireflyField from '$lib/components/FireflyField.svelte';
-
 let { data } = $props();
 </script>
 
@@ -8,29 +6,22 @@ let { data } = $props();
   <title>Sign in · Pollo</title>
 </svelte:head>
 
-<main class="relative isolate flex min-h-svh items-center justify-center overflow-hidden px-6">
-  <FireflyField />
-
-  <div class="relative w-full max-w-sm">
+<main class="flex min-h-svh items-center justify-center px-6">
+  <div class="w-full max-w-sm">
     <p class="eyebrow">Control panel</p>
     <h1 class="mt-3 font-display text-6xl font-bold leading-none tracking-tight">Pollo</h1>
-    <p class="mt-3 text-mist-400">
+    <p class="mt-3 text-neutral-400">
       Every phone in the crowd is one pixel. Sign in to open an event and drive them.
     </p>
 
     {#if data.error}
-      <p
-        class="mt-6 border border-alarm-500/40 bg-alarm-500/5 px-3 py-2 text-alarm-500 text-sm"
-        role="alert"
-      >
-        {data.error}
-      </p>
+      <p class="notice mt-6 text-sm" role="alert">{data.error}</p>
     {/if}
 
     <a
       href="/auth/github"
       data-sveltekit-reload
-      class="mt-8 flex items-center justify-center gap-2.5 bg-mist-100 px-4 py-3 font-medium text-night-950 transition-colors hover:bg-white"
+      class="mt-8 flex items-center justify-center gap-2.5 bg-neutral-200 px-4 py-3 font-medium text-neutral-950 transition-colors hover:bg-white"
     >
       <svg viewBox="0 0 16 16" class="size-4" fill="currentColor" aria-hidden="true">
         <path
@@ -40,7 +31,7 @@ let { data } = $props();
       Continue with GitHub
     </a>
 
-    <p class="mt-4 text-mist-500 text-xs">
+    <p class="mt-4 text-neutral-500 text-xs">
       Pollo uses your GitHub email as your identity. Nothing else is read.
     </p>
   </div>
