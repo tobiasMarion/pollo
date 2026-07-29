@@ -1,5 +1,5 @@
 import { redirect } from '@sveltejs/kit';
-import { apiBaseUrl } from '$lib/api/client';
+import { internalApiUrl } from '$lib/server/env';
 import { takeOauthState, writeSession } from '$lib/server/session';
 import type { RequestHandler } from './$types';
 
@@ -8,7 +8,7 @@ type Exchange = { token: string } | { error: string };
 /** Trades the single-use GitHub code for a Pollo JWT. */
 async function exchangeCode(fetch: typeof globalThis.fetch, code: string): Promise<Exchange> {
   try {
-    const response = await fetch(new URL('/sessions/github', apiBaseUrl()), {
+    const response = await fetch(new URL('/sessions/github', internalApiUrl()), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ code }),

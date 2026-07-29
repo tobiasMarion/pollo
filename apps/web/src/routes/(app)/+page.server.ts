@@ -1,10 +1,11 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { ApiError, createApiClient } from '$lib/api/client';
+import { ApiError } from '$lib/api/client';
 import type { EventType } from '$lib/api/types';
+import { serverApi } from '$lib/server/api';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, fetch }) => {
-  const api = createApiClient({ fetch, token: locals.token });
+  const api = serverApi({ fetch, locals });
 
   return { events: await api.listMyEvents() };
 };
@@ -47,7 +48,7 @@ export const actions: Actions = {
       });
     }
 
-    const api = createApiClient({ fetch, token: locals.token });
+    const api = serverApi({ fetch, locals });
     let eventId: string;
 
     try {

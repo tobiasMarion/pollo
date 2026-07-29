@@ -1,10 +1,11 @@
 import { error } from '@sveltejs/kit';
-import { ApiError, createApiClient } from '$lib/api/client';
+import { ApiError } from '$lib/api/client';
 import type { EventGraph } from '$lib/api/types';
+import { serverApi } from '$lib/server/api';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals, fetch, parent }) => {
-  const api = createApiClient({ fetch, token: locals.token });
+  const api = serverApi({ fetch, locals });
   const { user } = await parent();
 
   const event = await api.getEvent(params.eventId).catch((cause) => {

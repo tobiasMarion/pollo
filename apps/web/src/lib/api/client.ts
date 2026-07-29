@@ -29,9 +29,19 @@ interface ApiClientOptions {
   fetch?: typeof globalThis.fetch;
   /** JWT from the session cookie. Anonymous when absent. */
   token?: string | null;
+  /**
+   * Where to reach the API. Defaults to the public address, which is the only
+   * one a browser can use; server-side callers pass the internal one, since
+   * inside a compose network the public host does not resolve.
+   */
+  baseUrl?: string;
 }
 
-export function createApiClient({ fetch = globalThis.fetch, token }: ApiClientOptions = {}) {
+export function createApiClient({
+  fetch = globalThis.fetch,
+  token,
+  baseUrl = apiBaseUrl(),
+}: ApiClientOptions = {}) {
   async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     const headers = new Headers(init.headers);
 
@@ -41,7 +51,7 @@ export function createApiClient({ fetch = globalThis.fetch, token }: ApiClientOp
     let response: Response;
 
     try {
-      response = await fetch(new URL(path, apiBaseUrl()), { ...init, headers });
+      response = await fetch(new URL(path, baseUrl), { ...init, headers });
     } catch (cause) {
       // A dead API is indistinguishable from no network here, and both mean
       // the same thing to the operator: the panel cannot reach Pollo.

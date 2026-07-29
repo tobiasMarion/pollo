@@ -1,5 +1,6 @@
 import { redirect } from '@sveltejs/kit';
-import { ApiError, createApiClient } from '$lib/api/client';
+import { ApiError } from '$lib/api/client';
+import { serverApi } from '$lib/server/api';
 import { clearSession } from '$lib/server/session';
 import type { LayoutServerLoad } from './$types';
 
@@ -9,7 +10,7 @@ export const load: LayoutServerLoad = async ({ locals, fetch, cookies }) => {
     redirect(303, '/login');
   }
 
-  const api = createApiClient({ fetch, token: locals.token });
+  const api = serverApi({ fetch, locals });
 
   try {
     return { user: await api.getProfile() };
