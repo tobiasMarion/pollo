@@ -25,9 +25,8 @@ there carry the validation, the TypeScript types inferred from them, and the
 descriptions that become the API reference — and the lists are derived, so adding
 an effect or a message is one entry rather than a hunt through both apps.
 
-Both apps import the package's **build output**, so it compiles before they do.
-`just dev`, `just web` and `just test` take care of that; when contracts is what
-you are editing, `just contracts-watch` in another shell keeps it fresh.
+Both apps import the package's **build output**, so it compiles before they do —
+`just all`, `just dev`, `just web` and `just test` each take care of that.
 
 ## Development
 
@@ -36,10 +35,22 @@ Prerequisites: Node ≥20 (npm), Docker, and optionally [`just`](https://github.
 ```bash
 npm install
 cp .env.example .env          # fill JWT_SECRET and the GitHub OAuth credentials
-just up                       # Postgres + Redis
-just migrate                  # apply Prisma migrations
+just all                      # everything, one terminal  ->  :3333/docs and :3000
+```
+
+`just all` waits for Postgres and Redis, applies the migrations, then runs the
+contracts watch, the API and the panel together. Logs interleave; Ctrl-C stops
+the three host processes and leaves the datastores up (`just down` stops those).
+Editing anything — including `packages/contracts` — reloads the side that needs
+it, with no restart.
+
+One process per shell still works if you prefer the logs apart:
+
+```bash
+just up && just migrate
 just dev                      # API on the host with hot-reload  ->  http://localhost:3333/docs
 just web                      # admin panel, in another shell    ->  http://localhost:3000
+just contracts-watch          # only if you are editing packages/contracts
 ```
 
 The panel signs in with the same GitHub OAuth app as the API, so the app's

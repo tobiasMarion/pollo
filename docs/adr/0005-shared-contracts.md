@@ -66,10 +66,12 @@ runtime which one was missed.
   `JSON.parse`, so a frame it cannot read is dropped rather than rendered.
 - The API's `src/schemas/` directory is gone; the wire lives in one package and
   the backend imports it like any other dependency.
-- Editing contracts while `just dev` or `just web` is running needs
-  `just contracts` and a restart, because `tsx watch` ignores `node_modules` and
-  Vite sees built JS. `just contracts-watch` covers the case where contracts is
-  what you are actually working on.
+- Hot-reload survives the indirection, which was not obvious: both apps consume
+  the build output, but the workspace symlink resolves to `packages/contracts/dist`
+  — a real path outside `node_modules` — so `tsx watch` restarts the API on it and
+  Vite invalidates its SSR module. With `just contracts-watch` running, editing a
+  contract propagates to both without a manual restart on either side.
+  `just all` starts that watch alongside them.
 - Zod is pinned to one range across all three workspaces. Two copies would break
   the `instanceof ZodError` branch in the API's error handler silently.
 - The Rust worker (ADR 0001, phase 3) gets a written boundary to mirror with
