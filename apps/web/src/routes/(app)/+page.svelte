@@ -1,7 +1,7 @@
 <script lang="ts">
+import type { EventType } from '@pollo/contracts';
 import { untrack } from 'svelte';
 import { enhance } from '$app/forms';
-import type { EventType } from '$lib/api/types';
 import { formatCoordinates, formatTimestamp } from '$lib/format';
 
 let { data, form } = $props();

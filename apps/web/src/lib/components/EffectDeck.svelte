@@ -1,6 +1,5 @@
 <script lang="ts">
-import type { Effect } from '$lib/api/types';
-import { type EffectPreset, effectPresets } from '$lib/effect-presets';
+import { type Effect, type EffectPreset, effectPresets } from '@pollo/contracts';
 
 let {
   disabled,

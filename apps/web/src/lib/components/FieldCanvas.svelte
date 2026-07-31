@@ -1,7 +1,13 @@
 <script lang="ts">
+import {
+  type Edge,
+  type Effect,
+  type EffectName,
+  type EffectOf,
+  effectBrightness,
+  type Vector3,
+} from '@pollo/contracts';
 import { onMount } from 'svelte';
-import type { Edge, Effect, Vector3 } from '$lib/api/types';
-import { effectBrightness } from '$lib/effect-preview';
 import type { FieldPixel } from '$lib/field';
 
 /**
@@ -146,75 +152,88 @@ onMount(() => {
     context.fill();
   }
 
+  /** A point in canvas pixels, as opposed to the meters `Vector3` carries. */
+  type Vector2 = { x: number; y: number };
+
+  const meters = (seconds: number, perUnit: number) => (perUnit > 0 ? seconds / perUnit : 0);
+
+  /**
+   * How each effect's leading edge is drawn, keyed by name rather than
+   * switched on it: a new effect will not compile until it has a shape here.
+   */
+  const wavefrontByEffect: {
+    [Name in EffectName]: (effect: EffectOf<Name>, elapsed: number, at: Vector2) => void;
+  } = {
+    PULSE: (effect, elapsed, { x: cx, y: cy }) => {
+      const radius = meters(elapsed, effect.spreadDelayPerUnit) * scale;
+      context.arc(cx, cy, radius, 0, Math.PI * 2);
+    },
+
+    WAVE: (effect, elapsed, { x: cx, y: cy }) => {
+      // A vertical wave has no leading edge to draw from above.
+      if (effect.direction === 'Z') return;
+
+      const offset = meters(elapsed, effect.spreadDelayPerUnit) * scale;
+
+      for (const sign of [-1, 1]) {
+        if (effect.direction === 'X') {
+          context.moveTo(cx + sign * offset, 0);
+          context.lineTo(cx + sign * offset, height);
+        } else {
+          context.moveTo(0, cy + sign * offset);
+          context.lineTo(width, cy + sign * offset);
+        }
+      }
+    },
+
+    ROTATE: (effect, elapsed, { x: cx, y: cy }) => {
+      const angle = meters(elapsed, effect.spreadDelayPerRadian) - Math.PI;
+      const reach = Math.hypot(width, height);
+      context.moveTo(cx, cy);
+      context.lineTo(cx + Math.cos(angle) * reach, cy - Math.sin(angle) * reach);
+    },
+
+    SPIRAL: (effect, elapsed, { x: cx, y: cy }) => {
+      if (effect.radialSpeed <= 0) return;
+
+      let started = false;
+
+      for (let step = 0; step <= 90; step += 1) {
+        const angle = (step / 90) * Math.PI * 2;
+        const spent = effect.angularSpeed > 0 ? angle / effect.angularSpeed : 0;
+        const radius = effect.radialSpeed * (elapsed - spent);
+
+        // The arm has not reached this angle yet — the curve starts later.
+        if (radius <= 0) continue;
+
+        const x = cx + Math.cos(angle - Math.PI) * radius * scale;
+        const y = cy - Math.sin(angle - Math.PI) * radius * scale;
+
+        if (started) {
+          context.lineTo(x, y);
+        } else {
+          context.moveTo(x, y);
+          started = true;
+        }
+      }
+    },
+  };
+
   /** The cue's own geometry, so the shape of an effect is readable at a glance. */
   function drawWavefront(effect: Effect, elapsed: number, center: Vector3) {
-    const meters = (seconds: number, perUnit: number) => (perUnit > 0 ? seconds / perUnit : 0);
-
     context.strokeStyle = 'rgba(245, 242, 252, 0.3)';
     context.lineWidth = 1.5;
     context.beginPath();
 
-    const cx = toScreenX(center.x);
-    const cy = toScreenY(center.y);
+    // The record is keyed by the literal the effect is discriminated on, so
+    // this pairing is sound; TypeScript cannot correlate the two on its own.
+    const drawArm = wavefrontByEffect[effect.name] as (
+      effect: Effect,
+      elapsed: number,
+      at: Vector2,
+    ) => void;
 
-    switch (effect.name) {
-      case 'PULSE': {
-        const radius = meters(elapsed, effect.spreadDelayPerUnit) * scale;
-        context.arc(cx, cy, radius, 0, Math.PI * 2);
-        break;
-      }
-
-      case 'WAVE': {
-        if (effect.direction === 'Z') break;
-
-        const offset = meters(elapsed, effect.spreadDelayPerUnit) * scale;
-
-        for (const sign of [-1, 1]) {
-          if (effect.direction === 'X') {
-            context.moveTo(cx + sign * offset, 0);
-            context.lineTo(cx + sign * offset, height);
-          } else {
-            context.moveTo(0, cy + sign * offset);
-            context.lineTo(width, cy + sign * offset);
-          }
-        }
-        break;
-      }
-
-      case 'ROTATE': {
-        const angle = meters(elapsed, effect.spreadDelayPerRadian) - Math.PI;
-        const reach = Math.hypot(width, height);
-        context.moveTo(cx, cy);
-        context.lineTo(cx + Math.cos(angle) * reach, cy - Math.sin(angle) * reach);
-        break;
-      }
-
-      case 'SPIRAL': {
-        if (effect.radialSpeed <= 0) break;
-
-        let started = false;
-
-        for (let step = 0; step <= 90; step += 1) {
-          const angle = (step / 90) * Math.PI * 2;
-          const spent = effect.angularSpeed > 0 ? angle / effect.angularSpeed : 0;
-          const radius = effect.radialSpeed * (elapsed - spent);
-
-          // The arm has not reached this angle yet — the curve starts later.
-          if (radius <= 0) continue;
-
-          const x = cx + Math.cos(angle - Math.PI) * radius * scale;
-          const y = cy - Math.sin(angle - Math.PI) * radius * scale;
-
-          if (started) {
-            context.lineTo(x, y);
-          } else {
-            context.moveTo(x, y);
-            started = true;
-          }
-        }
-        break;
-      }
-    }
+    drawArm(effect, elapsed, { x: toScreenX(center.x), y: toScreenY(center.y) });
 
     context.stroke();
   }

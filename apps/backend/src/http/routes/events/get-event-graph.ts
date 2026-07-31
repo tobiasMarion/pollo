@@ -1,7 +1,7 @@
+import { eventGraphSchema } from '@pollo/contracts';
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import { edgeSchema, metadataSchema } from '@pollo/contracts';
 import { NotFoundError } from '../../errors.js';
 import { auth } from '../../middlewares/auth.js';
 import {
@@ -37,14 +37,7 @@ export async function getEventGraph(app: FastifyInstance) {
             eventId: z.string().uuid().describe('Id of an open event you administer.'),
           }),
           response: {
-            200: z
-              .object({
-                nodes: z
-                  .record(metadataSchema)
-                  .describe('Device id -> what is known about that device.'),
-                edges: z.array(edgeSchema).describe('Every measured distance, directed.'),
-              })
-              .describe('The graph. Both fields are empty until devices join and report.'),
+            200: eventGraphSchema,
             400: validationErrorResponseSchema.describe('`eventId` is not a valid UUID.'),
             401: errorResponseSchema.describe('Missing, malformed, or expired bearer token.'),
             404: errorResponseSchema.describe(

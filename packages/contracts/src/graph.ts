@@ -60,3 +60,21 @@ export const metadataSchema = z
 
 export type Metadata = z.infer<typeof metadataSchema>;
 export type NodesWithMetadata = Record<Node, Metadata>;
+
+export const eventGraphSchema = z
+  .object({
+    nodes: z.record(metadataSchema).describe('Device id -> what is known about that device.'),
+    edges: z.array(edgeSchema).describe('Every measured distance, directed.'),
+  })
+  .describe('The graph. Both fields are empty until devices join and report.');
+
+export type EventGraph = z.infer<typeof eventGraphSchema>;
+
+export const participantSchema = z
+  .object({
+    deviceId: nodeSchema.describe('Id the device sent in its `JOIN` message.'),
+    location: locationSchema,
+  })
+  .describe('A device in the event, as the last thing it told us.');
+
+export type Participant = z.infer<typeof participantSchema>;

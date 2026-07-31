@@ -1,4 +1,4 @@
-import type { DeviceLocation, Vector3 } from '$lib/api/types';
+import type { Location, Vector3 } from '@pollo/contracts';
 import type { DeviceState } from '$lib/event-console.svelte';
 
 export interface FieldPixel {
@@ -21,7 +21,7 @@ const METERS_PER_DEGREE_LONGITUDE = 111_320;
  * a continent, so the error over a few hundred meters is far below GPS noise.
  */
 export function projectLocation(
-  location: DeviceLocation,
+  location: Location,
   origin: { latitude: number; longitude: number },
 ): Vector3 {
   const latitudeRadians = (origin.latitude * Math.PI) / 180;
