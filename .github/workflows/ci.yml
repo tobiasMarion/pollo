@@ -69,11 +69,11 @@ jobs:
       - name: Migrations apply cleanly
         run: npm run db:migrate -w @pollo/backend
 
-      - name: Contract tests
-        run: npm run test -w @pollo/contracts
-
-      - name: Unit tests
-        run: npm run test -w @pollo/backend
+      # Every workspace's own suite, through the root script: `--if-present`
+      # means a new package is covered the day it grows tests, not the day
+      # someone remembers to add a line here.
+      - name: Unit and contract tests
+        run: npm test
 
       - name: Integration tests
         run: npm run test:integration -w @pollo/backend
