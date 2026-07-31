@@ -52,6 +52,11 @@ jobs:
       - name: Lint and format (Biome)
         run: npm run ci
 
+      # Both apps import the built package, so nothing after this can run
+      # without it — typecheck included.
+      - name: Build the shared contracts
+        run: npm run contracts
+
       - name: Generate Prisma client
         run: npm run db:generate -w @pollo/backend
 
@@ -63,6 +68,9 @@ jobs:
 
       - name: Migrations apply cleanly
         run: npm run db:migrate -w @pollo/backend
+
+      - name: Contract tests
+        run: npm run test -w @pollo/contracts
 
       - name: Unit tests
         run: npm run test -w @pollo/backend

@@ -4,17 +4,19 @@
   "private": true,
   "description": "Sync a million fireflies — monorepo (greenfield)",
   "workspaces": [
+    "packages/*",
     "apps/*"
   ],
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "dev": "npm run dev --workspace=@pollo/backend",
-    "dev:web": "npm run dev --workspace=@pollo/web",
-    "build": "npm run build --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present",
+    "contracts": "npm run build --workspace=@pollo/contracts",
+    "dev": "npm run contracts && npm run dev --workspace=@pollo/backend",
+    "dev:web": "npm run contracts && npm run dev --workspace=@pollo/web",
+    "build": "npm run contracts && npm run build --workspaces --if-present",
+    "test": "npm run contracts && npm run test --workspaces --if-present",
+    "typecheck": "npm run contracts && npm run typecheck --workspaces --if-present",
     "format": "biome format --write .",
     "lint": "biome lint .",
     "check": "biome check --write .",

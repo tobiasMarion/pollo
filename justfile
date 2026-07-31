@@ -17,12 +17,21 @@ down:
 logs:
     docker compose -f infra/compose.dev.yaml logs -f
 
+# Compile the shared contracts (both apps import the build output, not the source)
+contracts:
+    npm run build --workspace=@pollo/contracts
+
+# Recompile the contracts on every change — `dev` and `web` see the build output,
+# so editing them mid-session otherwise needs a manual `just contracts`.
+contracts-watch:
+    npx tsc -w -p packages/contracts/tsconfig.build.json
+
 # Run the API on the host with hot-reload
-dev:
+dev: contracts
     npm run dev --workspace=@pollo/backend
 
 # Run the admin panel on the host with hot-reload (needs the API up)
-web:
+web: contracts
     npm run dev --workspace=@pollo/web
 
 # Apply Prisma migrations (dev datastores must be up)
@@ -30,7 +39,7 @@ migrate:
     npm run db:migrate --workspace=@pollo/backend
 
 # Tests for all packages
-test:
+test: contracts
     npm run test --workspaces --if-present
 
 # Format the whole repo with Biome
