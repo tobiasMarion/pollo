@@ -1,10 +1,9 @@
 import type { WebSocket } from '@fastify/websocket';
-import { WS_CLOSE } from '@pollo/contracts';
+import { deviceOutbound, safeParseJsonMessage, WS_CLOSE } from '@pollo/contracts';
 import type { FastifyBaseLogger, FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import type { EventService } from '../../events/event-service.js';
-import { messageSchema, safeParseJsonMessage } from '../../schemas/messages.js';
 import { sendMessage, startHeartbeat } from './protocol.js';
 
 export function handleJoinSocket(socket: WebSocket, event: EventService, log: FastifyBaseLogger) {
@@ -13,7 +12,7 @@ export function handleJoinSocket(socket: WebSocket, event: EventService, log: Fa
   startHeartbeat(socket);
 
   socket.on('message', (rawMessage) => {
-    const { success, data, error } = safeParseJsonMessage(rawMessage.toString(), messageSchema);
+    const { success, data, error } = safeParseJsonMessage(rawMessage.toString(), deviceOutbound.schema);
 
     if (!success) {
       log.debug({ error }, 'invalid join-socket message');
@@ -48,11 +47,6 @@ export function handleJoinSocket(socket: WebSocket, event: EventService, log: Fa
         if (deviceId !== null) {
           event.setDistanceToDevice(deviceId, data.to, data.distance);
         }
-        break;
-
-      default:
-        // Server-emitted reports and admin-only messages are not accepted here.
-        log.debug({ type: data.type }, 'unexpected message on join socket');
         break;
     }
   });
@@ -114,7 +108,7 @@ export async function joinEvent(app: FastifyInstance) {
           '',
           '| code | reason |',
           '| --- | --- |',
-          '| `4400` | `Invalid message` — bad JSON or unknown `type`. |',
+          '| `4400` | `Invalid message` — bad JSON, or a `type` this socket does not accept. |',
           '| `4400` | `You must send a JOIN message first` |',
           '| `4404` | `Event not found` |',
           '',

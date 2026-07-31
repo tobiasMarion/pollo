@@ -1,10 +1,9 @@
 import type { WebSocket } from '@fastify/websocket';
-import { WS_CLOSE } from '@pollo/contracts';
+import { adminOutbound, safeParseJsonMessage, WS_CLOSE } from '@pollo/contracts';
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import type { EventService } from '../../events/event-service.js';
-import { messageSchema, safeParseJsonMessage } from '../../schemas/messages.js';
 import { sendMessage, startHeartbeat } from './protocol.js';
 
 interface AdminSocketDeps {
@@ -23,7 +22,7 @@ export function handleAdminSocket(
   startHeartbeat(socket);
 
   socket.on('message', async (rawMessage) => {
-    const { success, data } = safeParseJsonMessage(rawMessage.toString(), messageSchema);
+    const { success, data } = safeParseJsonMessage(rawMessage.toString(), adminOutbound.schema);
 
     if (!success) {
       socket.close(WS_CLOSE.INVALID_MESSAGE, 'Invalid message');
@@ -62,10 +61,6 @@ export function handleAdminSocket(
 
       case 'EFFECT':
         event?.publish(data);
-        break;
-
-      default:
-        // No other message types are expected from the admin.
         break;
     }
   });
@@ -127,7 +122,7 @@ export async function adminEvent(app: FastifyInstance) {
           '',
           '| code | reason |',
           '| --- | --- |',
-          '| `4400` | `Invalid message` — bad JSON or unknown `type`. |',
+          '| `4400` | `Invalid message` — bad JSON, or a `type` this socket does not accept. |',
           '| `4401` | `Authenticate first` |',
           '| `4401` | `Invalid auth token` |',
           '| `4401` | `Not the admin of an open event` — wrong user, or not open. |',

@@ -1,9 +1,8 @@
 import type { AddressInfo } from 'node:net';
+import { type Message, messageSchema, STREAM_FIELD, streamKeys, WS_CLOSE } from '@pollo/contracts';
 import { Redis } from 'ioredis';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
-import { type Message, messageSchema } from '../../src/schemas/messages.js';
-import { STREAM_FIELD, streamKeys } from '@pollo/contracts';
 import { createTestApp, createUser, truncateDatabase, waitFor } from '../helpers.js';
 import { TEST_REDIS_URL } from '../test-env.js';
 
@@ -207,5 +206,29 @@ describe('event lifecycle end to end', () => {
     });
 
     expect(code).toBe(4401);
+  });
+
+  it('closes the admin socket on a frame that belongs to the device direction', async () => {
+    const createResponse = await fetch(`${baseUrl}/events`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ name: 'E2E Night 3', ...location, type: 'SCREEN' }),
+    });
+    const { eventId } = (await createResponse.json()) as { eventId: string };
+
+    const socket = new WebSocket(`${wsUrl}/events/${eventId}/admin`);
+    socket.on('open', () => {
+      // A well-formed JOIN — valid on the device socket, meaningless here.
+      socket.send(JSON.stringify({ type: 'JOIN', deviceId: 'device-1', location }));
+    });
+
+    const code = await new Promise<number>((resolve) => {
+      socket.on('close', (closeCode) => resolve(closeCode));
+    });
+
+    expect(code).toBe(WS_CLOSE.INVALID_MESSAGE);
   });
 });

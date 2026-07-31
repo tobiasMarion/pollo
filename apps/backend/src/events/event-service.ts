@@ -1,8 +1,21 @@
+import type { ExactLocation, Location, Message, PositionsMessage } from '@pollo/contracts';
 import type { FastifyBaseLogger } from 'fastify';
-import type { ExactLocation, Location, PositionsMessage } from '@pollo/contracts';
-import type { Admin, Message, SendMessage, Subscriber } from '../schemas/messages.js';
 import type { Bus } from './bus.js';
 import type { GraphStore } from './graph-store.js';
+
+/** How the socket handlers hand a frame back to one connection. */
+export type SendMessage = (message: Message) => void;
+
+export interface Subscriber {
+  deviceId: string;
+  location: Location;
+  sendMessage: SendMessage;
+}
+
+interface Admin {
+  userId: string;
+  sendMessage: SendMessage | undefined;
+}
 
 export interface EventServiceOptions {
   id: string;
