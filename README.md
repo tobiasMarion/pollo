@@ -1,11 +1,57 @@
-# Pollo
+# 📌 Pollo
 
 > Sync a million fireflies.
 
-Pollo monorepo. Greenfield restart — see [ADR 0001](docs/adr/0001-greenfield-monorepo.md),
-[ADR 0002](docs/adr/0002-api-rebuild.md) and [ADR 0004](docs/adr/0004-admin-panel.md).
+![Project status](https://img.shields.io/badge/status-in%20development-blue?style=flat-square)
 
-## Structure
+---
+
+## 📜 Table of Contents
+
+- [About](#about)
+- [Structure](#structure)
+- [Requirements](#requirements)
+- [Development](#development)
+- [Tests](#tests)
+- [Production](#production)
+- [Contact](#contact)
+
+---
+
+## 📖 About <a name="about"></a>
+
+Pollo is inspired by the glowing bracelets handed out at Coldplay concerts. The
+goal is the same effect with none of the hardware: no wristbands, nothing
+installed in the venue — just the phones already in the crowd, each one treated
+as a pixel, and a server.
+
+An authenticated admin opens an event and anyone nearby joins it anonymously.
+Phones report what they can sense: their own GPS reading, and how far away their
+neighbours are. What the server keeps is therefore a **graph of distances**, not
+a map of coordinates — GPS is metres-accurate at best, which says nothing useful
+about a crowd where people stand centimetres apart. The distances are what make
+the arrangement recoverable.
+
+Turning that graph into positions is a simulation, and a simulation has no
+business on an event loop. A Rust worker refines the graph into coordinates and
+publishes them back; the API only does IO. Until the worker has placed a phone,
+that phone is drawn from its own GPS — as an outline rather than a pixel,
+because the difference between a measurement and an estimate should stay visible.
+
+**Effects are cues, not frames.** The admin fires one — a pulse, a wave, a
+rotating sweep, a spiral — and the server relays it untouched to every phone.
+Each phone works out its own brightness from the cue's parameters and where it
+is standing. Nothing is streamed per frame and nobody waits on a clock: phones
+hear from the server only when the cue changes, and a phone that loses the
+connection still finishes the cue it was given.
+
+That is the constraint the whole system is shaped around. It is also why the
+message contracts matter more than usual — every client, on every platform,
+has to read a cue the same way, or the crowd falls out of step.
+
+---
+
+## 🧱 Structure <a name="structure"></a>
 
 ```
 apps/
@@ -13,45 +59,94 @@ apps/
   web/         admin panel (SvelteKit + Tailwind)
   # worker/    position estimation (Rust)       — phase 3 (rewritten by hand)
   # mobile/    sensor client (SwiftUI/iOS)
+packages/
+  contracts/   the wire, as Zod schemas — every client validates against these
 infra/         Docker Compose (dev + prod) and Dockerfiles
 docs/adr/      architecture decision records
 ```
 
-## Development
+Everything that crosses a process boundary is defined once, in
+`packages/contracts`. One Zod schema carries the runtime validation, the
+TypeScript type inferred from it, and the description that becomes the API
+reference — and the lists are derived from records, so adding an effect or a
+message is a single entry rather than a hunt through every app that speaks the
+protocol.
 
-Prerequisites: Node ≥20 (npm), Docker, and optionally [`just`](https://github.com/casey/just).
+The reasoning behind the pieces lives in [`docs/adr/`](docs/adr): the
+[monorepo](docs/adr/0001-greenfield-monorepo.md), the
+[API rebuild](docs/adr/0002-api-rebuild.md),
+[Prisma 7](docs/adr/0003-prisma-7.md), the
+[admin panel](docs/adr/0004-admin-panel.md) and the
+[contracts package](docs/adr/0005-shared-contracts.md). For the story around
+them rather than the decisions themselves, see [`docs/articles.md`](docs/articles.md).
+
+---
+
+## ✅ Requirements <a name="requirements"></a>
+
+- **Node ≥ 20** with npm — the repo is npm workspaces, no other package manager.
+- **Docker** — Postgres and Redis run in containers even in development.
+- **[`just`](https://github.com/casey/just)**, optional but assumed below.
+  Without it, every command lives in the [`justfile`](justfile).
+- A **GitHub OAuth app** — sign-in is GitHub-only, for the API and the panel
+  alike.
+
+---
+
+## 🚀 Development <a name="development"></a>
 
 ```bash
 npm install
 cp .env.example .env          # fill JWT_SECRET and the GitHub OAuth credentials
-just up                       # Postgres + Redis
-just migrate                  # apply Prisma migrations
+just all                      # everything, one terminal  ->  :3333/docs and :3000
+```
+
+`just all` waits for Postgres and Redis, applies the migrations, then runs the
+contracts watch, the API and the panel together. Logs interleave; Ctrl-C stops
+the three host processes and leaves the datastores up (`just down` stops those).
+Editing anything — `packages/contracts` included — reloads the side that needs
+it, with no restart.
+
+One process per shell still works if you prefer the logs apart:
+
+```bash
+just up && just migrate
 just dev                      # API on the host with hot-reload  ->  http://localhost:3333/docs
 just web                      # admin panel, in another shell    ->  http://localhost:3000
+just contracts-watch          # only if you are editing packages/contracts
 ```
+
+Both apps import the contracts package's **build output**, so it compiles before
+they do — `just all`, `just dev`, `just web` and `just test` each take care of
+that on their own.
 
 The panel signs in with the same GitHub OAuth app as the API, so the app's
 **Authorization callback URL** must be exactly `GITHUB_OAUTH_CLIENT_REDIRECT_URI`
 (`http://localhost:3000/api/auth/callback` in development). Port 3000 is part of
 that contract — the dev server refuses to move.
 
-### Tests
+---
+
+## 🧪 Tests <a name="tests"></a>
 
 ```bash
-just test                     # unit (no external dependencies)
-npm run test:integration -w @pollo/backend   # needs `just up`
-npm run test:e2e -w @pollo/backend           # needs `just up`
-npm run test:all -w @pollo/backend
+just test                                      # every workspace suite, no external dependencies
+npm run test:integration -w @pollo/backend     # needs `just up`
+npm run test:e2e -w @pollo/backend             # needs `just up`
+npm run test:all -w @pollo/backend             # all three backend tiers
 ```
 
 Integration and e2e run against a dedicated `pollo_test` database and Redis
 logical db 1 — they never touch dev data.
 
-CI (GitHub Actions) runs the same pipeline on every PR — Biome, typecheck of
-both apps, the panel build, migrations, all three test tiers — plus a job that
-builds the production image and boots the full stack against its healthcheck.
+CI (GitHub Actions) runs the same pipeline on every PR: Biome, a typecheck of
+all three workspaces, the panel build, migrations, every workspace suite and the
+two backend tiers that need datastores — plus a job that builds the production
+images and boots the full stack against its healthchecks.
 
-## Production
+---
+
+## 📦 Production <a name="production"></a>
 
 One VPS, one command. Fill the secrets in `.env`, then:
 
@@ -69,4 +164,10 @@ what the operator's browser uses, WebSocket included, while the panel's own
 server reaches the API inside the network at `http://api:3333`. `WEB_ORIGIN`
 must be the address the panel is served from, or form posts are rejected.
 
-Without `just`, every command lives in the [`justfile`](justfile).
+---
+
+## 📬 Contact <a name="contact"></a>
+
+📧 Tobias Cadoná Marion — contato@tobiasmarion.com
+
+Made with 🤍 by Tobias

@@ -1,7 +1,7 @@
+import { participantSchema } from '@pollo/contracts';
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import { locationSchema } from '../../../schemas/location.js';
 import { NotFoundError } from '../../errors.js';
 import {
   errorExamples,
@@ -30,14 +30,7 @@ export async function getParticipants(app: FastifyInstance) {
         }),
         response: {
           200: z
-            .object({
-              participants: z.array(
-                z.object({
-                  deviceId: z.string().describe('Id the device sent in its `JOIN` message.'),
-                  location: locationSchema,
-                }),
-              ),
-            })
+            .object({ participants: z.array(participantSchema) })
             .describe('The devices in the event. Empty until someone joins.'),
           400: validationErrorResponseSchema.describe('`eventId` is not a valid UUID.'),
           404: errorResponseSchema.describe('No open event with that id is live in the runtime.'),

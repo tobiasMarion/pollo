@@ -1,3 +1,4 @@
+import { eventTypeSchema } from '@pollo/contracts';
 import { fail, redirect } from '@sveltejs/kit';
 import { z } from 'zod';
 import { ApiError } from '$lib/api/client';
@@ -27,7 +28,8 @@ function coordinate(limit: number) {
 
 const createEventFormSchema = z.object({
   name: z.string().trim().min(1, 'Give the event a name.'),
-  type: z.enum(['TORCH', 'SCREEN'], {
+  // The API owns which types exist; the panel only owns how it asks for one.
+  type: z.enum(eventTypeSchema.options, {
     errorMap: () => ({ message: 'Pick how the devices light up.' }),
   }),
   latitude: coordinate(90),

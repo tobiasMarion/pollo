@@ -1,4 +1,19 @@
-import type { Effect } from '$lib/api/types';
+import { z } from 'zod';
+import { effectSchema } from './schemas.js';
+
+export const effectPresetSchema = z
+  .object({
+    id: z.string().min(1).describe('Stable key — what the panel renders its pads by.'),
+    label: z.string().min(1).describe('What the operator reads on the pad.'),
+    hint: z
+      .string()
+      .min(1)
+      .describe('What actually changed, in the units the effect is expressed in.'),
+    effect: effectSchema,
+  })
+  .describe('A ready-made cue.');
+
+export type EffectPreset = z.infer<typeof effectPresetSchema>;
 
 /**
  * Ready-made cues for trying effects out on a real crowd. Firing one is a
@@ -6,16 +21,11 @@ import type { Effect } from '$lib/api/types';
  * to find out what a cue looks like on the field.
  *
  * Building cues by hand, with the parameters exposed, is a separate flow.
+ *
+ * Order is the deck order, and the panel binds the first nine to the number
+ * keys, so moving an entry moves a shortcut.
  */
-export interface EffectPreset {
-  id: string;
-  label: string;
-  /** What actually changed, in the units the effect is expressed in. */
-  hint: string;
-  effect: Effect;
-}
-
-export const effectPresets: EffectPreset[] = [
+const presets: EffectPreset[] = [
   {
     id: 'flash',
     label: 'Flash',
@@ -99,3 +109,17 @@ export const effectPresets: EffectPreset[] = [
     effect: { name: 'SPIRAL', activeTime: 1.5, radialSpeed: 1.5, angularSpeed: 6 },
   },
 ];
+
+const deckSchema = z
+  .array(effectPresetSchema)
+  .refine(
+    (entries) => new Set(entries.map((entry) => entry.id)).size === entries.length,
+    'Preset ids must be unique — the panel keys its pads by them.',
+  );
+
+/**
+ * Checked here rather than trusted: the annotation above catches a wrong shape,
+ * but only the schema catches a negative duration or a repeated id, and a
+ * broken cue should fail at boot instead of rendering a dead pad.
+ */
+export const effectPresets: EffectPreset[] = deckSchema.parse(presets);

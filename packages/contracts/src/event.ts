@@ -8,6 +8,9 @@ export const eventStatusSchema = z
   .enum(['OPEN', 'FINISHED'])
   .describe('`OPEN` events are live in the runtime; `FINISHED` ones are history.');
 
+export type EventType = z.infer<typeof eventTypeSchema>;
+export type EventStatus = z.infer<typeof eventStatusSchema>;
+
 // No `.describe()` on the object itself: Scalar renders a body description
 // twice when the request body and its schema both carry one.
 export const createEventSchema = z.object({
@@ -38,3 +41,15 @@ export const eventSchema = z
   .describe('An event as persisted in Postgres.');
 
 export type Event = z.infer<typeof eventSchema>;
+
+/**
+ * The same event as a client receives it. `eventSchema` types the timestamps as
+ * `Date` because that is what Prisma hands the API; JSON has no date type, so
+ * they reach the browser as ISO 8601 strings.
+ */
+export const eventWireSchema = eventSchema.extend({
+  createdAt: z.string().datetime().describe('ISO 8601 timestamp.'),
+  updatedAt: z.string().datetime().describe('ISO 8601 timestamp.'),
+});
+
+export type EventWire = z.infer<typeof eventWireSchema>;

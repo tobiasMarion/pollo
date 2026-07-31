@@ -1,12 +1,5 @@
 import type { WebSocket } from '@fastify/websocket';
-import type { Message } from '../../schemas/messages.js';
-
-/** Application close codes (4000-4999 range is reserved for applications). */
-export const WS_CLOSE = {
-  INVALID_MESSAGE: 4400,
-  UNAUTHORIZED: 4401,
-  NOT_FOUND: 4404,
-} as const;
+import type { Message } from '@pollo/contracts';
 
 export function sendMessage(socket: WebSocket, message: Message) {
   socket.send(JSON.stringify(message));

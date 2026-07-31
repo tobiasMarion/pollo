@@ -1,5 +1,5 @@
+import type { CreateEvent, EventGraph, EventWire, Participant, User } from '@pollo/contracts';
 import { env } from '$env/dynamic/public';
-import type { CreateEventInput, EventGraph, Participant, PolloEvent, User } from '$lib/api/types';
 
 /** Every failure the API can answer with, as one throwable. */
 export class ApiError extends Error {
@@ -77,16 +77,16 @@ export function createApiClient({
   return {
     getProfile: () => request<{ user: User }>('/profile').then(({ user }) => user),
 
-    listMyEvents: () => request<{ events: PolloEvent[] }>('/events').then(({ events }) => events),
+    listMyEvents: () => request<{ events: EventWire[] }>('/events').then(({ events }) => events),
 
-    createEvent: (input: CreateEventInput) =>
+    createEvent: (input: CreateEvent) =>
       request<{ eventId: string }>('/events', {
         method: 'POST',
         body: JSON.stringify(input),
       }).then(({ eventId }) => eventId),
 
     getEvent: (eventId: string) =>
-      request<{ event: PolloEvent }>(`/events/${eventId}`).then(({ event }) => event),
+      request<{ event: EventWire }>(`/events/${eventId}`).then(({ event }) => event),
 
     getParticipants: (eventId: string) =>
       request<{ participants: Participant[] }>(`/events/${eventId}/participants`).then(

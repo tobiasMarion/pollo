@@ -1,8 +1,7 @@
+import { type CreateEvent, type ExactLocation, exactLocationSchema } from '@pollo/contracts';
 import type { FastifyBaseLogger } from 'fastify';
 import type { Redis } from 'ioredis';
 import type { PrismaClient } from '../generated/prisma/client.js';
-import type { CreateEvent } from '../schemas/event.js';
-import { type ExactLocation, exactLocationSchema } from '../schemas/location.js';
 import type { Bus, PositionsSubscription } from './bus.js';
 import { EventService } from './event-service.js';
 import { GraphStore } from './graph-store.js';

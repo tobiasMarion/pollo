@@ -1,7 +1,7 @@
+import { eventSchema } from '@pollo/contracts';
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import { eventSchema } from '../../../schemas/event.js';
 import { NotFoundError } from '../../errors.js';
 import {
   errorExamples,

@@ -1,3 +1,4 @@
+import { userSchema } from '@pollo/contracts';
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
@@ -21,19 +22,7 @@ export async function getProfile(app: FastifyInstance) {
             '`name` and `avatarUrl` mirror GitHub at signup time and may be null.',
           security: [{ bearerAuth: [] }],
           response: {
-            200: z
-              .object({
-                user: z.object({
-                  id: z.string().uuid().describe('Pollo user id — the `sub` of the JWT.'),
-                  name: z.string().nullable().describe('GitHub display name, if any.'),
-                  email: z
-                    .string()
-                    .email()
-                    .describe('GitHub email — the identity users are keyed by.'),
-                  avatarUrl: z.string().url().nullable().describe('GitHub avatar, if any.'),
-                }),
-              })
-              .describe('The authenticated user.'),
+            200: z.object({ user: userSchema }).describe('The authenticated user.'),
             400: errorResponseSchema.describe(
               'The token is valid but its user no longer exists (deleted account).',
             ),

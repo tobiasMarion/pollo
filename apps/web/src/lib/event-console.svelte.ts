@@ -1,20 +1,23 @@
+import {
+  type AdminOutboundMessage,
+  adminInbound,
+  type Effect,
+  type EventGraph,
+  type Location,
+  type NodePosition,
+  safeParseJsonMessage,
+  socketPaths,
+  WS_CLOSE,
+} from '@pollo/contracts';
 import { SvelteMap } from 'svelte/reactivity';
 import { apiSocketUrl } from '$lib/api/client';
-import type {
-  AdminInboundMessage,
-  AdminOutboundMessage,
-  DeviceLocation,
-  Effect,
-  EventGraph,
-  Position,
-} from '$lib/api/types';
 
 export interface DeviceState {
   deviceId: string;
   /** Null while the only thing seen about a device is a position report. */
-  location: DeviceLocation | null;
+  location: Location | null;
   /** Absent until the worker has published a position for this device. */
-  position: Position | null;
+  position: NodePosition | null;
   /** Wall clock of the last frame about this device — drives the "recent" fade. */
   updatedAt: number;
 }
@@ -26,13 +29,6 @@ export type ConnectionStatus =
   | 'reconnecting'
   | 'rejected'
   | 'closed';
-
-/** Application close codes the API uses (see http/ws/protocol.ts). */
-const WS_CLOSE = {
-  INVALID_MESSAGE: 4400,
-  UNAUTHORIZED: 4401,
-  NOT_FOUND: 4404,
-} as const;
 
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 15_000;
@@ -91,7 +87,7 @@ export class EventConsole {
   connect() {
     this.#closedByUs = false;
 
-    const socket = new WebSocket(apiSocketUrl(`/events/${this.#eventId}/admin`));
+    const socket = new WebSocket(apiSocketUrl(socketPaths.admin(this.#eventId)));
     this.#socket = socket;
     this.status = this.#retries === 0 ? 'connecting' : 'reconnecting';
 
@@ -156,13 +152,11 @@ export class EventConsole {
   #receive(raw: unknown) {
     if (typeof raw !== 'string') return;
 
-    let message: AdminInboundMessage;
+    // Validated rather than cast: the panel is a client of a contract it does
+    // not control, and a frame it cannot read is one to drop, not to render.
+    const { success, data: message } = safeParseJsonMessage(raw, adminInbound.schema);
 
-    try {
-      message = JSON.parse(raw) as AdminInboundMessage;
-    } catch {
-      return;
-    }
+    if (!success) return;
 
     const now = Date.now();
 
@@ -233,7 +227,7 @@ export class EventConsole {
 
 /** Positions the worker has published — the only devices worth drawing. */
 export function positionedDevices(devices: Iterable<DeviceState>): DeviceState[] {
-  return [...devices].filter((device): device is DeviceState & { position: Position } =>
+  return [...devices].filter((device): device is DeviceState & { position: NodePosition } =>
     Boolean(device.position),
   );
 }

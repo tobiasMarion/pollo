@@ -1,13 +1,13 @@
-import type { Redis } from 'ioredis';
 import {
   type Edge,
+  type Location,
   type Metadata,
   metadataSchema,
   type Node,
   type NodePosition,
   type NodesWithMetadata,
-} from '../schemas/graph.js';
-import type { Location } from '../schemas/location.js';
+} from '@pollo/contracts';
+import type { Redis } from 'ioredis';
 
 const TTL_SECONDS = 43_200; // 12 hours
 

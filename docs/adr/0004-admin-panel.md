@@ -44,9 +44,10 @@ authority.
   is a runtime value, and reading it during the build — which has none of the
   secrets — would fail every build. The container refuses to start on a bad
   environment.
-- **Types are mirrored by hand** from `apps/backend/src/schemas`. The shared
+- ~~**Types are mirrored by hand** from `apps/backend/src/schemas`. The shared
   contracts package ADR 0001 planned is still deferred; the backend remains the
-  source of truth.
+  source of truth.~~ **Superseded by [ADR 0005](0005-shared-contracts.md):** the
+  package landed, and both the panel and the API now import the wire from it.
 
 ## Consequences
 

@@ -1,6 +1,6 @@
+import type { EventGraph } from '@pollo/contracts';
 import { error } from '@sveltejs/kit';
 import { ApiError } from '$lib/api/client';
-import type { EventGraph } from '$lib/api/types';
 import { serverApi } from '$lib/server/api';
 import type { PageServerLoad } from './$types';
 

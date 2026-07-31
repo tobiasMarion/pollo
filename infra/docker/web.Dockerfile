@@ -6,9 +6,15 @@ FROM base AS build
 COPY package.json package-lock.json ./
 COPY apps/web/package.json apps/web/
 COPY apps/backend/package.json apps/backend/
+COPY packages/contracts/package.json packages/contracts/
 # The lockfile covers the whole workspace, so the backend manifest has to be
 # present for `npm ci` even though nothing here builds it.
-RUN npm ci --workspace=@pollo/web --include-workspace-root
+RUN npm ci --workspace=@pollo/web --workspace=@pollo/contracts --include-workspace-root
+# Vite bundles the contracts into the panel (see `ssr.noExternal`), and it
+# bundles the build output, so they compile first.
+COPY packages/contracts/tsconfig.json packages/contracts/tsconfig.build.json packages/contracts/
+COPY packages/contracts/src packages/contracts/src
+RUN npm run build --workspace=@pollo/contracts
 COPY apps/web/svelte.config.js apps/web/vite.config.ts apps/web/tsconfig.json apps/web/
 COPY apps/web/src apps/web/src
 COPY apps/web/static apps/web/static

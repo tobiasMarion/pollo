@@ -1,10 +1,8 @@
 import { randomUUID } from 'node:crypto';
+import type { ControlMessage, IngestMessage, Location, Message } from '@pollo/contracts';
 import type { Redis } from 'ioredis';
 import RedisMock from 'ioredis-mock';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Location } from '../schemas/location.js';
-import type { Message } from '../schemas/messages.js';
-import type { ControlMessage, IngestMessage } from '../schemas/wire.js';
 import type { Bus } from './bus.js';
 import { EventService } from './event-service.js';
 import { GraphStore } from './graph-store.js';

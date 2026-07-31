@@ -1,8 +1,8 @@
+import { eventSchema } from '@pollo/contracts';
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { Prisma } from '../../../generated/prisma/client.js';
-import { eventSchema } from '../../../schemas/event.js';
 import { NotFoundError } from '../../errors.js';
 import { errorResponseSchema, validationErrorResponseSchema } from '../../responses.js';
 

@@ -52,6 +52,11 @@ jobs:
       - name: Lint and format (Biome)
         run: npm run ci
 
+      # Both apps import the built package, so nothing after this can run
+      # without it — typecheck included.
+      - name: Build the shared contracts
+        run: npm run contracts
+
       - name: Generate Prisma client
         run: npm run db:generate -w @pollo/backend
 
@@ -64,8 +69,11 @@ jobs:
       - name: Migrations apply cleanly
         run: npm run db:migrate -w @pollo/backend
 
-      - name: Unit tests
-        run: npm run test -w @pollo/backend
+      # Every workspace's own suite, through the root script: `--if-present`
+      # means a new package is covered the day it grows tests, not the day
+      # someone remembers to add a line here.
+      - name: Unit and contract tests
+        run: npm test
 
       - name: Integration tests
         run: npm run test:integration -w @pollo/backend
