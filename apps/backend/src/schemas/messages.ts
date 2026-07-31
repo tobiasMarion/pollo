@@ -1,7 +1,6 @@
+import { type Location, locationSchema, positionSchema } from '@pollo/contracts';
 import { z } from 'zod';
 import { effectSchema } from './effects.js';
-import { positionSchema } from './graph.js';
-import { type Location, locationSchema } from './location.js';
 
 export const messageSchemas = {
   AUTH: z.object({

@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import { edgeSchema, metadataSchema } from '../../../schemas/graph.js';
+import { edgeSchema, metadataSchema } from '@pollo/contracts';
 import { NotFoundError } from '../../errors.js';
 import { auth } from '../../middlewares/auth.js';
 import {

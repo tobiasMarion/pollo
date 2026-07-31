@@ -1,10 +1,11 @@
 import type { WebSocket } from '@fastify/websocket';
+import { WS_CLOSE } from '@pollo/contracts';
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import type { EventService } from '../../events/event-service.js';
 import { messageSchema, safeParseJsonMessage } from '../../schemas/messages.js';
-import { sendMessage, startHeartbeat, WS_CLOSE } from './protocol.js';
+import { sendMessage, startHeartbeat } from './protocol.js';
 
 interface AdminSocketDeps {
   verifyToken: (token: string) => { sub: string };

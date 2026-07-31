@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { positionSchema } from './graph.js';
 import { locationSchema } from './location.js';
+import { unionFrom } from './union.js';
 
 /**
  * Wire contracts carried over Redis Streams between the Node API (IO) and the
@@ -11,31 +12,35 @@ import { locationSchema } from './location.js';
  * Golden rule: NO brightness/effect data crosses this boundary — positions only.
  */
 
-export const ingestMessageSchema = z.discriminatedUnion('op', [
-  z.object({
+export const ingestMessageSchemas = {
+  JOIN: z.object({
     op: z.literal('JOIN'),
     deviceId: z.string(),
     location: locationSchema,
   }),
-  z.object({
+  LOCATION_UPDATE: z.object({
     op: z.literal('LOCATION_UPDATE'),
     deviceId: z.string(),
     location: locationSchema,
   }),
-  z.object({
+  DISTANCE: z.object({
     op: z.literal('DISTANCE'),
     from: z.string(),
     to: z.string(),
     // null => the edge must be removed (out of range)
     distance: z.number().nullable(),
   }),
-  z.object({
+  LEAVE: z.object({
     op: z.literal('LEAVE'),
     deviceId: z.string(),
   }),
-]);
+} as const;
+
+export const ingestMessageSchema = unionFrom('op', ingestMessageSchemas);
 
 export type IngestMessage = z.infer<typeof ingestMessageSchema>;
+export type IngestOp = IngestMessage['op'];
+export const ingestOps = Object.keys(ingestMessageSchemas) as [IngestOp, ...IngestOp[]];
 
 export const positionPointSchema = z.object({
   deviceId: z.string(),
@@ -55,21 +60,25 @@ export const positionsMessageSchema = z.object({
 
 export type PositionsMessage = z.infer<typeof positionsMessageSchema>;
 
-export const controlMessageSchema = z.discriminatedUnion('op', [
-  z.object({
+export const controlMessageSchemas = {
+  EVENT_OPENED: z.object({
     op: z.literal('EVENT_OPENED'),
     eventId: z.string().uuid(),
     // exact event location (baseLocation for the reconstruction)
     latitude: z.number(),
     longitude: z.number(),
   }),
-  z.object({
+  EVENT_CLOSED: z.object({
     op: z.literal('EVENT_CLOSED'),
     eventId: z.string().uuid(),
   }),
-]);
+} as const;
+
+export const controlMessageSchema = unionFrom('op', controlMessageSchemas);
 
 export type ControlMessage = z.infer<typeof controlMessageSchema>;
+export type ControlOp = ControlMessage['op'];
+export const controlOps = Object.keys(controlMessageSchemas) as [ControlOp, ...ControlOp[]];
 
 /** Single field where the JSON payload is stored in each stream entry. */
 export const STREAM_FIELD = 'data';

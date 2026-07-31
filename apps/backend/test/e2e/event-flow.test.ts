@@ -3,7 +3,7 @@ import { Redis } from 'ioredis';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
 import { type Message, messageSchema } from '../../src/schemas/messages.js';
-import { STREAM_FIELD, streamKeys } from '../../src/schemas/wire.js';
+import { STREAM_FIELD, streamKeys } from '@pollo/contracts';
 import { createTestApp, createUser, truncateDatabase, waitFor } from '../helpers.js';
 import { TEST_REDIS_URL } from '../test-env.js';
 

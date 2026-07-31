@@ -1,7 +1,6 @@
 import type { FastifyBaseLogger } from 'fastify';
-import type { ExactLocation, Location } from '../schemas/location.js';
+import type { ExactLocation, Location, PositionsMessage } from '@pollo/contracts';
 import type { Admin, Message, SendMessage, Subscriber } from '../schemas/messages.js';
-import type { PositionsMessage } from '../schemas/wire.js';
 import type { Bus } from './bus.js';
 import type { GraphStore } from './graph-store.js';
 

@@ -1,5 +1,3 @@
-import type { FastifyBaseLogger } from 'fastify';
-import type { Redis } from 'ioredis';
 import {
   type ControlMessage,
   type IngestMessage,
@@ -7,7 +5,9 @@ import {
   positionsMessageSchema,
   STREAM_FIELD,
   streamKeys,
-} from '../schemas/wire.js';
+} from '@pollo/contracts';
+import type { FastifyBaseLogger } from 'fastify';
+import type { Redis } from 'ioredis';
 
 export interface PositionsSubscription {
   stop(): void;

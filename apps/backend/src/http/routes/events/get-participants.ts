@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import { locationSchema } from '../../../schemas/location.js';
+import { locationSchema } from '@pollo/contracts';
 import { NotFoundError } from '../../errors.js';
 import {
   errorExamples,

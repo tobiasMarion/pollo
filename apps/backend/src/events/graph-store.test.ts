@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
+import type { Location } from '@pollo/contracts';
 import type { Redis } from 'ioredis';
 import RedisMock from 'ioredis-mock';
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { Location } from '../schemas/location.js';
 import { GraphStore } from './graph-store.js';
 
 const location: Location = {
