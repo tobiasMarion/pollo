@@ -13,9 +13,21 @@ apps/
   web/         admin panel (SvelteKit + Tailwind)
   # worker/    position estimation (Rust)       — phase 3 (rewritten by hand)
   # mobile/    sensor client (SwiftUI/iOS)
+packages/
+  contracts/   the wire, as Zod schemas — every client validates against these
 infra/         Docker Compose (dev + prod) and Dockerfiles
 docs/adr/      architecture decision records
 ```
+
+Everything that crosses a process boundary is defined once, in
+`packages/contracts` ([ADR 0005](docs/adr/0005-shared-contracts.md)). The schemas
+there carry the validation, the TypeScript types inferred from them, and the
+descriptions that become the API reference — and the lists are derived, so adding
+an effect or a message is one entry rather than a hunt through both apps.
+
+Both apps import the package's **build output**, so it compiles before they do.
+`just dev`, `just web` and `just test` take care of that; when contracts is what
+you are editing, `just contracts-watch` in another shell keeps it fresh.
 
 ## Development
 

@@ -1,5 +1,11 @@
 import type { WebSocket } from '@fastify/websocket';
-import { deviceOutbound, safeParseJsonMessage, WS_CLOSE } from '@pollo/contracts';
+import {
+  deviceInbound,
+  deviceOutbound,
+  messageTable,
+  safeParseJsonMessage,
+  WS_CLOSE,
+} from '@pollo/contracts';
 import type { FastifyBaseLogger, FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
@@ -12,7 +18,10 @@ export function handleJoinSocket(socket: WebSocket, event: EventService, log: Fa
   startHeartbeat(socket);
 
   socket.on('message', (rawMessage) => {
-    const { success, data, error } = safeParseJsonMessage(rawMessage.toString(), deviceOutbound.schema);
+    const { success, data, error } = safeParseJsonMessage(
+      rawMessage.toString(),
+      deviceOutbound.schema,
+    );
 
     if (!success) {
       log.debug({ error }, 'invalid join-socket message');
@@ -74,11 +83,7 @@ export async function joinEvent(app: FastifyInstance) {
           '',
           '### Frames you send',
           '',
-          '| type | payload | meaning |',
-          '| --- | --- | --- |',
-          '| `JOIN` | `deviceId`, `location` | register as a pixel. Required first. |',
-          '| `LOCATION_UPDATE` | `location` | the device moved. |',
-          '| `DISTANCE` | `to`, `distance` | distance to another device, in meters. `null` drops the edge. |',
+          messageTable(deviceOutbound),
           '',
           '`DISTANCE` has no `from` — the sender is always the origin.',
           '',
@@ -90,11 +95,7 @@ export async function joinEvent(app: FastifyInstance) {
           '',
           '### Frames you receive',
           '',
-          '| type | when |',
-          '| --- | --- |',
-          '| `SET_POINT` | a new position **for this device**. Render `simulated`. |',
-          '| `USER_JOINED` / `USER_LEFT` | any device joined or left. |',
-          '| `EFFECT` | the admin fired an effect. |',
+          messageTable(deviceInbound),
           '',
           '```json',
           '{ "type": "SET_POINT", "position": {',

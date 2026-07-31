@@ -1,5 +1,12 @@
 import type { WebSocket } from '@fastify/websocket';
-import { adminOutbound, safeParseJsonMessage, WS_CLOSE } from '@pollo/contracts';
+import {
+  adminInbound,
+  adminOutbound,
+  effectNames,
+  messageTable,
+  safeParseJsonMessage,
+  WS_CLOSE,
+} from '@pollo/contracts';
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
@@ -90,12 +97,9 @@ export async function adminEvent(app: FastifyInstance) {
           '',
           '### Frames you send',
           '',
-          '| type | payload | meaning |',
-          '| --- | --- | --- |',
-          '| `AUTHENTICATION` | `token` | required first frame. |',
-          '| `EFFECT` | `effect` | broadcast to every device and back to this socket. |',
+          messageTable(adminOutbound),
           '',
-          'Effects are discriminated by `name` — `PULSE`, `WAVE`, `ROTATE`, `SPIRAL` —',
+          `Effects are discriminated by \`name\` — ${effectNames.map((name) => `\`${name}\``).join(', ')} —`,
           'and are relayed untouched: brightness never reaches the simulation.',
           '',
           '```json',
@@ -109,14 +113,7 @@ export async function adminEvent(app: FastifyInstance) {
           'The admin sees everything, as `*_REPORT` variants carrying the `deviceId`',
           'that device-facing frames leave out.',
           '',
-          '| type | when |',
-          '| --- | --- |',
-          '| `AUTHENTICATION_ACK` | authentication succeeded. |',
-          '| `USER_JOINED` / `USER_LEFT` | a device joined or left. |',
-          '| `LOCATION_UPDATE_REPORT` | a device moved. |',
-          '| `DISTANCE_REPORT` | a distance was measured (`null` = edge dropped). |',
-          '| `SET_POINT_REPORT` | the worker positioned a device. |',
-          '| `EFFECT` | echo of effects fired here. |',
+          messageTable(adminInbound),
           '',
           '### Close codes',
           '',

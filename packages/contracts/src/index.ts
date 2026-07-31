@@ -5,6 +5,7 @@ export * from './event.js';
 export * from './graph.js';
 export * from './location.js';
 export * from './messages/directions.js';
+export * from './messages/docs.js';
 export * from './messages/parse.js';
 export * from './messages/schemas.js';
 export * from './union.js';
