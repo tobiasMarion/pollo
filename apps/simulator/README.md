@@ -45,12 +45,15 @@ number; `noise` reads the crowd's geometry to decide how badly a seat is served;
 `io` puts a device on a socket with both; `run` spreads devices across threads
 and hands `metrics` the result.
 
-```
-                 ┌── crowd ──┐
-   noise/random ─┤           ├─ noise ─┐
-                 └───────────┘         ├─ io/device ─ run ─ metrics ─ io/dashboard
-                                       │
-                              io/config ┘
+```mermaid
+flowchart LR
+  random["noise/random"] --> crowd
+  random --> noise
+  crowd --> noise
+  crowd --> device["io/device"]
+  noise --> device
+  config["io/config"] --> device
+  device --> run --> metrics --> dashboard["io/dashboard"]
 ```
 
 ## Reading a run

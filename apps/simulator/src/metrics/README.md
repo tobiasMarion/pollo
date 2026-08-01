@@ -60,6 +60,17 @@ routine.
    `R = V · diag(1, 1, d) · Uᵀ`. This is the standard correction, and it is what
    makes the result a proper rotation rather than merely an orthogonal matrix.
 
+```mermaid
+flowchart TD
+  centre["centre both clouds on their centroids"] --> h["cross-covariance H, 3×3"]
+  h --> eig["Jacobi eigendecomposition of HᵀH"]
+  eig --> det{"det(VUᵀ) &lt; 0 ?"}
+  det -->|no| rot["R = VUᵀ"]
+  det -->|"yes — a reflection"| flip["R = V · diag(1, 1, −1) · Uᵀ"]
+  rot --> rmse["RMSE after applying R"]
+  flip --> rmse
+```
+
 ### Why a Jacobi eigensolver
 
 `symmetricEigen` runs cyclic Jacobi rotations on the symmetric 3×3 `HᵀH`. Ten

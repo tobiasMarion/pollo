@@ -41,6 +41,15 @@ Fifty thousand seats are never serialised across a thread boundary, and — the
 part that matters — twenty thousand devices across eight threads agree on their
 common-mode GNSS error **without exchanging a single message about it**.
 
+```mermaid
+flowchart TD
+  seed["--seed"] -->|derived, never sent| shard0
+  seed -->|derived, never sent| shardN
+  shard0["shard 0<br/>bowl · zones · error field"] -->|writes positions| sab
+  shardN["shard n<br/>bowl · zones · error field"] -->|writes positions| sab
+  sab[("SharedArrayBuffer<br/>positions · counters")] --> pool["main thread<br/>pool → metrics"]
+```
+
 Spare seats are divided the same way: each shard takes a disjoint slice of
 what is empty, so two threads can never walk a device into the same seat and no
 lock is needed to prevent it.

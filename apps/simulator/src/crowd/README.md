@@ -70,6 +70,15 @@ This is the bridge between the building and the error budget: where you sit
 decides how much sky you have, how much sky you have decides your geometry, and
 your geometry multiplies every range error your receiver makes.
 
+```mermaid
+flowchart LR
+  seat["seat in the bowl"] --> mask["elevation mask<br/>32 azimuths"]
+  mask --> sky["sky fraction<br/>mean of 1 − sin(mask)"]
+  sky --> dop["HDOP, VDOP"]
+  dop --> sigma["σ_position"]
+  uere["σ_UERE<br/>clock · ephemeris · ionosphere"] --> sigma
+```
+
 Computed **once per zone**, not per device. The sky a seat can see is a property
 of where in the bowl it sits, and 48 zones answer that as well as twenty
 thousand ray casts would, for four orders of magnitude less work.

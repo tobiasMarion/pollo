@@ -138,6 +138,19 @@ entirely. A worker tuned against them has been tuned against a problem that does
 not exist, and would meet the real one — which a median does not touch —
 untrained.
 
+```mermaid
+stateDiagram-v2
+  [*] --> clean
+  clean --> reflected: Exp(40 s / susceptibility)
+  reflected --> clean: Exp(8 s)
+  note right of reflected
+    bias along the zone's inward heading
+    magnitude ~ Gamma(2, 7 + 8·susceptibility)
+    clean σ inflated ×2.5
+    reported accuracy: unchanged
+  end note
+```
+
 What makes multipath hard is that it *persists*. The reflection geometry holds
 for seconds, so the error looks like a plausible new position rather than an
 obvious outlier. The device is not noisy; it is confidently somewhere else.
