@@ -39,38 +39,33 @@ const MAX_SCALE = 60
 const DEFAULT_SCALE = 12
 
 /**
- * Camera angles. The yaw is deliberately not 45°, which would put a corner of
- * the bowl square to the viewer and make the two halves mirror each other; off
- * the diagonal, one straight side reads as the near stand and the shape is
- * legible. The pitch is near the isometric 35.26°, high enough to keep the ring
- * open and low enough that the rake is visible.
+ * The yaw is deliberately not 45°, which would put a corner of the bowl square
+ * to the viewer and make the two halves mirror each other; off the diagonal,
+ * one straight side reads as the near stand and the shape is legible.
+ *
+ * The pitch has to clear the rake of the stands, and by more than a little. A
+ * lower tier rising 0.45m every 0.8m of depth is a slope of 29.4°: walking
+ * outward on the side facing the camera moves a row away (down the screen by
+ * sin(pitch)) and up (up the screen by rake·cos(pitch)), and at 29.4° those
+ * cancel exactly. Below it the viewer is under the seating surface looking at
+ * its underside; just above it the stand is near enough edge-on that the bowl
+ * reads inside out. 50° puts the near rows a clear third of a metre down-screen
+ * per metre outward, which is unambiguously looking into the bowl, while still
+ * leaving the height foreshortened enough to see.
  */
-const YAW = (32 * Math.PI) / 180
-const PITCH = (36 * Math.PI) / 180
+const DEFAULT_YAW = (32 * Math.PI) / 180
+const DEFAULT_PITCH = (50 * Math.PI) / 180
 
-const COS_YAW = Math.cos(YAW)
-const SIN_YAW = Math.sin(YAW)
-const COS_PITCH = Math.cos(PITCH)
-const SIN_PITCH = Math.sin(PITCH)
+/** Never quite overhead and never underground: both are disorienting. */
+const MIN_PITCH = (6 * Math.PI) / 180
+const MAX_PITCH = (88 * Math.PI) / 180
+
+const ORBIT_PER_PIXEL = 0.006
+const ORBIT_PER_KEYPRESS = 0.06
+const ZOOM_PER_NOTCH = 1.0015
 
 /** A point in canvas pixels, as opposed to the meters `Vector3` carries. */
 type Vector2 = { x: number; y: number }
-
-/** Camera-space coordinates of a field offset, before scale and centering. */
-function toCamera(dx: number, dy: number, dz: number) {
-  const east = dx * COS_YAW - dy * SIN_YAW
-  const north = dx * SIN_YAW + dy * COS_YAW
-
-  return {
-    u: east,
-    v: -(north * SIN_PITCH + dz * COS_PITCH),
-    /** Distance along the view direction — larger is further from the camera. */
-    depth: north * COS_PITCH - dz * SIN_PITCH,
-  }
-}
-
-/** How much a meter along the x axis is worth on screen, for the ruler. */
-const X_AXIS_FORESHORTENING = Math.hypot(COS_YAW, SIN_YAW * SIN_PITCH)
 
 function centroid(list: FieldPixel[]): Vector3 {
   if (list.length === 0) return { x: 0, y: 0, z: 0 }
@@ -113,6 +108,51 @@ onMount(() => {
   let originY = 0
   let originZ = 0
 
+  let yaw = DEFAULT_YAW
+  let pitch = DEFAULT_PITCH
+
+  let cosYaw = Math.cos(yaw)
+  let sinYaw = Math.sin(yaw)
+  let cosPitch = Math.cos(pitch)
+  let sinPitch = Math.sin(pitch)
+
+  /**
+   * Set once the operator zooms. Until then the view keeps framing itself, and
+   * after it the framing stays where it was put — an auto-fit that overrode a
+   * deliberate zoom every frame would be unusable.
+   */
+  let chosenScale: number | null = null
+
+  function orbit(byYaw: number, byPitch: number) {
+    yaw += byYaw
+    pitch = Math.min(MAX_PITCH, Math.max(MIN_PITCH, pitch + byPitch))
+
+    cosYaw = Math.cos(yaw)
+    sinYaw = Math.sin(yaw)
+    cosPitch = Math.cos(pitch)
+    sinPitch = Math.sin(pitch)
+  }
+
+  function resetCamera() {
+    yaw = DEFAULT_YAW
+    pitch = DEFAULT_PITCH
+    chosenScale = null
+    orbit(0, 0)
+  }
+
+  /** Camera-space coordinates of a field offset, before scale and centering. */
+  function toCamera(dx: number, dy: number, dz: number) {
+    const east = dx * cosYaw - dy * sinYaw
+    const north = dx * sinYaw + dy * cosYaw
+
+    return {
+      u: east,
+      v: -(north * sinPitch + dz * cosPitch),
+      /** Distance along the view direction — larger is further from the camera. */
+      depth: north * cosPitch - dz * sinPitch,
+    }
+  }
+
   function resize() {
     const ratio = window.devicePixelRatio || 1
     width = canvas.clientWidth
@@ -153,7 +193,9 @@ onMount(() => {
         ? DEFAULT_SCALE
         : Math.min(usableWidth / Math.max(spanU, 0.01), usableHeight / Math.max(spanV, 0.01))
 
-    scale += (Math.min(Math.max(target, MIN_SCALE), MAX_SCALE) - scale) * 0.06
+    const wanted = chosenScale ?? Math.min(Math.max(target, MIN_SCALE), MAX_SCALE)
+
+    scale += (wanted - scale) * 0.06
     originX += (center.x - originX) * 0.06
     originY += (center.y - originY) * 0.06
     originZ += (center.z - originZ) * 0.06
@@ -389,7 +431,10 @@ onMount(() => {
    * field, and a ruler that ignores that reports the wrong number of meters.
    */
   function drawRuler() {
-    const step = rulerMeters(scale * X_AXIS_FORESHORTENING)
+    // How much a meter along x is worth on screen, at the angle it is currently
+    // being seen from.
+    const foreshortening = Math.hypot(cosYaw, sinYaw * sinPitch)
+    const step = rulerMeters(scale * foreshortening)
     const span = toCamera(step, 0, 0)
     const x = 24
     const y = height - 24
@@ -475,6 +520,79 @@ onMount(() => {
   })
   observer.observe(canvas)
 
+  /**
+   * Orbit by dragging. The scene follows the cursor — drag right and the bowl
+   * turns right, drag down and the camera settles toward the horizon — which is
+   * the direction that feels like moving the field rather than the camera.
+   */
+  let dragging: number | null = null
+  let lastX = 0
+  let lastY = 0
+
+  const onPointerDown = (event: PointerEvent) => {
+    dragging = event.pointerId
+    lastX = event.clientX
+    lastY = event.clientY
+    canvas.setPointerCapture(event.pointerId)
+  }
+
+  const onPointerMove = (event: PointerEvent) => {
+    if (dragging !== event.pointerId) return
+
+    orbit(-(event.clientX - lastX) * ORBIT_PER_PIXEL, -(event.clientY - lastY) * ORBIT_PER_PIXEL)
+
+    lastX = event.clientX
+    lastY = event.clientY
+  }
+
+  const onPointerUp = (event: PointerEvent) => {
+    if (dragging !== event.pointerId) return
+
+    dragging = null
+    canvas.releasePointerCapture(event.pointerId)
+  }
+
+  const onWheel = (event: WheelEvent) => {
+    event.preventDefault()
+
+    const next = (chosenScale ?? scale) * ZOOM_PER_NOTCH ** -event.deltaY
+    chosenScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, next))
+  }
+
+  const onKeyDown = (event: KeyboardEvent) => {
+    const step = ORBIT_PER_KEYPRESS
+
+    switch (event.key) {
+      case 'ArrowLeft':
+        orbit(step, 0)
+        break
+      case 'ArrowRight':
+        orbit(-step, 0)
+        break
+      case 'ArrowUp':
+        orbit(0, step)
+        break
+      case 'ArrowDown':
+        orbit(0, -step)
+        break
+      case '0':
+        resetCamera()
+        break
+      default:
+        return
+    }
+
+    event.preventDefault()
+  }
+
+  canvas.addEventListener('pointerdown', onPointerDown)
+  canvas.addEventListener('pointermove', onPointerMove)
+  canvas.addEventListener('pointerup', onPointerUp)
+  canvas.addEventListener('pointercancel', onPointerUp)
+  canvas.addEventListener('wheel', onWheel, { passive: false })
+  canvas.addEventListener('keydown', onKeyDown)
+  canvas.addEventListener('dblclick', resetCamera)
+
   resize()
 
   const tick = () => {
@@ -486,8 +604,21 @@ onMount(() => {
   return () => {
     cancelAnimationFrame(frame)
     observer.disconnect()
+
+    canvas.removeEventListener('pointerdown', onPointerDown)
+    canvas.removeEventListener('pointermove', onPointerMove)
+    canvas.removeEventListener('pointerup', onPointerUp)
+    canvas.removeEventListener('pointercancel', onPointerUp)
+    canvas.removeEventListener('wheel', onWheel)
+    canvas.removeEventListener('keydown', onKeyDown)
+    canvas.removeEventListener('dblclick', resetCamera)
   }
 })
 </script>
 
-<canvas bind:this={canvas} class="block h-full w-full" aria-hidden="true"></canvas>
+<canvas
+  bind:this={canvas}
+  class="block h-full w-full cursor-grab touch-none select-none active:cursor-grabbing"
+  tabindex="0"
+  aria-label="The field seen from a raised corner. Drag or use the arrow keys to orbit, scroll to zoom, double-click or press 0 to reset."
+></canvas>
