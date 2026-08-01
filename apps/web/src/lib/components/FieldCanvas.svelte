@@ -11,17 +11,28 @@ import { onMount } from 'svelte'
 import type { FieldPixel } from '$lib/field'
 
 /**
- * The field seen from above, in meters, relative to the event origin. This
- * is the panel: everything else on screen is a caption for it.
+ * The field in meters, relative to the event origin, seen from a raised corner.
+ * This is the panel: everything else on screen is a caption for it.
+ *
+ * The view is axonometric rather than from directly above, because a crowd in a
+ * stadium is a bowl and a plan view flattens it into a ring — the rake of the
+ * stands, the tiers and the height a device is reporting all disappear. It is
+ * orthographic rather than perspective: a metre has to stay a metre wherever it
+ * sits, or the ruler is a lie and comparing two ends of the field by eye stops
+ * working.
  */
 let {
   pixels,
   edges,
   lastEffect,
+  showEdges = true,
+  showGrid = true,
 }: {
   pixels: FieldPixel[]
   edges: Edge[]
   lastEffect: { effect: Effect; firedAt: number } | null
+  showEdges?: boolean
+  showGrid?: boolean
 } = $props()
 
 let canvas: HTMLCanvasElement
@@ -30,6 +41,56 @@ const PADDING_PX = 48
 const MIN_SCALE = 0.4
 const MAX_SCALE = 60
 const DEFAULT_SCALE = 12
+
+/**
+ * The yaw is deliberately not 45°, which would put a corner of the bowl square
+ * to the viewer and make the two halves mirror each other; off the diagonal,
+ * one straight side reads as the near stand and the shape is legible.
+ *
+ * The pitch has to clear the rake of the stands, and by more than a little. A
+ * lower tier rising 0.45m every 0.8m of depth is a slope of 29.4°: walking
+ * outward on the side facing the camera moves a row away (down the screen by
+ * sin(pitch)) and up (up the screen by rake·cos(pitch)), and at 29.4° those
+ * cancel exactly. Below it the viewer is under the seating surface looking at
+ * its underside; just above it the stand is near enough edge-on that the bowl
+ * reads inside out. 50° puts the near rows a clear third of a metre down-screen
+ * per metre outward, which is unambiguously looking into the bowl, while still
+ * leaving the height foreshortened enough to see.
+ */
+const DEFAULT_YAW = (32 * Math.PI) / 180
+const DEFAULT_PITCH = (50 * Math.PI) / 180
+
+/** Never quite overhead and never underground: both are disorienting. */
+const MIN_PITCH = (6 * Math.PI) / 180
+const MAX_PITCH = (88 * Math.PI) / 180
+
+const ORBIT_PER_PIXEL = 0.006
+const ORBIT_PER_KEYPRESS = 0.06
+const ZOOM_PER_NOTCH = 1.0015
+
+/**
+ * How big a person is, in meters — so a dot is sized from the field rather than
+ * from the screen.
+ *
+ * A fixed pixel radius is what makes a crowd read as a smear. Seats are half a
+ * metre apart, and at the zoom that fits a stadium that is a couple of pixels
+ * between neighbours; anything drawn at a constant three or four pixels
+ * therefore overlaps its neighbours several deep and the shape of the stand
+ * disappears into a solid band. Tying the radius to the scale keeps the gap
+ * between two people visible at every zoom, which is the whole point of drawing
+ * them separately.
+ */
+const PERSON_RADIUS_M = 0.2
+
+/** Below this a dot is invisible; above it a crowd is a blanket. */
+const MIN_DOT_PX = 0.7
+const MAX_DOT_PX = 4
+
+/** How much a lit pixel swells. Kept small, or the field solidifies on a cue. */
+const GLOW_SWELL = 0.6
+
+/** A point in canvas pixels, as opposed to the meters `Vector3` carries. */
+type Vector2 = { x: number; y: number }
 
 function centroid(list: FieldPixel[]): Vector3 {
   if (list.length === 0) return { x: 0, y: 0, z: 0 }
@@ -70,6 +131,52 @@ onMount(() => {
   let scale = DEFAULT_SCALE
   let originX = 0
   let originY = 0
+  let originZ = 0
+
+  let yaw = DEFAULT_YAW
+  let pitch = DEFAULT_PITCH
+
+  let cosYaw = Math.cos(yaw)
+  let sinYaw = Math.sin(yaw)
+  let cosPitch = Math.cos(pitch)
+  let sinPitch = Math.sin(pitch)
+
+  /**
+   * Set once the operator zooms. Until then the view keeps framing itself, and
+   * after it the framing stays where it was put — an auto-fit that overrode a
+   * deliberate zoom every frame would be unusable.
+   */
+  let chosenScale: number | null = null
+
+  function orbit(byYaw: number, byPitch: number) {
+    yaw += byYaw
+    pitch = Math.min(MAX_PITCH, Math.max(MIN_PITCH, pitch + byPitch))
+
+    cosYaw = Math.cos(yaw)
+    sinYaw = Math.sin(yaw)
+    cosPitch = Math.cos(pitch)
+    sinPitch = Math.sin(pitch)
+  }
+
+  function resetCamera() {
+    yaw = DEFAULT_YAW
+    pitch = DEFAULT_PITCH
+    chosenScale = null
+    orbit(0, 0)
+  }
+
+  /** Camera-space coordinates of a field offset, before scale and centering. */
+  function toCamera(dx: number, dy: number, dz: number) {
+    const east = dx * cosYaw - dy * sinYaw
+    const north = dx * sinYaw + dy * cosYaw
+
+    return {
+      u: east,
+      v: -(north * sinPitch + dz * cosPitch),
+      /** Distance along the view direction — larger is further from the camera. */
+      depth: north * cosPitch - dz * sinPitch,
+    }
+  }
 
   function resize() {
     const ratio = window.devicePixelRatio || 1
@@ -83,28 +190,91 @@ onMount(() => {
   function fit(list: FieldPixel[]) {
     if (list.length === 0) return
 
-    const xs = list.map(({ point }) => point.x)
-    const ys = list.map(({ point }) => point.y)
-    const spanX = Math.max(...xs) - Math.min(...xs)
-    const spanY = Math.max(...ys) - Math.min(...ys)
+    const center = centroid(list)
+
+    // Measured on the projected shape, not on the x/y spans: at this angle a
+    // tall bowl and a flat one of the same footprint need different zoom.
+    let minU = Number.POSITIVE_INFINITY
+    let maxU = Number.NEGATIVE_INFINITY
+    let minV = Number.POSITIVE_INFINITY
+    let maxV = Number.NEGATIVE_INFINITY
+
+    for (const { point } of list) {
+      const { u, v } = toCamera(point.x - center.x, point.y - center.y, point.z - center.z)
+
+      if (u < minU) minU = u
+      if (u > maxU) maxU = u
+      if (v < minV) minV = v
+      if (v > maxV) maxV = v
+    }
+
+    const spanU = maxU - minU
+    const spanV = maxV - minV
 
     const usableWidth = Math.max(width - PADDING_PX * 2, 1)
     const usableHeight = Math.max(height - PADDING_PX * 2, 1)
     const target =
-      spanX < 0.01 && spanY < 0.01
+      spanU < 0.01 && spanV < 0.01
         ? DEFAULT_SCALE
-        : Math.min(usableWidth / Math.max(spanX, 0.01), usableHeight / Math.max(spanY, 0.01))
+        : Math.min(usableWidth / Math.max(spanU, 0.01), usableHeight / Math.max(spanV, 0.01))
 
-    const center = centroid(list)
+    const wanted = chosenScale ?? Math.min(Math.max(target, MIN_SCALE), MAX_SCALE)
 
-    scale += (Math.min(Math.max(target, MIN_SCALE), MAX_SCALE) - scale) * 0.06
+    scale += (wanted - scale) * 0.06
     originX += (center.x - originX) * 0.06
     originY += (center.y - originY) * 0.06
+    originZ += (center.z - originZ) * 0.06
   }
 
-  // Screen y grows downwards; north stays up.
-  const toScreenX = (x: number) => width / 2 + (x - originX) * scale
-  const toScreenY = (y: number) => height / 2 - (y - originY) * scale
+  function project(point: Vector3): Vector2 {
+    const { u, v } = toCamera(point.x - originX, point.y - originY, point.z - originZ)
+
+    return { x: width / 2 + u * scale, y: height / 2 + v * scale }
+  }
+
+  function depthOf(point: Vector3) {
+    return toCamera(point.x - originX, point.y - originY, point.z - originZ).depth
+  }
+
+  /**
+   * The three field axes through the event origin. Barely visible on purpose —
+   * they are there to say which way is which, and a 3D view without them leaves
+   * a cloud of dots with no way to tell a tilt from a translation.
+   */
+  function drawAxes(extent: Vector3) {
+    const axes: Array<{ label: string; end: Vector3 }> = [
+      { label: 'x', end: { x: extent.x, y: 0, z: 0 } },
+      { label: 'y', end: { x: 0, y: extent.y, z: 0 } },
+      { label: 'z', end: { x: 0, y: 0, z: extent.z } },
+    ]
+
+    const origin = project({ x: 0, y: 0, z: 0 })
+
+    context.lineWidth = 1
+    context.font = '10px "Space Mono", monospace'
+
+    for (const { label, end } of axes) {
+      const tip = project(end)
+      // The negative half is fainter still: it marks the axis without
+      // competing with the crowd for attention.
+      const tail = project({ x: -end.x, y: -end.y, z: -end.z })
+
+      context.strokeStyle = 'rgba(158, 151, 176, 0.05)'
+      context.beginPath()
+      context.moveTo(tail.x, tail.y)
+      context.lineTo(origin.x, origin.y)
+      context.stroke()
+
+      context.strokeStyle = 'rgba(158, 151, 176, 0.13)'
+      context.beginPath()
+      context.moveTo(origin.x, origin.y)
+      context.lineTo(tip.x, tip.y)
+      context.stroke()
+
+      context.fillStyle = 'rgba(158, 151, 176, 0.28)'
+      context.fillText(label, tip.x + 4, tip.y - 4)
+    }
+  }
 
   function drawEdges(list: Edge[], positions: Map<string, Vector3>) {
     context.strokeStyle = 'rgba(245, 242, 252, 0.09)'
@@ -116,84 +286,266 @@ onMount(() => {
       const to = positions.get(edge.to)
       if (!from || !to) continue
 
-      context.moveTo(toScreenX(from.x), toScreenY(from.y))
-      context.lineTo(toScreenX(to.x), toScreenY(to.y))
+      const a = project(from)
+      const b = project(to)
+
+      context.moveTo(a.x, a.y)
+      context.lineTo(b.x, b.y)
     }
 
     context.stroke()
   }
 
-  /** A device the worker has not placed yet: shown, but not as light. */
-  function drawUnplaced(point: Vector3) {
+  /**
+   * The halo, rendered once into its own canvas and stamped from there.
+   *
+   * A gradient per pixel per frame is a gradient object built, and thrown away,
+   * a hundred thousand times a second at the scale this panel has to survive —
+   * and every one of them is identical apart from where it sits.
+   */
+  const HALO_RADIUS_PX = 32
+
+  const halo = (() => {
+    const sprite = document.createElement('canvas')
+    sprite.width = HALO_RADIUS_PX * 2
+    sprite.height = HALO_RADIUS_PX * 2
+
+    const spriteContext = sprite.getContext('2d')
+    if (!spriteContext) return sprite
+
+    const gradient = spriteContext.createRadialGradient(
+      HALO_RADIUS_PX,
+      HALO_RADIUS_PX,
+      0,
+      HALO_RADIUS_PX,
+      HALO_RADIUS_PX,
+      HALO_RADIUS_PX,
+    )
+
+    gradient.addColorStop(0, 'rgba(245, 242, 252, 1)')
+    gradient.addColorStop(1, 'rgba(245, 242, 252, 0)')
+
+    spriteContext.fillStyle = gradient
+    spriteContext.fillRect(0, 0, sprite.width, sprite.height)
+
+    return sprite
+  })()
+
+  /**
+   * Cores are stamped in bands of brightness rather than one at a time.
+   *
+   * Canvas cannot vary a fill colour within a path, so a per-pixel alpha means
+   * a `fill()` per pixel — thousands of state changes a frame, which is where
+   * the time actually goes. Rounding the brightness to eight bands costs
+   * nothing anyone can see and turns that into eight fills.
+   */
+  const BRIGHTNESS_BANDS = 8
+
+  /** A person's footprint at the current zoom, in canvas pixels. */
+  function dotRadius(glow: number) {
+    const metres = PERSON_RADIUS_M * (1 + glow * GLOW_SWELL)
+
+    return Math.min(MAX_DOT_PX, Math.max(MIN_DOT_PX, metres * scale))
+  }
+
+  function drawCrowd(list: FieldPixel[], center: Vector3, elapsed: number, now: number) {
+    const bands: Vector2[][] = Array.from({ length: BRIGHTNESS_BANDS + 1 }, () => [])
+    const outlines: Vector2[] = []
+    const glows: Array<{ at: Vector2; glow: number }> = []
+
+    for (const pixel of list) {
+      const at = project(interpolate(pixel, now))
+
+      if (!pixel.placed) {
+        outlines.push(at)
+        continue
+      }
+
+      const glow = lastEffect
+        ? effectBrightness(lastEffect.effect, pixel.point, center, elapsed)
+        : 0
+
+      bands[Math.round(glow * BRIGHTNESS_BANDS)]?.push(at)
+      if (glow > 0.02) glows.push({ at, glow })
+    }
+
+    // Halos first, so a lit pixel's core is not washed out by its neighbour's
+    // glow. Only lit pixels have one, so a field at rest pays nothing for this.
+    for (const { at, glow } of glows) {
+      const radius = dotRadius(glow) * 7
+
+      context.globalAlpha = 0.1 + glow * 0.4
+      context.drawImage(halo, at.x - radius, at.y - radius, radius * 2, radius * 2)
+    }
+
+    context.globalAlpha = 1
+
+    for (let band = 0; band < bands.length; band++) {
+      const points = bands[band]
+      if (!points || points.length === 0) continue
+
+      const glow = band / BRIGHTNESS_BANDS
+      const core = dotRadius(glow)
+
+      // A dot this small is mostly anti-aliasing, so most of its area arrives
+      // at partial coverage; the resting alpha has to be high or a crowd at
+      // stadium zoom fades to nothing.
+      context.fillStyle = `rgba(245, 242, 252, ${0.78 + glow * 0.22})`
+      context.beginPath()
+
+      for (const { x, y } of points) {
+        context.moveTo(x + core, y)
+        context.arc(x, y, core, 0, Math.PI * 2)
+      }
+
+      context.fill()
+    }
+
+    if (outlines.length === 0) return
+
+    // Devices the worker has not placed: shown, but never as light. Wider than
+    // a placed pixel so the ring is still a ring — at stadium zoom the two are
+    // a pixel apart and barely distinguishable, which zooming in fixes and
+    // nothing else can.
+    const ring = Math.max(dotRadius(0) * 1.6, 1.4)
+
     context.strokeStyle = 'rgba(158, 151, 176, 0.55)'
-    context.lineWidth = 1
+    context.lineWidth = Math.min(1, ring)
     context.beginPath()
-    context.arc(toScreenX(point.x), toScreenY(point.y), 3.5, 0, Math.PI * 2)
+
+    for (const { x, y } of outlines) {
+      context.moveTo(x + ring, y)
+      context.arc(x, y, ring, 0, Math.PI * 2)
+    }
+
     context.stroke()
   }
 
-  function drawPixel(point: Vector3, glow: number) {
-    const x = toScreenX(point.x)
-    const y = toScreenY(point.y)
-    const core = 2 + glow * 1.6
-    const halo = context.createRadialGradient(x, y, 0, x, y, core * 7)
+  /**
+   * Where a pixel is right now, between the batch that moved it and the next.
+   * Without this the whole crowd would step once a second.
+   */
+  function interpolate(pixel: FieldPixel, now: number): Vector3 {
+    if (pixel.window <= 0) return pixel.point
 
-    halo.addColorStop(0, `rgba(245, 242, 252, ${0.1 + glow * 0.4})`)
-    halo.addColorStop(1, 'rgba(245, 242, 252, 0)')
+    const progress = Math.min(1, Math.max(0, (now - pixel.since) / pixel.window))
+    if (progress >= 1) return pixel.point
 
-    context.fillStyle = halo
-    context.beginPath()
-    context.arc(x, y, core * 7, 0, Math.PI * 2)
-    context.fill()
-
-    context.fillStyle = `rgba(245, 242, 252, ${0.5 + glow * 0.5})`
-    context.beginPath()
-    context.arc(x, y, core, 0, Math.PI * 2)
-    context.fill()
+    return {
+      x: pixel.from.x + (pixel.point.x - pixel.from.x) * progress,
+      y: pixel.from.y + (pixel.point.y - pixel.from.y) * progress,
+      z: pixel.from.z + (pixel.point.z - pixel.from.z) * progress,
+    }
   }
 
-  /** A point in canvas pixels, as opposed to the meters `Vector3` carries. */
-  type Vector2 = { x: number; y: number }
+  /**
+   * The ground plane, ruled at whatever spacing the ruler is using, so the
+   * crowd has something to sit on rather than floating in the dark.
+   */
+  function drawGrid(extent: Vector3) {
+    const foreshortening = Math.hypot(cosYaw, sinYaw * sinPitch)
+    const step = rulerMeters(scale * foreshortening)
+
+    const reachX = Math.ceil(extent.x / step) * step
+    const reachY = Math.ceil(extent.y / step) * step
+
+    context.strokeStyle = 'rgba(158, 151, 176, 0.06)'
+    context.lineWidth = 1
+    context.beginPath()
+
+    for (let x = -reachX; x <= reachX; x += step) {
+      const a = project({ x, y: -reachY, z: 0 })
+      const b = project({ x, y: reachY, z: 0 })
+      context.moveTo(a.x, a.y)
+      context.lineTo(b.x, b.y)
+    }
+
+    for (let y = -reachY; y <= reachY; y += step) {
+      const a = project({ x: -reachX, y, z: 0 })
+      const b = project({ x: reachX, y, z: 0 })
+      context.moveTo(a.x, a.y)
+      context.lineTo(b.x, b.y)
+    }
+
+    context.stroke()
+  }
 
   const meters = (seconds: number, perUnit: number) => (perUnit > 0 ? seconds / perUnit : 0)
+
+  /** Two points in the field, projected and stroked as one segment. */
+  function fieldLine(from: Vector3, to: Vector3) {
+    const a = project(from)
+    const b = project(to)
+
+    context.moveTo(a.x, a.y)
+    context.lineTo(b.x, b.y)
+  }
 
   /**
    * How each effect's leading edge is drawn, keyed by name rather than
    * switched on it: a new effect will not compile until it has a shape here.
+   *
+   * Every one of these works in field coordinates and projects on the way out,
+   * so the wavefront sits in the same space as the crowd it is passing through.
    */
   const wavefrontByEffect: {
-    [Name in EffectName]: (effect: EffectOf<Name>, elapsed: number, at: Vector2) => void
+    [Name in EffectName]: (
+      effect: EffectOf<Name>,
+      elapsed: number,
+      center: Vector3,
+      reach: number,
+    ) => void
   } = {
-    PULSE: (effect, elapsed, { x: cx, y: cy }) => {
+    PULSE: (effect, elapsed, center) => {
+      // The pass is spherical — `hypot(x, y, z)` — and a sphere under an
+      // orthographic camera is a circle from every angle, so this one needs no
+      // projecting beyond its center.
       const radius = meters(elapsed, effect.spreadDelayPerUnit) * scale
-      context.arc(cx, cy, radius, 0, Math.PI * 2)
+      const at = project(center)
+
+      context.moveTo(at.x + radius, at.y)
+      context.arc(at.x, at.y, radius, 0, Math.PI * 2)
     },
 
-    WAVE: (effect, elapsed, { x: cx, y: cy }) => {
-      // A vertical wave has no leading edge to draw from above.
-      if (effect.direction === 'Z') return
-
-      const offset = meters(elapsed, effect.spreadDelayPerUnit) * scale
+    WAVE: (effect, elapsed, center, reach) => {
+      const offset = meters(elapsed, effect.spreadDelayPerUnit)
 
       for (const sign of [-1, 1]) {
+        const shift = sign * offset
+
         if (effect.direction === 'X') {
-          context.moveTo(cx + sign * offset, 0)
-          context.lineTo(cx + sign * offset, height)
+          fieldLine(
+            { x: center.x + shift, y: center.y - reach, z: center.z },
+            { x: center.x + shift, y: center.y + reach, z: center.z },
+          )
+        } else if (effect.direction === 'Y') {
+          fieldLine(
+            { x: center.x - reach, y: center.y + shift, z: center.z },
+            { x: center.x + reach, y: center.y + shift, z: center.z },
+          )
         } else {
-          context.moveTo(0, cy + sign * offset)
-          context.lineTo(width, cy + sign * offset)
+          // A vertical pass had no leading edge worth drawing from above. From
+          // here it does: the front is a height, so it reads as a rule floating
+          // at that height.
+          fieldLine(
+            { x: center.x - reach, y: center.y, z: center.z + shift },
+            { x: center.x + reach, y: center.y, z: center.z + shift },
+          )
         }
       }
     },
 
-    ROTATE: (effect, elapsed, { x: cx, y: cy }) => {
+    ROTATE: (effect, elapsed, center, reach) => {
       const angle = meters(elapsed, effect.spreadDelayPerRadian) - Math.PI
-      const reach = Math.hypot(width, height)
-      context.moveTo(cx, cy)
-      context.lineTo(cx + Math.cos(angle) * reach, cy - Math.sin(angle) * reach)
+
+      fieldLine(center, {
+        x: center.x + Math.cos(angle) * reach,
+        y: center.y + Math.sin(angle) * reach,
+        z: center.z,
+      })
     },
 
-    SPIRAL: (effect, elapsed, { x: cx, y: cy }) => {
+    SPIRAL: (effect, elapsed, center) => {
       if (effect.radialSpeed <= 0) return
 
       let started = false
@@ -206,13 +558,16 @@ onMount(() => {
         // The arm has not reached this angle yet — the curve starts later.
         if (radius <= 0) continue
 
-        const x = cx + Math.cos(angle - Math.PI) * radius * scale
-        const y = cy - Math.sin(angle - Math.PI) * radius * scale
+        const at = project({
+          x: center.x + Math.cos(angle - Math.PI) * radius,
+          y: center.y - Math.sin(angle - Math.PI) * radius,
+          z: center.z,
+        })
 
         if (started) {
-          context.lineTo(x, y)
+          context.lineTo(at.x, at.y)
         } else {
-          context.moveTo(x, y)
+          context.moveTo(at.x, at.y)
           started = true
         }
       }
@@ -220,7 +575,7 @@ onMount(() => {
   }
 
   /** The cue's own geometry, so the shape of an effect is readable at a glance. */
-  function drawWavefront(effect: Effect, elapsed: number, center: Vector3) {
+  function drawWavefront(effect: Effect, elapsed: number, center: Vector3, reach: number) {
     context.strokeStyle = 'rgba(245, 242, 252, 0.3)'
     context.lineWidth = 1.5
     context.beginPath()
@@ -230,59 +585,96 @@ onMount(() => {
     const drawArm = wavefrontByEffect[effect.name] as (
       effect: Effect,
       elapsed: number,
-      at: Vector2,
+      center: Vector3,
+      reach: number,
     ) => void
 
-    drawArm(effect, elapsed, { x: toScreenX(center.x), y: toScreenY(center.y) })
+    drawArm(effect, elapsed, center, reach)
 
     context.stroke()
   }
 
+  /**
+   * Drawn along the projected x axis rather than flat across the screen: at
+   * this angle a horizontal line on screen is not a horizontal line in the
+   * field, and a ruler that ignores that reports the wrong number of meters.
+   */
   function drawRuler() {
-    const meters = rulerMeters(scale)
-    const length = meters * scale
+    // How much a meter along x is worth on screen, at the angle it is currently
+    // being seen from.
+    const foreshortening = Math.hypot(cosYaw, sinYaw * sinPitch)
+    const step = rulerMeters(scale * foreshortening)
+    const span = toCamera(step, 0, 0)
+    const x = 24
     const y = height - 24
+
+    const endX = x + span.u * scale
+    const endY = y + span.v * scale
 
     context.strokeStyle = 'rgba(124, 118, 137, 0.7)'
     context.lineWidth = 1
     context.beginPath()
-    context.moveTo(24, y)
-    context.lineTo(24 + length, y)
-    context.moveTo(24, y - 4)
-    context.lineTo(24, y + 4)
-    context.moveTo(24 + length, y - 4)
-    context.lineTo(24 + length, y + 4)
+    context.moveTo(x, y)
+    context.lineTo(endX, endY)
     context.stroke()
 
     context.fillStyle = 'rgba(158, 151, 176, 0.9)'
     context.font = '11px "Space Mono", monospace'
-    context.fillText(`${meters} m`, 24, y - 10)
+    context.fillText(`${step} m`, x, y - 10)
+  }
+
+  /**
+   * How far each axis runs, measured on its own. One shared reach would give a
+   * field two hundred meters wide a vertical axis to match, towering over a
+   * bowl thirty meters tall and reading as the most important thing on screen.
+   */
+  function extentOf(list: FieldPixel[]): Vector3 {
+    const extent = { x: 0, y: 0, z: 0 }
+
+    for (const { point } of list) {
+      extent.x = Math.max(extent.x, Math.abs(point.x))
+      extent.y = Math.max(extent.y, Math.abs(point.y))
+      extent.z = Math.max(extent.z, Math.abs(point.z))
+    }
+
+    return {
+      x: Math.max(extent.x * 1.12, 10),
+      y: Math.max(extent.y * 1.12, 10),
+      z: Math.max(extent.z * 1.12, 5),
+    }
   }
 
   function draw() {
     context.clearRect(0, 0, width, height)
     fit(pixels)
 
-    drawEdges(edges, new Map(pixels.map(({ deviceId, point }) => [deviceId, point])))
+    const extent = extentOf(pixels)
+    // The flat wavefronts want one generous number, not a per-axis one: a front
+    // running along y has to cross the whole field, however wide that is.
+    const reach = Math.max(extent.x, extent.y)
+
+    if (showGrid) drawGrid(extent)
+    drawAxes(extent)
+
+    if (showEdges) {
+      drawEdges(edges, new Map(pixels.map(({ deviceId, point }) => [deviceId, point])))
+    }
 
     const placed = pixels.filter(pixel => pixel.placed)
     const center = centroid(placed.length > 0 ? placed : pixels)
-    const elapsed = lastEffect ? (Date.now() - lastEffect.firedAt) / 1000 : 0
+    const now = Date.now()
+    const elapsed = lastEffect ? (now - lastEffect.firedAt) / 1000 : 0
 
-    for (const pixel of pixels) {
-      if (!pixel.placed) {
-        drawUnplaced(pixel.point)
-        continue
-      }
+    // Far side of the bowl first, so the near stand is not drawn behind the one
+    // across the pitch from it. Sorted on the settled position rather than the
+    // interpolated one: re-sorting every frame while the crowd glides would
+    // make pixels flicker past each other for no visible gain.
+    const sorted = [...pixels].sort((left, right) => depthOf(right.point) - depthOf(left.point))
 
-      const glow = lastEffect
-        ? effectBrightness(lastEffect.effect, pixel.point, center, elapsed)
-        : 0
-      drawPixel(pixel.point, glow)
-    }
+    drawCrowd(sorted, center, elapsed, now)
 
     if (lastEffect && !reducedMotion) {
-      drawWavefront(lastEffect.effect, elapsed, center)
+      drawWavefront(lastEffect.effect, elapsed, center, reach)
     }
 
     if (pixels.length > 0) drawRuler()
@@ -293,6 +685,86 @@ onMount(() => {
     draw()
   })
   observer.observe(canvas)
+
+  /**
+   * Orbit by dragging, and by the arrow keys on the same model: the gesture
+   * moves the *field*, not the camera. Drag right and the bowl turns right;
+   * drag down and its far side tips up toward you, which ends at looking
+   * straight down.
+   *
+   * The camera model — where dragging down lowers the viewpoint — is the other
+   * defensible reading, and it is the wrong one here: reaching for a plan view
+   * by pulling the field toward you is what everybody tries first, and getting
+   * the horizon instead leaves the useful half of the range unreachable without
+   * discovering that the gesture is inverted.
+   */
+  let dragging: number | null = null
+  let lastX = 0
+  let lastY = 0
+
+  const onPointerDown = (event: PointerEvent) => {
+    dragging = event.pointerId
+    lastX = event.clientX
+    lastY = event.clientY
+    canvas.setPointerCapture(event.pointerId)
+  }
+
+  const onPointerMove = (event: PointerEvent) => {
+    if (dragging !== event.pointerId) return
+
+    orbit(-(event.clientX - lastX) * ORBIT_PER_PIXEL, (event.clientY - lastY) * ORBIT_PER_PIXEL)
+
+    lastX = event.clientX
+    lastY = event.clientY
+  }
+
+  const onPointerUp = (event: PointerEvent) => {
+    if (dragging !== event.pointerId) return
+
+    dragging = null
+    canvas.releasePointerCapture(event.pointerId)
+  }
+
+  const onWheel = (event: WheelEvent) => {
+    event.preventDefault()
+
+    const next = (chosenScale ?? scale) * ZOOM_PER_NOTCH ** -event.deltaY
+    chosenScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, next))
+  }
+
+  const onKeyDown = (event: KeyboardEvent) => {
+    const step = ORBIT_PER_KEYPRESS
+
+    switch (event.key) {
+      case 'ArrowLeft':
+        orbit(step, 0)
+        break
+      case 'ArrowRight':
+        orbit(-step, 0)
+        break
+      case 'ArrowUp':
+        orbit(0, -step)
+        break
+      case 'ArrowDown':
+        orbit(0, step)
+        break
+      case '0':
+        resetCamera()
+        break
+      default:
+        return
+    }
+
+    event.preventDefault()
+  }
+
+  canvas.addEventListener('pointerdown', onPointerDown)
+  canvas.addEventListener('pointermove', onPointerMove)
+  canvas.addEventListener('pointerup', onPointerUp)
+  canvas.addEventListener('pointercancel', onPointerUp)
+  canvas.addEventListener('wheel', onWheel, { passive: false })
+  canvas.addEventListener('keydown', onKeyDown)
+  canvas.addEventListener('dblclick', resetCamera)
 
   resize()
 
@@ -305,8 +777,21 @@ onMount(() => {
   return () => {
     cancelAnimationFrame(frame)
     observer.disconnect()
+
+    canvas.removeEventListener('pointerdown', onPointerDown)
+    canvas.removeEventListener('pointermove', onPointerMove)
+    canvas.removeEventListener('pointerup', onPointerUp)
+    canvas.removeEventListener('pointercancel', onPointerUp)
+    canvas.removeEventListener('wheel', onWheel)
+    canvas.removeEventListener('keydown', onKeyDown)
+    canvas.removeEventListener('dblclick', resetCamera)
   }
 })
 </script>
 
-<canvas bind:this={canvas} class="block h-full w-full" aria-hidden="true"></canvas>
+<canvas
+  bind:this={canvas}
+  class="block h-full w-full cursor-grab touch-none select-none active:cursor-grabbing"
+  tabindex="0"
+  aria-label="The field seen from a raised corner. Drag or use the arrow keys to orbit, scroll to zoom, double-click or press 0 to reset."
+></canvas>

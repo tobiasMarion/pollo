@@ -15,6 +15,17 @@ const edges = $derived(live ? [...live.edges.values()] : [])
 const pixels = $derived(toFieldPixels(devices, data.event))
 const unplaced = $derived(pixels.filter(pixel => !pixel.placed).length)
 
+/**
+ * What the field draws. Both are worth turning off: the mesh is unreadable once
+ * a crowd has thousands of edges, and the grid is scaffolding rather than data.
+ */
+const layers = $state({ edges: true, grid: true })
+
+const layerToggles = [
+  { key: 'edges', label: 'Edges' },
+  { key: 'grid', label: 'Grid' },
+] as const satisfies ReadonlyArray<{ key: keyof typeof layers; label: string }>
+
 const statusLabels: Record<ConnectionStatus, string> = {
   connecting: 'Connecting',
   authenticating: 'Authenticating',
@@ -87,62 +98,54 @@ onMount(() => {
       This event is finished. Its devices and distances are no longer in the runtime.
     </p>
   {:else}
-    <div class="grid min-h-0 flex-1 lg:grid-cols-[1fr_18rem]">
-      <section class="flex min-h-0 flex-col">
-        <div class="relative min-h-[40svh] flex-1">
-          <FieldCanvas {pixels} {edges} lastEffect={live?.lastEffect ?? null} />
+    <section class="flex min-h-0 flex-1 flex-col">
+      <div class="relative min-h-0 flex-1">
+        <FieldCanvas
+          {pixels}
+          {edges}
+          lastEffect={live?.lastEffect ?? null}
+          showEdges={layers.edges}
+          showGrid={layers.grid}
+        />
 
-          {#if pixels.length === 0}
-            <p
-              class="pointer-events-none absolute inset-0 flex items-center justify-center px-8 text-center text-dusk-500"
-            >
-              {#if live?.status === 'rejected'}
-                {live.error}
-              {:else}
-                No devices yet. Phones within about a kilometre can find this event and join.
-              {/if}
-            </p>
-          {/if}
+        <div class="pointer-events-none absolute inset-x-5 top-5 flex justify-between gap-4">
+          <div class="pointer-events-auto flex gap-1.5">
+            {#each layerToggles as toggle (toggle.key)}
+              <button
+                type="button"
+                aria-pressed={layers[toggle.key]}
+                onclick={() => (layers[toggle.key] = !layers[toggle.key])}
+                class="rounded-full border px-3 py-1 text-xs transition-colors {layers[toggle.key]
+                  ? 'border-dusk-600 bg-dusk-900 text-dusk-100'
+                  : 'border-dusk-800 text-dusk-500 hover:text-dusk-300'}"
+              >
+                {toggle.label}
+              </button>
+            {/each}
+          </div>
 
           {#if unplaced > 0}
-            <p class="pointer-events-none absolute right-5 bottom-5 text-dusk-500 text-xs">
+            <p class="text-right text-dusk-500 text-xs">
               <span data-numeric>{unplaced}</span> shown from GPS — outlines are devices the worker
               has not placed yet.
             </p>
           {/if}
         </div>
 
-        <EffectDeck
-          disabled={live?.status !== 'live'}
-          onfire={(effect) => live?.fireEffect(effect)}
-        />
-      </section>
-
-      <aside class="min-h-0 overflow-y-auto border-dusk-800 border-t lg:border-t-0 lg:border-l">
-        <h2 class="eyebrow sticky top-0 bg-dusk-950 px-5 py-3">Devices</h2>
-
-        {#if devices.length === 0}
-          <p class="px-5 pb-5 text-dusk-500 text-sm">Nobody has joined yet.</p>
-        {:else}
-          <ul class="pb-5">
-            {#each devices as device (device.deviceId)}
-              <li class="flex items-center gap-3 px-5 py-2">
-                <span
-                  class="size-1.5 shrink-0 rounded-full {device.position
-                    ? 'bg-starlight'
-                    : 'ring-1 ring-dusk-500'}"
-                ></span>
-                <span class="flex-1 truncate text-sm" data-numeric>{device.deviceId}</span>
-                {#if device.location}
-                  <span class="text-dusk-500 text-xs" data-numeric>
-                    ±{Math.round(device.location.horizontalAccuracy)} m
-                  </span>
-                {/if}
-              </li>
-            {/each}
-          </ul>
+        {#if pixels.length === 0}
+          <p
+            class="pointer-events-none absolute inset-0 flex items-center justify-center px-8 text-center text-dusk-500"
+          >
+            {#if live?.status === 'rejected'}
+              {live.error}
+            {:else}
+              No devices yet. Phones within about a kilometre can find this event and join.
+            {/if}
+          </p>
         {/if}
-      </aside>
-    </div>
+      </div>
+
+      <EffectDeck disabled={live?.status !== 'live'} onfire={(effect) => live?.fireEffect(effect)} />
+    </section>
   {/if}
 </div>
