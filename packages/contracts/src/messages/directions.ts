@@ -20,16 +20,16 @@ function direction<const Types extends readonly MessageType[]>(types: Types) {
 /** What the admin panel sends. */
 export const adminOutbound = direction(['AUTHENTICATION', 'EFFECT'])
 
-/** What the admin panel receives — the whole field, reports included. */
-export const adminInbound = direction([
-  'AUTHENTICATION_ACK',
-  'USER_JOINED',
-  'USER_LEFT',
-  'LOCATION_UPDATE_REPORT',
-  'DISTANCE_REPORT',
-  'SET_POINT_REPORT',
-  'EFFECT',
-])
+/**
+ * What the admin panel receives: the field in batches, plus the echo of its own
+ * cue.
+ *
+ * Deliberately short. Relaying a frame per device event puts the panel on the
+ * hook for every message the crowd generates, which is tens of thousands a
+ * second at the scale this is built for; `FIELD_UPDATE` is the same information
+ * on a cadence the browser sets rather than the crowd.
+ */
+export const adminInbound = direction(['AUTHENTICATION_ACK', 'FIELD_UPDATE', 'EFFECT'])
 
 /** What a device sends: where it is, and how far its peers are. */
 export const deviceOutbound = direction(['JOIN', 'LOCATION_UPDATE', 'DISTANCE'])

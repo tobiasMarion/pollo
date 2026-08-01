@@ -23,9 +23,9 @@ describe('messageTable', () => {
   it('lists the payload without the discriminator', () => {
     const row = messageTable(adminInbound)
       .split('\n')
-      .find(line => line.startsWith('| `DISTANCE_REPORT`'))
+      .find(line => line.startsWith('| `FIELD_UPDATE`'))
 
-    expect(row).toContain('`from`, `to`, `distance`')
+    expect(row).toContain('`at`, `window`, `locations`, `placed`, `left`, `edges`')
     expect(row).not.toContain('`type`')
   })
 
