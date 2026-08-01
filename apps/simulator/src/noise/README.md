@@ -14,6 +14,7 @@ produce a stated outcome.
 - [Randomness](#randomness) — the primitive everything else samples through
 - [Drift](#drift) — why the error has memory
 - [Reflections](#reflections) — why multipath is a state, not a spike
+- [What the crowd shares](#what-the-crowd-shares) — the common-mode split
 
 ## Randomness
 
@@ -164,6 +165,47 @@ and a worker built on that oracle falls over the first time it meets hardware.
 Each device also carries a fixed optimism factor in [0.7, 1.1], because
 receivers do not all lie by the same amount about how well they know themselves.
 
+## What the crowd shares
+
+Two phones twenty metres apart are not making independent mistakes. They are
+reading the same satellites through the same ionosphere with the same broadcast
+ephemeris, and most of what is wrong with one is wrong with the other. Look at
+the [UERE budget](../crowd/README.md#sources): ionosphere ±5 m, ephemeris
+±2.5 m, satellite clock ±2 m — those are the three largest terms, and all three
+are common to everyone in the venue.
+
+Treating device errors as independent is therefore **the single most flattering
+assumption a simulator can make**. Averaging neighbours would wipe the error
+out, and the shape of the crowd would fall out of raw GPS far better than it
+ever does in reality.
+
+```
+error(device) = w_c·OU_event + w_s·OU_sector + w_d·OU_device
+```
+
+`--common-mode` sets the correlated share, default 0.8, split 80/20 between
+venue-wide and per-sector. The knob sweeps two genuinely different problems: at
+0.8 the worker refines a decent shape, at 0 it has to build one.
+
+**The weights are square roots**, because variance is what adds. Mixing by the
+shares themselves would quietly shrink the total error — a bug that looks like
+good results.
+
+The vertical uses a slightly higher correlated share than the horizontal.
+Height is the most common-mode quantity a constellation produces: the same
+geometry lifts or drops the whole venue together.
+
+### How the crowd agrees without talking
+
+The shared field is a pure function of the seed, and it advances by **absolute
+tick index** rather than by elapsed time. Every shard builds the same field and
+replays any ticks it missed instead of taking one large step — a large step is
+not the same random path.
+
+That is what lets twenty thousand devices across eight threads see the same
+common-mode error with no message ever exchanged about it. See
+[`run/`](../run).
+
 ## Parameters
 
 | symbol | value | provenance |
@@ -178,6 +220,11 @@ receivers do not all lie by the same amount about how well they know themselves.
 | `MAGNITUDE_SHAPE` | 2 | calibrated — a gamma shape of 2 gives a hump with a tail rather than a bell or an exponential |
 | magnitude scale | 7 + 8·susceptibility m | calibrated — well above the ±1 m nominal multipath term, which is the open-sky case |
 | `SIGMA_INFLATION` | 2.5 | calibrated — the clean error also worsens while the geometry is bad, not only the bias |
+| optimism | [0.7, 1.1] | calibrated — receivers differ in how well they estimate their own uncertainty |
+| `--common-mode` default | 0.8 | calibrated — the three largest UERE terms are common-mode, so most of the error should be |
+| `SECTOR_SHARE_OF_SHARED` | 0.2 | calibrated — most of the correlated error is venue-wide, a fifth of it sector-scale |
+| vertical common-mode | `min(0.95, share × 1.15)` | calibrated — height is more common-mode than the horizontal |
+| `FIELD_TICK_SECONDS` | 0.25 | calibrated — fine against the fastest τ (15 s), coarse enough to be cheap to replay |
 | bias spread | 0.35 of a unit vector | calibrated — enough that averaging neighbours cannot cancel the sector's direction |
 
 ## Sources
