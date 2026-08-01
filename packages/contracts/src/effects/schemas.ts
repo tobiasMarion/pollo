@@ -1,18 +1,18 @@
-import { z } from 'zod';
-import { unionFrom } from '../union.js';
+import { z } from 'zod'
+import { unionFrom } from '../union.js'
 
 const coordTypesSchema = z
   .enum(['ABSOLUTE', 'RELATIVE'])
-  .describe('`RELATIVE` measures from the event origin, `ABSOLUTE` from the earth frame.');
+  .describe('`RELATIVE` measures from the event origin, `ABSOLUTE` from the earth frame.')
 
 const directionsSchema = z
   .enum(['X', 'Y', 'Z'])
-  .describe('Axis the front travels along — `X` east, `Y` north, `Z` up.');
+  .describe('Axis the front travels along — `X` east, `Y` north, `Z` up.')
 
 const activeTime = z
   .number()
   .nonnegative()
-  .describe('How long a single pixel stays lit once its turn comes, in seconds.');
+  .describe('How long a single pixel stays lit once its turn comes, in seconds.')
 
 /**
  * Every effect Pollo knows how to fire. This record is the source: the union
@@ -64,14 +64,14 @@ export const effectSchemas = {
       angularSpeed: z.number().nonnegative().describe('How fast the arm turns, in rad/s.'),
     })
     .describe('A radar arm that also travels outwards as it turns.'),
-} as const;
+} as const
 
-export const effectSchema = unionFrom('name', effectSchemas);
+export const effectSchema = unionFrom('name', effectSchemas)
 
-export type Effect = z.infer<typeof effectSchema>;
-export type EffectName = Effect['name'];
+export type Effect = z.infer<typeof effectSchema>
+export type EffectName = Effect['name']
 
 /** One member of the union, picked by name — what the per-effect records key on. */
-export type EffectOf<Name extends EffectName> = Extract<Effect, { name: Name }>;
+export type EffectOf<Name extends EffectName> = Extract<Effect, { name: Name }>
 
-export const effectNames = Object.keys(effectSchemas) as [EffectName, ...EffectName[]];
+export const effectNames = Object.keys(effectSchemas) as [EffectName, ...EffectName[]]

@@ -1,5 +1,5 @@
-import { pino } from 'pino';
-import type { Env } from './env.js';
+import { pino } from 'pino'
+import type { Env } from './env.js'
 
 export function createLogger(env: Env) {
   return pino({
@@ -8,7 +8,7 @@ export function createLogger(env: Env) {
       env.NODE_ENV === 'development'
         ? { target: 'pino-pretty', options: { colorize: true } }
         : undefined,
-  });
+  })
 }
 
-export type Logger = ReturnType<typeof createLogger>;
+export type Logger = ReturnType<typeof createLogger>

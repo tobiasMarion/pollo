@@ -1,29 +1,29 @@
-import type { EventGraph } from '@pollo/contracts';
-import { error } from '@sveltejs/kit';
-import { ApiError } from '$lib/api/client';
-import { serverApi } from '$lib/server/api';
-import type { PageServerLoad } from './$types';
+import type { EventGraph } from '@pollo/contracts'
+import { error } from '@sveltejs/kit'
+import { ApiError } from '$lib/api/client'
+import { serverApi } from '$lib/server/api'
+import type { PageServerLoad } from './$types'
 
 export const load: PageServerLoad = async ({ params, locals, fetch, parent }) => {
-  const api = serverApi({ fetch, locals });
-  const { user } = await parent();
+  const api = serverApi({ fetch, locals })
+  const { user } = await parent()
 
-  const event = await api.getEvent(params.eventId).catch((cause) => {
+  const event = await api.getEvent(params.eventId).catch(cause => {
     if (cause instanceof ApiError && cause.status === 404) {
-      error(404, 'No event with that id.');
+      error(404, 'No event with that id.')
     }
 
-    throw cause;
-  });
+    throw cause
+  })
 
-  const isAdmin = event.userId === user.id;
-  const watchable = isAdmin && event.status === 'OPEN';
-  let graph: EventGraph = { nodes: {}, edges: [] };
+  const isAdmin = event.userId === user.id
+  const watchable = isAdmin && event.status === 'OPEN'
+  let graph: EventGraph = { nodes: {}, edges: [] }
 
   if (watchable) {
     // The graph only exists while the runtime holds the event; a miss here is
     // an empty field, not a broken page.
-    graph = await api.getEventGraph(event.id).catch(() => graph);
+    graph = await api.getEventGraph(event.id).catch(() => graph)
   }
 
   return {
@@ -36,5 +36,5 @@ export const load: PageServerLoad = async ({ params, locals, fetch, parent }) =>
      * other call keeps it server-side in the httpOnly cookie.
      */
     socketToken: watchable ? locals.token : null,
-  };
-};
+  }
+}

@@ -1,5 +1,5 @@
-import { z } from 'zod';
-import { effectSchema } from './schemas.js';
+import { z } from 'zod'
+import { effectSchema } from './schemas.js'
 
 export const effectPresetSchema = z
   .object({
@@ -11,9 +11,9 @@ export const effectPresetSchema = z
       .describe('What actually changed, in the units the effect is expressed in.'),
     effect: effectSchema,
   })
-  .describe('A ready-made cue.');
+  .describe('A ready-made cue.')
 
-export type EffectPreset = z.infer<typeof effectPresetSchema>;
+export type EffectPreset = z.infer<typeof effectPresetSchema>
 
 /**
  * Ready-made cues for trying effects out on a real crowd. Firing one is a
@@ -108,18 +108,18 @@ const presets: EffectPreset[] = [
     hint: '1.5 m/s · 6 rad/s',
     effect: { name: 'SPIRAL', activeTime: 1.5, radialSpeed: 1.5, angularSpeed: 6 },
   },
-];
+]
 
 const deckSchema = z
   .array(effectPresetSchema)
   .refine(
-    (entries) => new Set(entries.map((entry) => entry.id)).size === entries.length,
+    entries => new Set(entries.map(entry => entry.id)).size === entries.length,
     'Preset ids must be unique — the panel keys its pads by them.',
-  );
+  )
 
 /**
  * Checked here rather than trusted: the annotation above catches a wrong shape,
  * but only the schema catches a negative duration or a repeated id, and a
  * broken cue should fail at boot instead of rendering a dead pad.
  */
-export const effectPresets: EffectPreset[] = deckSchema.parse(presets);
+export const effectPresets: EffectPreset[] = deckSchema.parse(presets)

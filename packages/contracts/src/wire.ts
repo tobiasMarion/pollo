@@ -1,7 +1,7 @@
-import { z } from 'zod';
-import { positionSchema } from './graph.js';
-import { locationSchema } from './location.js';
-import { unionFrom } from './union.js';
+import { z } from 'zod'
+import { positionSchema } from './graph.js'
+import { locationSchema } from './location.js'
+import { unionFrom } from './union.js'
 
 /**
  * Wire contracts carried over Redis Streams between the Node API (IO) and the
@@ -34,20 +34,20 @@ export const ingestMessageSchemas = {
     op: z.literal('LEAVE'),
     deviceId: z.string(),
   }),
-} as const;
+} as const
 
-export const ingestMessageSchema = unionFrom('op', ingestMessageSchemas);
+export const ingestMessageSchema = unionFrom('op', ingestMessageSchemas)
 
-export type IngestMessage = z.infer<typeof ingestMessageSchema>;
-export type IngestOp = IngestMessage['op'];
-export const ingestOps = Object.keys(ingestMessageSchemas) as [IngestOp, ...IngestOp[]];
+export type IngestMessage = z.infer<typeof ingestMessageSchema>
+export type IngestOp = IngestMessage['op']
+export const ingestOps = Object.keys(ingestMessageSchemas) as [IngestOp, ...IngestOp[]]
 
 export const positionPointSchema = z.object({
   deviceId: z.string(),
   position: positionSchema,
-});
+})
 
-export type PositionPoint = z.infer<typeof positionPointSchema>;
+export type PositionPoint = z.infer<typeof positionPointSchema>
 
 /**
  * `delta`    -> only the pixels whose position settled/changed since last send.
@@ -56,9 +56,9 @@ export type PositionPoint = z.infer<typeof positionPointSchema>;
 export const positionsMessageSchema = z.object({
   kind: z.enum(['delta', 'keyframe']),
   points: z.array(positionPointSchema),
-});
+})
 
-export type PositionsMessage = z.infer<typeof positionsMessageSchema>;
+export type PositionsMessage = z.infer<typeof positionsMessageSchema>
 
 export const controlMessageSchemas = {
   EVENT_OPENED: z.object({
@@ -72,16 +72,16 @@ export const controlMessageSchemas = {
     op: z.literal('EVENT_CLOSED'),
     eventId: z.string().uuid(),
   }),
-} as const;
+} as const
 
-export const controlMessageSchema = unionFrom('op', controlMessageSchemas);
+export const controlMessageSchema = unionFrom('op', controlMessageSchemas)
 
-export type ControlMessage = z.infer<typeof controlMessageSchema>;
-export type ControlOp = ControlMessage['op'];
-export const controlOps = Object.keys(controlMessageSchemas) as [ControlOp, ...ControlOp[]];
+export type ControlMessage = z.infer<typeof controlMessageSchema>
+export type ControlOp = ControlMessage['op']
+export const controlOps = Object.keys(controlMessageSchemas) as [ControlOp, ...ControlOp[]]
 
 /** Single field where the JSON payload is stored in each stream entry. */
-export const STREAM_FIELD = 'data';
+export const STREAM_FIELD = 'data'
 
 export const streamKeys = {
   /** Graph mutations, Node -> Rust, per event. */
@@ -92,4 +92,4 @@ export const streamKeys = {
   snapshot: (eventId: string) => `event:${eventId}:snapshot`,
   /** Global event lifecycle channel, Node -> Rust. */
   control: () => 'events:control',
-} as const;
+} as const

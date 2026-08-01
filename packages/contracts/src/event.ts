@@ -1,15 +1,15 @@
-import { z } from 'zod';
+import { z } from 'zod'
 
 export const eventTypeSchema = z
   .enum(['TORCH', 'SCREEN'])
-  .describe('How devices render their pixel: `TORCH` the flashlight, `SCREEN` the display.');
+  .describe('How devices render their pixel: `TORCH` the flashlight, `SCREEN` the display.')
 
 export const eventStatusSchema = z
   .enum(['OPEN', 'FINISHED'])
-  .describe('`OPEN` events are live in the runtime; `FINISHED` ones are history.');
+  .describe('`OPEN` events are live in the runtime; `FINISHED` ones are history.')
 
-export type EventType = z.infer<typeof eventTypeSchema>;
-export type EventStatus = z.infer<typeof eventStatusSchema>;
+export type EventType = z.infer<typeof eventTypeSchema>
+export type EventStatus = z.infer<typeof eventStatusSchema>
 
 // No `.describe()` on the object itself: Scalar renders a body description
 // twice when the request body and its schema both carry one.
@@ -18,9 +18,9 @@ export const createEventSchema = z.object({
   latitude: z.number().min(-90).max(90).describe('Origin of the event, decimal degrees.'),
   longitude: z.number().min(-180).max(180).describe('Origin of the event, decimal degrees.'),
   type: eventTypeSchema,
-});
+})
 
-export type CreateEvent = z.infer<typeof createEventSchema>;
+export type CreateEvent = z.infer<typeof createEventSchema>
 
 export const eventSchema = z
   .object({
@@ -38,9 +38,9 @@ export const eventSchema = z
     createdAt: z.date().describe('ISO 8601 timestamp.'),
     updatedAt: z.date().describe('ISO 8601 timestamp.'),
   })
-  .describe('An event as persisted in Postgres.');
+  .describe('An event as persisted in Postgres.')
 
-export type Event = z.infer<typeof eventSchema>;
+export type Event = z.infer<typeof eventSchema>
 
 /**
  * The same event as a client receives it. `eventSchema` types the timestamps as
@@ -50,6 +50,6 @@ export type Event = z.infer<typeof eventSchema>;
 export const eventWireSchema = eventSchema.extend({
   createdAt: z.string().datetime().describe('ISO 8601 timestamp.'),
   updatedAt: z.string().datetime().describe('ISO 8601 timestamp.'),
-});
+})
 
-export type EventWire = z.infer<typeof eventWireSchema>;
+export type EventWire = z.infer<typeof eventWireSchema>

@@ -1,13 +1,13 @@
-import { createEventSchema } from '@pollo/contracts';
-import type { FastifyInstance } from 'fastify';
-import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { z } from 'zod';
-import { auth } from '../../middlewares/auth.js';
+import { createEventSchema } from '@pollo/contracts'
+import type { FastifyInstance } from 'fastify'
+import type { ZodTypeProvider } from 'fastify-type-provider-zod'
+import { z } from 'zod'
+import { auth } from '../../middlewares/auth.js'
 import {
   errorExamples,
   errorResponseSchema,
   validationErrorResponseSchema,
-} from '../../responses.js';
+} from '../../responses.js'
 
 export async function createEvent(app: FastifyInstance) {
   app
@@ -76,11 +76,11 @@ export async function createEvent(app: FastifyInstance) {
         },
       },
       async (request, reply) => {
-        const adminId = await request.getCurrentUserId();
+        const adminId = await request.getCurrentUserId()
 
-        const eventId = await app.events.create({ ...request.body, adminId });
+        const eventId = await app.events.create({ ...request.body, adminId })
 
-        return reply.status(201).send({ eventId });
+        return reply.status(201).send({ eventId })
       },
-    );
+    )
 }

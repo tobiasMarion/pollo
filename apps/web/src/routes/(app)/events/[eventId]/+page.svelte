@@ -1,19 +1,19 @@
 <script lang="ts">
-import { onMount } from 'svelte';
-import EffectDeck from '$lib/components/EffectDeck.svelte';
-import FieldCanvas from '$lib/components/FieldCanvas.svelte';
-import { type ConnectionStatus, EventConsole } from '$lib/event-console.svelte';
-import { toFieldPixels } from '$lib/field';
-import { formatCoordinates } from '$lib/format';
+import { onMount } from 'svelte'
+import EffectDeck from '$lib/components/EffectDeck.svelte'
+import FieldCanvas from '$lib/components/FieldCanvas.svelte'
+import { type ConnectionStatus, EventConsole } from '$lib/event-console.svelte'
+import { toFieldPixels } from '$lib/field'
+import { formatCoordinates } from '$lib/format'
 
-let { data } = $props();
+let { data } = $props()
 
-let live = $state<EventConsole | null>(null);
+let live = $state<EventConsole | null>(null)
 
-const devices = $derived(live ? [...live.devices.values()] : []);
-const edges = $derived(live ? [...live.edges.values()] : []);
-const pixels = $derived(toFieldPixels(devices, data.event));
-const unplaced = $derived(pixels.filter((pixel) => !pixel.placed).length);
+const devices = $derived(live ? [...live.devices.values()] : [])
+const edges = $derived(live ? [...live.edges.values()] : [])
+const pixels = $derived(toFieldPixels(devices, data.event))
+const unplaced = $derived(pixels.filter(pixel => !pixel.placed).length)
 
 const statusLabels: Record<ConnectionStatus, string> = {
   connecting: 'Connecting',
@@ -22,21 +22,21 @@ const statusLabels: Record<ConnectionStatus, string> = {
   reconnecting: 'Reconnecting',
   rejected: 'Refused',
   closed: 'Closed',
-};
+}
 
 onMount(() => {
-  if (!data.socketToken) return;
+  if (!data.socketToken) return
 
-  const session = new EventConsole(data.event.id, data.socketToken);
-  session.hydrate(data.graph);
-  session.connect();
-  live = session;
+  const session = new EventConsole(data.event.id, data.socketToken)
+  session.hydrate(data.graph)
+  session.connect()
+  live = session
 
   return () => {
-    session.destroy();
-    live = null;
-  };
-});
+    session.destroy()
+    live = null
+  }
+})
 </script>
 
 <svelte:head>

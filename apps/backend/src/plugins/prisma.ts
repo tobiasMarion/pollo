@@ -1,9 +1,9 @@
-import { PrismaPg } from '@prisma/adapter-pg';
-import fastifyPlugin from 'fastify-plugin';
-import { PrismaClient } from '../generated/prisma/client.js';
+import { PrismaPg } from '@prisma/adapter-pg'
+import fastifyPlugin from 'fastify-plugin'
+import { PrismaClient } from '../generated/prisma/client.js'
 
 export interface PrismaPluginOptions {
-  client?: PrismaClient;
+  client?: PrismaClient
 }
 
 export const prismaPlugin = fastifyPlugin<PrismaPluginOptions>(
@@ -12,19 +12,19 @@ export const prismaPlugin = fastifyPlugin<PrismaPluginOptions>(
       options.client ??
       new PrismaClient({
         adapter: new PrismaPg({ connectionString: app.env.DATABASE_URL }),
-      });
+      })
 
-    app.decorate('prisma', prisma);
+    app.decorate('prisma', prisma)
 
     app.addHook('onClose', async () => {
-      await prisma.$disconnect();
-    });
+      await prisma.$disconnect()
+    })
   },
   { name: 'prisma' },
-);
+)
 
 declare module 'fastify' {
   interface FastifyInstance {
-    prisma: PrismaClient;
+    prisma: PrismaClient
   }
 }

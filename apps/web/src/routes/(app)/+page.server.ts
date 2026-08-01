@@ -1,17 +1,17 @@
-import { eventTypeSchema } from '@pollo/contracts';
-import { fail, redirect } from '@sveltejs/kit';
-import { z } from 'zod';
-import { ApiError } from '$lib/api/client';
-import { serverApi } from '$lib/server/api';
-import type { Actions, PageServerLoad } from './$types';
+import { eventTypeSchema } from '@pollo/contracts'
+import { fail, redirect } from '@sveltejs/kit'
+import { z } from 'zod'
+import { ApiError } from '$lib/api/client'
+import { serverApi } from '$lib/server/api'
+import type { Actions, PageServerLoad } from './$types'
 
 export const load: PageServerLoad = async ({ locals, fetch }) => {
-  const api = serverApi({ fetch, locals });
+  const api = serverApi({ fetch, locals })
 
-  return { events: await api.listMyEvents() };
-};
+  return { events: await api.listMyEvents() }
+}
 
-const COORDINATE_MESSAGE = 'Coordinates must be decimal degrees — latitude ±90, longitude ±180.';
+const COORDINATE_MESSAGE = 'Coordinates must be decimal degrees — latitude ±90, longitude ±180.'
 
 /**
  * Form fields arrive as strings, and an empty one coerces to 0 — which is a
@@ -23,7 +23,7 @@ function coordinate(limit: number) {
     .trim()
     .min(1, COORDINATE_MESSAGE)
     .transform(Number)
-    .refine((value) => Number.isFinite(value) && Math.abs(value) <= limit, COORDINATE_MESSAGE);
+    .refine(value => Number.isFinite(value) && Math.abs(value) <= limit, COORDINATE_MESSAGE)
 }
 
 const createEventFormSchema = z.object({
@@ -34,11 +34,11 @@ const createEventFormSchema = z.object({
   }),
   latitude: coordinate(90),
   longitude: coordinate(180),
-});
+})
 
 export const actions: Actions = {
   default: async ({ request, locals, fetch }) => {
-    const form = await request.formData();
+    const form = await request.formData()
 
     // Echoed back on failure so the page can repaint what was typed.
     const values = {
@@ -46,26 +46,26 @@ export const actions: Actions = {
       type: String(form.get('type') ?? ''),
       latitude: String(form.get('latitude') ?? ''),
       longitude: String(form.get('longitude') ?? ''),
-    };
-
-    const result = createEventFormSchema.safeParse(values);
-
-    if (!result.success) {
-      return fail(400, { ...values, error: result.error.issues[0].message });
     }
 
-    const api = serverApi({ fetch, locals });
-    let eventId: string;
+    const result = createEventFormSchema.safeParse(values)
+
+    if (!result.success) {
+      return fail(400, { ...values, error: result.error.issues[0].message })
+    }
+
+    const api = serverApi({ fetch, locals })
+    let eventId: string
 
     try {
-      eventId = await api.createEvent(result.data);
+      eventId = await api.createEvent(result.data)
     } catch (error) {
-      const message = error instanceof ApiError ? error.message : 'Could not reach the Pollo API.';
-      return fail(502, { ...values, error: message });
+      const message = error instanceof ApiError ? error.message : 'Could not reach the Pollo API.'
+      return fail(502, { ...values, error: message })
     }
 
     // Opening an event is the start of running it, so land the operator on the
     // console rather than back on the list.
-    redirect(303, `/events/${eventId}`);
+    redirect(303, `/events/${eventId}`)
   },
-};
+}

@@ -1,9 +1,9 @@
-import { createApiClient } from '$lib/api/client';
-import { internalApiUrl } from '$lib/server/env';
+import { createApiClient } from '$lib/api/client'
+import { internalApiUrl } from '$lib/server/env'
 
 interface ServerApiContext {
-  fetch: typeof globalThis.fetch;
-  locals: App.Locals;
+  fetch: typeof globalThis.fetch
+  locals: App.Locals
 }
 
 /**
@@ -12,5 +12,5 @@ interface ServerApiContext {
  * internal address.
  */
 export function serverApi({ fetch, locals }: ServerApiContext) {
-  return createApiClient({ fetch, token: locals.token, baseUrl: internalApiUrl() });
+  return createApiClient({ fetch, token: locals.token, baseUrl: internalApiUrl() })
 }

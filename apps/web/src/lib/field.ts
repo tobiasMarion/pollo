@@ -1,20 +1,20 @@
-import type { Location, Vector3 } from '@pollo/contracts';
-import type { DeviceState } from '$lib/event-console.svelte';
+import type { Location, Vector3 } from '@pollo/contracts'
+import type { DeviceState } from '$lib/event-console.svelte'
 
 export interface FieldPixel {
-  deviceId: string;
+  deviceId: string
   /** Meters east/north/up of the event origin. */
-  point: Vector3;
+  point: Vector3
   /**
    * True when the worker placed this pixel. False means the panel is falling
    * back to the device's own GPS reading, which is metres-accurate at best —
    * those are drawn as outlines, never as light.
    */
-  placed: boolean;
+  placed: boolean
 }
 
-const METERS_PER_DEGREE_LATITUDE = 110_574;
-const METERS_PER_DEGREE_LONGITUDE = 111_320;
+const METERS_PER_DEGREE_LATITUDE = 110_574
+const METERS_PER_DEGREE_LONGITUDE = 111_320
 
 /**
  * Equirectangular projection around the event origin. Events span a field, not
@@ -24,7 +24,7 @@ export function projectLocation(
   location: Location,
   origin: { latitude: number; longitude: number },
 ): Vector3 {
-  const latitudeRadians = (origin.latitude * Math.PI) / 180;
+  const latitudeRadians = (origin.latitude * Math.PI) / 180
 
   return {
     x:
@@ -33,7 +33,7 @@ export function projectLocation(
       Math.cos(latitudeRadians),
     y: (location.latitude - origin.latitude) * METERS_PER_DEGREE_LATITUDE,
     z: location.altitude,
-  };
+  }
 }
 
 export function toFieldPixels(
@@ -44,7 +44,7 @@ export function toFieldPixels(
     if (device.position) {
       return [
         { deviceId: device.deviceId, point: device.position.simulated.relative, placed: true },
-      ];
+      ]
     }
 
     if (device.location) {
@@ -54,9 +54,9 @@ export function toFieldPixels(
           point: projectLocation(device.location, origin),
           placed: false,
         },
-      ];
+      ]
     }
 
-    return [];
-  });
+    return []
+  })
 }

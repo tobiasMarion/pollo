@@ -3,9 +3,9 @@ export const WS_CLOSE = {
   INVALID_MESSAGE: 4400,
   UNAUTHORIZED: 4401,
   NOT_FOUND: 4404,
-} as const;
+} as const
 
-export type WsCloseCode = (typeof WS_CLOSE)[keyof typeof WS_CLOSE];
+export type WsCloseCode = (typeof WS_CLOSE)[keyof typeof WS_CLOSE]
 
 /**
  * The two socket endpoints, built here so a client cannot reach for a path the
@@ -16,4 +16,4 @@ export const socketPaths = {
   join: (eventId: string) => `/events/${eventId}/join`,
   /** Where the event owner watches the field and drives it. */
   admin: (eventId: string) => `/events/${eventId}/admin`,
-} as const;
+} as const

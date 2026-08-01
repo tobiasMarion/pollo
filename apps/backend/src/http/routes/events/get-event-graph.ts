@@ -1,14 +1,14 @@
-import { eventGraphSchema } from '@pollo/contracts';
-import type { FastifyInstance } from 'fastify';
-import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { z } from 'zod';
-import { NotFoundError } from '../../errors.js';
-import { auth } from '../../middlewares/auth.js';
+import { eventGraphSchema } from '@pollo/contracts'
+import type { FastifyInstance } from 'fastify'
+import type { ZodTypeProvider } from 'fastify-type-provider-zod'
+import { z } from 'zod'
+import { NotFoundError } from '../../errors.js'
+import { auth } from '../../middlewares/auth.js'
 import {
   errorExamples,
   errorResponseSchema,
   validationErrorResponseSchema,
-} from '../../responses.js';
+} from '../../responses.js'
 
 export async function getEventGraph(app: FastifyInstance) {
   app
@@ -79,17 +79,17 @@ export async function getEventGraph(app: FastifyInstance) {
         },
       },
       async (request, reply) => {
-        const userId = await request.getCurrentUserId();
+        const userId = await request.getCurrentUserId()
 
-        const event = app.events.get(request.params.eventId);
+        const event = app.events.get(request.params.eventId)
 
         if (!event || event.getAdminId() !== userId) {
-          throw new NotFoundError('Event not found');
+          throw new NotFoundError('Event not found')
         }
 
-        const graph = await event.getEventGraph();
+        const graph = await event.getEventGraph()
 
-        return reply.send(graph);
+        return reply.send(graph)
       },
-    );
+    )
 }

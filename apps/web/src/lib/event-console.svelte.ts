@@ -8,18 +8,18 @@ import {
   safeParseJsonMessage,
   socketPaths,
   WS_CLOSE,
-} from '@pollo/contracts';
-import { SvelteMap } from 'svelte/reactivity';
-import { apiSocketUrl } from '$lib/api/client';
+} from '@pollo/contracts'
+import { SvelteMap } from 'svelte/reactivity'
+import { apiSocketUrl } from '$lib/api/client'
 
 export interface DeviceState {
-  deviceId: string;
+  deviceId: string
   /** Null while the only thing seen about a device is a position report. */
-  location: Location | null;
+  location: Location | null
   /** Absent until the worker has published a position for this device. */
-  position: NodePosition | null;
+  position: NodePosition | null
   /** Wall clock of the last frame about this device — drives the "recent" fade. */
-  updatedAt: number;
+  updatedAt: number
 }
 
 export type ConnectionStatus =
@@ -28,13 +28,13 @@ export type ConnectionStatus =
   | 'live'
   | 'reconnecting'
   | 'rejected'
-  | 'closed';
+  | 'closed'
 
-const RECONNECT_BASE_MS = 1000;
-const RECONNECT_MAX_MS = 15_000;
+const RECONNECT_BASE_MS = 1000
+const RECONNECT_MAX_MS = 15_000
 
 export function edgeKey(from: string, to: string): string {
-  return `${from}>${to}`;
+  return `${from}>${to}`
 }
 
 /**
@@ -45,30 +45,30 @@ export function edgeKey(from: string, to: string): string {
  * reactivity handles. The canvas reads the same maps every frame.
  */
 export class EventConsole {
-  readonly devices = new SvelteMap<string, DeviceState>();
-  readonly edges = new SvelteMap<string, { from: string; to: string; value: number }>();
+  readonly devices = new SvelteMap<string, DeviceState>()
+  readonly edges = new SvelteMap<string, { from: string; to: string; value: number }>()
 
-  status = $state<ConnectionStatus>('connecting');
+  status = $state<ConnectionStatus>('connecting')
   /** Set when the socket is closed for good — a reconnect would not help. */
-  error = $state<string | null>(null);
+  error = $state<string | null>(null)
   /** The last effect fired, and when, so views can echo the wavefront. */
-  lastEffect = $state<{ effect: Effect; firedAt: number } | null>(null);
+  lastEffect = $state<{ effect: Effect; firedAt: number } | null>(null)
 
-  #eventId: string;
-  #token: string;
-  #socket: WebSocket | null = null;
-  #retries = 0;
-  #reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-  #closedByUs = false;
+  #eventId: string
+  #token: string
+  #socket: WebSocket | null = null
+  #retries = 0
+  #reconnectTimer: ReturnType<typeof setTimeout> | null = null
+  #closedByUs = false
 
   constructor(eventId: string, token: string) {
-    this.#eventId = eventId;
-    this.#token = token;
+    this.#eventId = eventId
+    this.#token = token
   }
 
   /** Seeds the maps from `GET /events/:id/graph` so the view starts populated. */
   hydrate(graph: EventGraph) {
-    const now = Date.now();
+    const now = Date.now()
 
     for (const [deviceId, metadata] of Object.entries(graph.nodes)) {
       this.devices.set(deviceId, {
@@ -76,134 +76,134 @@ export class EventConsole {
         location: metadata.location,
         position: metadata.position ?? null,
         updatedAt: now,
-      });
+      })
     }
 
     for (const edge of graph.edges) {
-      this.edges.set(edgeKey(edge.from, edge.to), edge);
+      this.edges.set(edgeKey(edge.from, edge.to), edge)
     }
   }
 
   connect() {
-    this.#closedByUs = false;
+    this.#closedByUs = false
 
-    const socket = new WebSocket(apiSocketUrl(socketPaths.admin(this.#eventId)));
-    this.#socket = socket;
-    this.status = this.#retries === 0 ? 'connecting' : 'reconnecting';
+    const socket = new WebSocket(apiSocketUrl(socketPaths.admin(this.#eventId)))
+    this.#socket = socket
+    this.status = this.#retries === 0 ? 'connecting' : 'reconnecting'
 
     socket.addEventListener('open', () => {
-      this.status = 'authenticating';
-      this.#send({ type: 'AUTHENTICATION', token: this.#token });
-    });
+      this.status = 'authenticating'
+      this.#send({ type: 'AUTHENTICATION', token: this.#token })
+    })
 
-    socket.addEventListener('message', (message) => {
-      this.#receive(message.data);
-    });
+    socket.addEventListener('message', message => {
+      this.#receive(message.data)
+    })
 
-    socket.addEventListener('close', (event) => {
-      this.#socket = null;
+    socket.addEventListener('close', event => {
+      this.#socket = null
 
       if (this.#closedByUs) {
-        this.status = 'closed';
-        return;
+        this.status = 'closed'
+        return
       }
 
       // 4401 is the admin check failing and 4404 an event the runtime does not
       // hold: both are verdicts, not hiccups, so retrying only spins.
       if (event.code === WS_CLOSE.UNAUTHORIZED || event.code === WS_CLOSE.NOT_FOUND) {
-        this.status = 'rejected';
-        this.error = event.reason || 'The API refused this event.';
-        return;
+        this.status = 'rejected'
+        this.error = event.reason || 'The API refused this event.'
+        return
       }
 
-      this.#scheduleReconnect();
-    });
+      this.#scheduleReconnect()
+    })
   }
 
   fireEffect(effect: Effect) {
-    if (this.status !== 'live') return;
+    if (this.status !== 'live') return
 
-    this.#send({ type: 'EFFECT', effect });
+    this.#send({ type: 'EFFECT', effect })
   }
 
   destroy() {
-    this.#closedByUs = true;
+    this.#closedByUs = true
 
-    if (this.#reconnectTimer) clearTimeout(this.#reconnectTimer);
+    if (this.#reconnectTimer) clearTimeout(this.#reconnectTimer)
 
-    this.#socket?.close();
-    this.#socket = null;
-    this.status = 'closed';
+    this.#socket?.close()
+    this.#socket = null
+    this.status = 'closed'
   }
 
   #send(message: AdminOutboundMessage) {
-    this.#socket?.send(JSON.stringify(message));
+    this.#socket?.send(JSON.stringify(message))
   }
 
   #scheduleReconnect() {
-    this.status = 'reconnecting';
+    this.status = 'reconnecting'
 
-    const delay = Math.min(RECONNECT_BASE_MS * 2 ** this.#retries, RECONNECT_MAX_MS);
-    this.#retries += 1;
+    const delay = Math.min(RECONNECT_BASE_MS * 2 ** this.#retries, RECONNECT_MAX_MS)
+    this.#retries += 1
 
-    this.#reconnectTimer = setTimeout(() => this.connect(), delay);
+    this.#reconnectTimer = setTimeout(() => this.connect(), delay)
   }
 
   #receive(raw: unknown) {
-    if (typeof raw !== 'string') return;
+    if (typeof raw !== 'string') return
 
     // Validated rather than cast: the panel is a client of a contract it does
     // not control, and a frame it cannot read is one to drop, not to render.
-    const { success, data: message } = safeParseJsonMessage(raw, adminInbound.schema);
+    const { success, data: message } = safeParseJsonMessage(raw, adminInbound.schema)
 
-    if (!success) return;
+    if (!success) return
 
-    const now = Date.now();
+    const now = Date.now()
 
     switch (message.type) {
       case 'AUTHENTICATION_ACK':
         // Only now are reports guaranteed to flow.
-        this.status = 'live';
-        this.error = null;
-        this.#retries = 0;
-        break;
+        this.status = 'live'
+        this.error = null
+        this.#retries = 0
+        break
 
       case 'USER_JOINED':
       case 'LOCATION_UPDATE_REPORT':
-        this.#upsertDevice(message.deviceId, { location: message.location, updatedAt: now });
-        break;
+        this.#upsertDevice(message.deviceId, { location: message.location, updatedAt: now })
+        break
 
       case 'SET_POINT_REPORT':
-        this.#upsertDevice(message.deviceId, { position: message.position, updatedAt: now });
-        break;
+        this.#upsertDevice(message.deviceId, { position: message.position, updatedAt: now })
+        break
 
       case 'USER_LEFT': {
-        this.devices.delete(message.deviceId);
+        this.devices.delete(message.deviceId)
 
         for (const [key, edge] of this.edges) {
           if (edge.from === message.deviceId || edge.to === message.deviceId) {
-            this.edges.delete(key);
+            this.edges.delete(key)
           }
         }
-        break;
+        break
       }
 
       case 'DISTANCE_REPORT': {
-        const key = edgeKey(message.from, message.to);
+        const key = edgeKey(message.from, message.to)
 
         // A null distance means the devices went out of range: the edge is
         // dropped, not zeroed.
         if (message.distance === null) {
-          this.edges.delete(key);
+          this.edges.delete(key)
         } else {
-          this.edges.set(key, { from: message.from, to: message.to, value: message.distance });
+          this.edges.set(key, { from: message.from, to: message.to, value: message.distance })
         }
-        break;
+        break
       }
 
       case 'EFFECT':
-        this.lastEffect = { effect: message.effect, firedAt: now };
-        break;
+        this.lastEffect = { effect: message.effect, firedAt: now }
+        break
     }
   }
 
@@ -213,7 +213,7 @@ export class EventConsole {
    * carries is enough to start tracking it.
    */
   #upsertDevice(deviceId: string, patch: Partial<Omit<DeviceState, 'deviceId'>>) {
-    const existing = this.devices.get(deviceId);
+    const existing = this.devices.get(deviceId)
 
     this.devices.set(deviceId, {
       deviceId,
@@ -221,7 +221,7 @@ export class EventConsole {
       position: existing?.position ?? null,
       updatedAt: Date.now(),
       ...patch,
-    });
+    })
   }
 }
 
@@ -229,5 +229,5 @@ export class EventConsole {
 export function positionedDevices(devices: Iterable<DeviceState>): DeviceState[] {
   return [...devices].filter((device): device is DeviceState & { position: NodePosition } =>
     Boolean(device.position),
-  );
+  )
 }

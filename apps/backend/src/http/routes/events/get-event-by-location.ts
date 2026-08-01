@@ -1,10 +1,10 @@
-import { eventSchema } from '@pollo/contracts';
-import type { FastifyInstance } from 'fastify';
-import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { z } from 'zod';
-import { Prisma } from '../../../generated/prisma/client.js';
-import { NotFoundError } from '../../errors.js';
-import { errorResponseSchema, validationErrorResponseSchema } from '../../responses.js';
+import { eventSchema } from '@pollo/contracts'
+import type { FastifyInstance } from 'fastify'
+import type { ZodTypeProvider } from 'fastify-type-provider-zod'
+import { z } from 'zod'
+import { Prisma } from '../../../generated/prisma/client.js'
+import { NotFoundError } from '../../errors.js'
+import { errorResponseSchema, validationErrorResponseSchema } from '../../responses.js'
 
 const closestEventRowSchema = z.object({
   id: z.string().uuid(),
@@ -16,7 +16,7 @@ const closestEventRowSchema = z.object({
   user_id: z.string(),
   created_at: z.date(),
   updated_at: z.date(),
-});
+})
 
 /**
  * Closest OPEN event within a ~1km bounding box, ordered by haversine
@@ -52,7 +52,7 @@ function closestEventQuery(latitude: number, longitude: number) {
     ) AS candidates
     ORDER BY distance
     LIMIT 1;
-  `;
+  `
 }
 
 export async function getEventByLocation(app: FastifyInstance) {
@@ -126,15 +126,15 @@ export async function getEventByLocation(app: FastifyInstance) {
     async ({ query }, reply) => {
       const rows = await app.prisma.$queryRaw<unknown[]>(
         closestEventQuery(query.latitude, query.longitude),
-      );
+      )
 
-      const first = rows[0];
+      const first = rows[0]
 
       if (!first) {
-        throw new NotFoundError('There was not any event around you.');
+        throw new NotFoundError('There was not any event around you.')
       }
 
-      const row = closestEventRowSchema.parse(first);
+      const row = closestEventRowSchema.parse(first)
 
       return reply.send({
         event: {
@@ -148,7 +148,7 @@ export async function getEventByLocation(app: FastifyInstance) {
           createdAt: row.created_at,
           updatedAt: row.updated_at,
         },
-      });
+      })
     },
-  );
+  )
 }

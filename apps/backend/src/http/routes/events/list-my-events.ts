@@ -1,9 +1,9 @@
-import { eventSchema } from '@pollo/contracts';
-import type { FastifyInstance } from 'fastify';
-import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { z } from 'zod';
-import { auth } from '../../middlewares/auth.js';
-import { errorExamples, errorResponseSchema } from '../../responses.js';
+import { eventSchema } from '@pollo/contracts'
+import type { FastifyInstance } from 'fastify'
+import type { ZodTypeProvider } from 'fastify-type-provider-zod'
+import { z } from 'zod'
+import { auth } from '../../middlewares/auth.js'
+import { errorExamples, errorResponseSchema } from '../../responses.js'
 
 export async function listMyEvents(app: FastifyInstance) {
   app
@@ -56,14 +56,14 @@ export async function listMyEvents(app: FastifyInstance) {
         },
       },
       async (request, reply) => {
-        const userId = await request.getCurrentUserId();
+        const userId = await request.getCurrentUserId()
 
         const events = await app.prisma.event.findMany({
           where: { userId },
           orderBy: { createdAt: 'desc' },
-        });
+        })
 
-        return reply.send({ events });
+        return reply.send({ events })
       },
-    );
+    )
 }

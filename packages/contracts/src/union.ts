@@ -1,6 +1,6 @@
-import { z } from 'zod';
+import { z } from 'zod'
 
-type Option<Discriminator extends string> = z.ZodDiscriminatedUnionOption<Discriminator>;
+type Option<Discriminator extends string> = z.ZodDiscriminatedUnionOption<Discriminator>
 
 /**
  * A discriminated union built from a record instead of a hand-written member
@@ -17,9 +17,9 @@ export function unionFrom<
   const options = Object.values(members) as unknown as [
     Members[keyof Members],
     ...Members[keyof Members][],
-  ];
+  ]
 
-  return z.discriminatedUnion(discriminator, options);
+  return z.discriminatedUnion(discriminator, options)
 }
 
 /** The named subset of a record — how the per-direction unions are built. */
@@ -27,7 +27,7 @@ export function subsetOf<
   Members extends Record<string, unknown>,
   const Keys extends readonly (keyof Members)[],
 >(members: Members, keys: Keys): Pick<Members, Keys[number]> {
-  const entries = keys.map((key) => [key, members[key]] as const);
+  const entries = keys.map(key => [key, members[key]] as const)
 
-  return Object.fromEntries(entries) as Pick<Members, Keys[number]>;
+  return Object.fromEntries(entries) as Pick<Members, Keys[number]>
 }
