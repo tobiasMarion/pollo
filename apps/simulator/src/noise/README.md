@@ -15,6 +15,7 @@ produce a stated outcome.
 - [Drift](#drift) — why the error has memory
 - [Reflections](#reflections) — why multipath is a state, not a spike
 - [What the crowd shares](#what-the-crowd-shares) — the common-mode split
+- [Ranging](#ranging) — the distance graph, which is what the geometry lives on
 
 ## Randomness
 
@@ -206,6 +207,72 @@ That is what lets twenty thousand devices across eight threads see the same
 common-mode error with no message ever exchanged about it. See
 [`run/`](../run).
 
+## Ranging
+
+**This is the part the reconstruction actually lives on.** GPS supplies a
+starting guess; the distance graph carries the geometry. A ranging model that is
+too kind makes the whole exercise meaningless, so this is the last place to
+reach for an additive Gaussian.
+
+### Radio ranging is not a distance measurement
+
+It is a *power* measurement inverted through a propagation model. Three
+consequences an additive Gaussian throws away:
+
+1. **The error is multiplicative.** Distance is recovered from received power
+   through `d ∝ 10^(loss / 10γ)`, so a fixed dB error becomes a proportional
+   distance error. A ±3 dB wobble is ±30% at any range, not ±3 m.
+2. **Anything in the way reads as farther, never nearer.** Attenuation only ever
+   subtracts power, and less power inverts to more distance. A body across the
+   line of sight biases the link **long**; nothing biases it short.
+3. **Whether a peer is heard at all decays with range.** That leaves a sparse,
+   irregular, asymmetric graph — not the tidy k-nearest lattice a naive
+   simulator hands over, and asymmetric because A hearing B does not mean B
+   heard A on the same sweep.
+
+Everything is computed in dB and converted once, because that is the domain
+where the physics is linear.
+
+### The model
+
+```
+loss_dB   = shadowing + blockage
+distance  = d_true × 10^(loss_dB / (10 × γ))
+```
+
+- **γ = 2.6**, the path loss exponent. Free space is 2.0; published measurements
+  put obstructed indoor environments at 2.4–3.0. A packed crowd is not an
+  office, but it is much closer to one than to free space — every metre of path
+  costs another body.
+- **Shadowing** is zero-mean Gaussian in dB, i.e. log-normal in the linear
+  domain, at σ = 6 dB. Measured values across building types span 3–14 dB.
+  Because it is zero-mean *in dB*, it is unbiased in the log domain — which
+  `ranging.test.ts` asserts directly.
+- **Blockage** is one-sided: a gamma draw added only when a body is judged to be
+  in the way, with the chance rising with distance through a mean free path.
+  This is what makes a blocked link read as too far rather than merely noisy.
+- **Detection** falls off as a Gaussian in `d/range`. Beyond `range` nothing is
+  heard at all.
+
+### Two limits, and they are not the same limit
+
+`--range` bounds the **true** distance a radio can hear. `--max-edge` is the
+longest distance a device is willing to **report**, defaulting to `--range`.
+
+They have to be separate, and the reason is a direct consequence of point 1
+above. `range` does nothing about the measurement, which is multiplicative and
+biased long: with a six-metre radio, a large share of edges compute out above
+six metres and the tail reaches absurd values. A device cannot know the true
+distance — but it does know its own radio, and a computed distance far past what
+that radio can physically reach is one a real proximity client discards rather
+than reports.
+
+**The surviving measurements are censored, not clamped.** An over-range
+measurement is dropped, not squashed against the limit. Clamping would pile a
+spike of mass exactly at the boundary, which is an artefact no receiver
+produces and which an estimator would happily fit. The worker meets the same
+censored distribution in the field.
+
 ## Parameters
 
 | symbol | value | provenance |
@@ -225,6 +292,12 @@ common-mode error with no message ever exchanged about it. See
 | `SECTOR_SHARE_OF_SHARED` | 0.2 | calibrated — most of the correlated error is venue-wide, a fifth of it sector-scale |
 | vertical common-mode | `min(0.95, share × 1.15)` | calibrated — height is more common-mode than the horizontal |
 | `FIELD_TICK_SECONDS` | 0.25 | calibrated — fine against the fastest τ (15 s), coarse enough to be cheap to replay |
+| `PATH_LOSS_EXPONENT` γ | 2.6 | literature-anchored — free space is 2.0, published soft-partition office measurements are 2.4–2.6, hard-partition 3.0. A crowd is not an office; 2.6 is the obstructed end of that band. |
+| `SHADOWING_SIGMA_DB` | 6 dB | literature-anchored — measured log-normal shadowing spans 3–14.1 dB across building types; 6 is mid-low in that range |
+| `BODY_MEAN_FREE_PATH` | 8 m | calibrated — how far a line of sight travels before a body is likely to cross it |
+| `BLOCKAGE_LOSS_SHAPE` / `_SCALE` | 3 / 3.5 dB | calibrated — a one-sided gamma; 2.4 GHz is absorbed well by water, so a body is a real loss and never a gain |
+| `PEAK_DETECTION` | 0.98 | calibrated — even at zero range a packet is occasionally missed |
+| `DETECTION_DECAY` | 2.2 | calibrated — sets how fast the graph thins with range |
 | bias spread | 0.35 of a unit vector | calibrated — enough that averaging neighbours cannot cancel the sector's direction |
 
 ## Sources
@@ -246,3 +319,12 @@ common-mode error with no message ever exchanged about it. See
   ([APS](https://link.aps.org/pdf/10.1103/PhysRevE.54.2084),
   [PubMed](https://pubmed.ncbi.nlm.nih.gov/9965289/)) — the update that is exact
   for any Δt, which is the property this module depends on
+- [Log-distance path loss model](https://en.wikipedia.org/wiki/Log-distance_path_loss_model)
+  — the `L = L₀ + 10γ·log₁₀(d/d₀) + Xg` form this inverts, the empirical table of
+  path loss exponents (free space 2.0, soft-partition office 2.4–2.6,
+  hard-partition office 3.0), and the Gaussian-in-dB / log-normal-in-linear
+  shadowing term with measured σ spanning 3–14.1 dB
+- [Error analysis for the Global Positioning System](https://en.wikipedia.org/wiki/Error_analysis_for_the_Global_Positioning_System)
+  — the UERE budget whose three largest terms (ionosphere, ephemeris, satellite
+  clock) are what makes the error common-mode, and the ±1 m nominal multipath
+  entry with its "more severe in urban canyons" caveat
