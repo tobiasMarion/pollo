@@ -1,4 +1,4 @@
-import type { Location, Vector3 } from '@pollo/contracts'
+import { projectLocation, type Vector3 } from '@pollo/contracts'
 import type { DeviceState } from '$lib/event-console.svelte'
 
 export interface FieldPixel {
@@ -11,29 +11,6 @@ export interface FieldPixel {
    * those are drawn as outlines, never as light.
    */
   placed: boolean
-}
-
-const METERS_PER_DEGREE_LATITUDE = 110_574
-const METERS_PER_DEGREE_LONGITUDE = 111_320
-
-/**
- * Equirectangular projection around the event origin. Events span a field, not
- * a continent, so the error over a few hundred meters is far below GPS noise.
- */
-export function projectLocation(
-  location: Location,
-  origin: { latitude: number; longitude: number },
-): Vector3 {
-  const latitudeRadians = (origin.latitude * Math.PI) / 180
-
-  return {
-    x:
-      (location.longitude - origin.longitude) *
-      METERS_PER_DEGREE_LONGITUDE *
-      Math.cos(latitudeRadians),
-    y: (location.latitude - origin.latitude) * METERS_PER_DEGREE_LATITUDE,
-    z: location.altitude,
-  }
 }
 
 export function toFieldPixels(
