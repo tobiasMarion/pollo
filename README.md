@@ -13,6 +13,7 @@
 - [Requirements](#requirements)
 - [Development](#development)
 - [Tests](#tests)
+- [Simulation](#simulation)
 - [Production](#production)
 - [Contact](#contact)
 
@@ -57,6 +58,7 @@ has to read a cue the same way, or the crowd falls out of step.
 apps/
   backend/     Fastify + TypeScript API (REST + WebSockets, Prisma/Postgres, Redis)
   web/         admin panel (SvelteKit + Tailwind)
+  simulator/   emulates a stadium crowd against a live event
   # worker/    position estimation (Rust)       — phase 3 (rewritten by hand)
   # mobile/    sensor client (SwiftUI/iOS)
 packages/
@@ -116,9 +118,9 @@ just web                      # admin panel, in another shell    ->  http://loca
 just contracts-watch          # only if you are editing packages/contracts
 ```
 
-Both apps import the contracts package's **build output**, so it compiles before
-they do — `just all`, `just dev`, `just web` and `just test` each take care of
-that on their own.
+Every app imports the contracts package's **build output**, so it compiles
+before they do — `just all`, `just dev`, `just web`, `just simulate` and
+`just test` each take care of that on their own.
 
 The panel signs in with the same GitHub OAuth app as the API, so the app's
 **Authorization callback URL** must be exactly `GITHUB_OAUTH_CLIENT_REDIRECT_URI`
@@ -140,9 +142,55 @@ Integration and e2e run against a dedicated `pollo_test` database and Redis
 logical db 1 — they never touch dev data.
 
 CI (GitHub Actions) runs the same pipeline on every PR: Biome, a typecheck of
-all three workspaces, the panel build, migrations, every workspace suite and the
-two backend tiers that need datastores — plus a job that builds the production
+every workspace, the panel build, migrations, every workspace suite and the two
+backend tiers that need datastores — plus a job that builds the production
 images and boots the full stack against its healthchecks.
+
+---
+
+## 🎛️ Simulation <a name="simulation"></a>
+
+Twenty thousand phones is not a thing anyone has lying around. `apps/simulator`
+emulates them: it seats a crowd in a stadium, gives each seat a receiver that
+lies about where it is, and reports the results over the same sockets a real
+device would use.
+
+```bash
+just simulate --event <uuid> --clients 20000     # --help lists every knob
+```
+
+The event has to be open — create one in the panel and pass its id. Nothing
+else is needed: `GET /events/:eventId` is public, so the origin comes back
+without a token.
+
+**The noise is the product.** Anything can add a random number to a coordinate;
+what would come of that is a worker tuned for a world nobody lives in. The error
+drifts rather than resampling, the crowd shares most of its mistakes rather than
+erring independently, altitude is far worse than the horizontal and by a factor
+derived from what each seat can see of the sky, and reflections off the concrete
+are a state that persists rather than a spike a median removes.
+
+Each of those is a decision with an alternative that was cheaper and wrong, and
+each is written up next to the code that implements it — with the constants
+separated into what a source supports and what was calibrated:
+
+| | |
+|---|---|
+| [`src/crowd/`](apps/simulator/src/crowd) | the bowl, the sky each seat can see, HDOP/VDOP |
+| [`src/noise/`](apps/simulator/src/noise) | drift, common mode, reflections, ranging |
+| [`src/metrics/`](apps/simulator/src/metrics) | why the error needs a Procrustes alignment before it means anything |
+| [`src/run/`](apps/simulator/src/run) | threads, shared memory, and the clock that keeps them agreeing |
+| [`src/io/`](apps/simulator/src/io) | argv, the API, the device socket, the terminal |
+
+**What comes out** is a chart of how far the crowd is from where it really is,
+with two lines. On its own the worker's error means nothing; raw GPS, given
+identical treatment, is the control, and the gap between them is what the
+worker is worth. Both are RMSE after a Procrustes alignment, because a
+reconstruction from distances alone has no idea which way north is and would
+otherwise be scored on an ambiguity rather than on its geometry.
+
+Every run prints its seed and replays exactly from it. `--json` swaps the
+dashboard for NDJSON.
 
 ---
 
