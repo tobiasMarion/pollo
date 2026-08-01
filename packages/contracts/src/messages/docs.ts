@@ -12,7 +12,11 @@ export function messageTable(direction: { types: readonly MessageType[] }): stri
       .filter(field => field !== 'type')
       .map(field => `\`${field}\``)
 
-    return `| \`${type}\` | ${payload.join(', ') || '—'} | ${schema.description ?? ''} |`
+    // A row is one line, so a description written as a paragraph has to be
+    // flattened rather than allowed to split the table into pieces.
+    const meaning = (schema.description ?? '').replace(/\s+/g, ' ').trim()
+
+    return `| \`${type}\` | ${payload.join(', ') || '—'} | ${meaning} |`
   })
 
   return ['| type | payload | meaning |', '| --- | --- | --- |', ...rows].join('\n')

@@ -9,8 +9,11 @@ import { unionFrom } from '../union.js'
  * below, the message-type list and the per-direction subsets in `directions.ts`
  * all derive from this one record.
  *
- * Reports are the admin's view of a device-facing frame: same payload plus the
- * `deviceId` the device itself has no need to be told.
+ * The two directions are shaped by what each end is doing. A device is told
+ * about single things as they happen, because it acts on each one. The admin
+ * panel is drawing a field rather than following an event log, so it is sent
+ * `FIELD_UPDATE`: one coalesced batch on a fixed cadence, whatever the crowd
+ * did in between.
  */
 export const messageSchemas = {
   AUTHENTICATION: z
@@ -43,13 +46,35 @@ export const messageSchemas = {
     })
     .describe('A device reporting that it moved.'),
 
-  LOCATION_UPDATE_REPORT: z
+  FIELD_UPDATE: z
     .object({
-      type: z.literal('LOCATION_UPDATE_REPORT'),
-      deviceId: z.string(),
-      location: locationSchema,
+      type: z.literal('FIELD_UPDATE'),
+      at: z
+        .number()
+        .describe('Server clock when the batch was cut, in milliseconds since the epoch.'),
+      window: z
+        .number()
+        .describe('Milliseconds until the next batch — how long a client has to animate across.'),
+      locations: z
+        .array(z.object({ deviceId: z.string(), location: locationSchema }))
+        .describe('Devices that joined or moved. One entry each, carrying their latest reading.'),
+      placed: z
+        .array(z.object({ deviceId: z.string(), position: positionSchema }))
+        .describe('Devices the worker has put somewhere since the last batch.'),
+      left: z.array(z.string()).describe('Device ids that disconnected.'),
+      edges: z
+        .array(
+          z.object({
+            from: z.string(),
+            to: z.string(),
+            distance: z.number().nullable().describe('Meters, or null to drop the edge.'),
+          }),
+        )
+        .describe(
+          'Distances that changed. One entry per pair, carrying the latest value, and never naming a device this batch also reports in `left`.',
+        ),
     })
-    .describe('A `LOCATION_UPDATE`, as the admin sees it.'),
+    .describe('Everything that happened to the field since the last batch, coalesced.'),
 
   USER_JOINED: z
     .object({
@@ -67,15 +92,6 @@ export const messageSchemas = {
     })
     .describe('A device reporting how far a peer is.'),
 
-  DISTANCE_REPORT: z
-    .object({
-      type: z.literal('DISTANCE_REPORT'),
-      from: z.string().describe('The device that measured.'),
-      to: z.string().describe('The device that was measured.'),
-      distance: z.number().nullable().describe('Meters, or null to drop the edge.'),
-    })
-    .describe('A `DISTANCE`, as the admin sees it.'),
-
   USER_LEFT: z
     .object({
       type: z.literal('USER_LEFT'),
@@ -89,14 +105,6 @@ export const messageSchemas = {
       position: positionSchema,
     })
     .describe('Where the worker placed this device — sent to that device alone.'),
-
-  SET_POINT_REPORT: z
-    .object({
-      type: z.literal('SET_POINT_REPORT'),
-      deviceId: z.string(),
-      position: positionSchema,
-    })
-    .describe('A `SET_POINT`, as the admin sees it.'),
 
   EFFECT: z
     .object({

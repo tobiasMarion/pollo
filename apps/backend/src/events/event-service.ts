@@ -1,5 +1,6 @@
 import type { ExactLocation, Location, Message, PositionsMessage } from '@pollo/contracts'
 import type { FastifyBaseLogger } from 'fastify'
+import { AdminDigest, DIGEST_INTERVAL_MS } from './admin-digest.js'
 import type { Bus } from './bus.js'
 import type { GraphStore } from './graph-store.js'
 
@@ -43,6 +44,9 @@ export class EventService {
 
   private pendingStoreWrites: Promise<unknown> = Promise.resolve()
 
+  private readonly digest = new AdminDigest()
+  private digestTimer: ReturnType<typeof setInterval> | null = null
+
   constructor({ id, location, adminId, graphStore, bus, logger }: EventServiceOptions) {
     this.id = id
     this.location = location
@@ -78,10 +82,33 @@ export class EventService {
 
   setAdminConnection(send: SendMessage) {
     this.admin.sendMessage = send
+
+    if (this.digestTimer) return
+
+    // Only runs while somebody is watching. With no panel connected there is
+    // nothing to flush to, and an interval per open event would tick for the
+    // life of the process with no reader.
+    this.digestTimer = setInterval(() => this.flushDigest(), DIGEST_INTERVAL_MS)
+    this.digestTimer.unref?.()
   }
 
   clearAdminConnection() {
     this.admin.sendMessage = undefined
+
+    if (this.digestTimer) {
+      clearInterval(this.digestTimer)
+      this.digestTimer = null
+    }
+  }
+
+  /**
+   * Sends the batch, or nothing at all. A quiet second should not wake the
+   * browser up to hand it four empty arrays.
+   */
+  flushDigest() {
+    if (!this.admin.sendMessage || this.digest.empty) return
+
+    this.admin.sendMessage(this.digest.take(DIGEST_INTERVAL_MS))
   }
 
   async getSubscribers() {
@@ -97,6 +124,10 @@ export class EventService {
     return await this.graphStore.getEventGraph()
   }
 
+  /**
+   * Straight to the admin, unbatched. Only for frames the panel acts on the
+   * moment they arrive rather than draws — its own cue, coming back.
+   */
   notifyAdmin(message: Message) {
     this.admin.sendMessage?.(message)
   }
@@ -109,8 +140,16 @@ export class EventService {
     }
   }
 
+  /** Fans out to the devices; the admin hears about it in the next batch. */
+  private broadcastToDevices(message: Message) {
+    for (const sendMessage of this.subscribers.values()) {
+      sendMessage(message)
+    }
+  }
+
   subscribe({ deviceId, location, sendMessage }: Subscriber) {
-    this.publish({ type: 'USER_JOINED', deviceId, location })
+    this.broadcastToDevices({ type: 'USER_JOINED', deviceId, location })
+    this.digest.locationChanged(deviceId, location)
 
     this.subscribers.set(deviceId, sendMessage)
 
@@ -121,14 +160,29 @@ export class EventService {
     this.bus.publishIngest(this.id, { op: 'JOIN', deviceId, location })
   }
 
+  /**
+   * Ignores a measurement from a device that is no longer here, which
+   * `updateSubscriberLocation` has always done and this had not.
+   *
+   * The gap was not theoretical. A socket that dies with frames still queued
+   * gets its `DISTANCE` handled after its `close`, so `setEdge` ran after
+   * `removeNode` — and `setEdge` adds both endpoints as nodes, resurrecting the
+   * device that had just been cleaned up. Its edge hash came back with it and
+   * nothing ever removed it again: the device was gone, so no later departure
+   * would sweep it. What that leaves behind is a graph of edges between devices
+   * that no longer exist, and a panel loading it reads zero devices and a
+   * distance between two of them.
+   */
   setDistanceToDevice(from: string, to: string, distance: number | null) {
+    if (!this.subscribers.has(from)) return
+
     if (distance === null) {
       this.enqueueStoreWrite(() => this.graphStore.removeEdge(from, to))
     } else {
       this.enqueueStoreWrite(() => this.graphStore.setEdge({ from, to, value: distance }))
     }
 
-    this.notifyAdmin({ type: 'DISTANCE_REPORT', from, to, distance })
+    this.digest.edgeChanged(from, to, distance)
 
     this.bus.publishIngest(this.id, { op: 'DISTANCE', from, to, distance })
   }
@@ -136,7 +190,7 @@ export class EventService {
   updateSubscriberLocation(deviceId: string, location: Location) {
     if (!this.subscribers.has(deviceId)) return
 
-    this.notifyAdmin({ type: 'LOCATION_UPDATE_REPORT', deviceId, location })
+    this.digest.locationChanged(deviceId, location)
     this.enqueueStoreWrite(() => this.graphStore.setNodeLocation(deviceId, location))
 
     this.bus.publishIngest(this.id, { op: 'LOCATION_UPDATE', deviceId, location })
@@ -148,7 +202,8 @@ export class EventService {
     this.subscribers.delete(deviceId)
     this.enqueueStoreWrite(() => this.graphStore.removeNode(deviceId))
 
-    this.publish({ type: 'USER_LEFT', deviceId })
+    this.broadcastToDevices({ type: 'USER_LEFT', deviceId })
+    this.digest.departed(deviceId)
 
     this.bus.publishIngest(this.id, { op: 'LEAVE', deviceId })
   }
@@ -161,7 +216,7 @@ export class EventService {
     for (const { deviceId, position } of message.points) {
       this.subscribers.get(deviceId)?.({ type: 'SET_POINT', position })
 
-      this.notifyAdmin({ type: 'SET_POINT_REPORT', deviceId, position })
+      this.digest.placedAt(deviceId, position)
     }
   }
 }

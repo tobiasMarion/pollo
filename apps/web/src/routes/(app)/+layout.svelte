@@ -2,7 +2,13 @@
 let { data, children } = $props()
 </script>
 
-<div class="flex min-h-svh flex-col">
+<!--
+  `h-svh`, not `min-h-svh`: a minimum lets the column grow past the viewport, and
+  everything below inherits that freedom — a pane that wants to scroll on its own
+  never gets a height to scroll within, so its content pushes the whole document
+  instead. The height has to be settled here for anything downstream to bound.
+-->
+<div class="flex h-svh flex-col">
   <header
     class="flex items-center justify-between gap-4 border-dusk-800 border-b px-5 py-3 md:px-8"
   >
@@ -30,7 +36,14 @@ let { data, children } = $props()
     </div>
   </header>
 
-  <main class="flex flex-1 flex-col">
+  <!--
+    `min-h-0` because a flex item defaults to `min-height: auto` and refuses to
+    shrink below its content, which would undo the bounded height above it. The
+    scroll lands here so pages that are simply long — the events list — still
+    scroll as a whole, while a page that fills the viewport exactly leaves this
+    container with nothing to scroll and its own panes take over.
+  -->
+  <main class="flex min-h-0 flex-1 flex-col overflow-y-auto">
     {@render children()}
   </main>
 </div>
