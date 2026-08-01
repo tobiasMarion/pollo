@@ -59,6 +59,22 @@ class WsClient {
     return this.inbox.filter(message => message.type === type)
   }
 
+  /**
+   * The admin panel is sent coalesced batches rather than a frame per event, so
+   * an assertion has to wait for the batch that carries what it is looking for
+   * rather than for the next one to arrive.
+   */
+  async batchWith(carries: (update: Extract<Message, { type: 'FIELD_UPDATE' }>) => boolean) {
+    return (await waitFor(
+      () =>
+        this.inbox.find(
+          (message): message is Extract<Message, { type: 'FIELD_UPDATE' }> =>
+            message.type === 'FIELD_UPDATE' && carries(message),
+        ),
+      found => found !== undefined,
+    )) as Extract<Message, { type: 'FIELD_UPDATE' }>
+  }
+
   close() {
     this.socket.close()
   }
@@ -125,13 +141,14 @@ describe('event lifecycle end to end', () => {
     const subscriber = await new WsClient(`${wsUrl}/events/${eventId}/join`).ready()
     subscriber.send({ type: 'JOIN', deviceId: 'device-1', location })
 
-    const joined = await admin.next('USER_JOINED')
-    expect(joined.deviceId).toBe('device-1')
-
     subscriber.send({ type: 'DISTANCE', to: 'device-2', distance: 3.2 })
 
-    const distanceReport = await admin.next('DISTANCE_REPORT')
-    expect(distanceReport).toMatchObject({ from: 'device-1', to: 'device-2', distance: 3.2 })
+    const arrival = await admin.batchWith(
+      update => update.locations.length > 0 && update.edges.length > 0,
+    )
+    expect(arrival.locations).toEqual([{ deviceId: 'device-1', location }])
+    expect(arrival.edges).toEqual([{ from: 'device-1', to: 'device-2', distance: 3.2 }])
+    expect(arrival.window).toBeGreaterThan(0)
 
     const ingestEntries = await waitFor(
       () => redis.xrange(streamKeys.ingest(eventId), '-', '+'),
@@ -154,8 +171,8 @@ describe('event lifecycle end to end', () => {
     const setPoint = await subscriber.next('SET_POINT')
     expect(setPoint.position).toEqual(position)
 
-    const setPointReport = await admin.next('SET_POINT_REPORT')
-    expect(setPointReport).toMatchObject({ deviceId: 'device-1', position })
+    const placement = await admin.batchWith(update => update.placed.length > 0)
+    expect(placement.placed).toEqual([{ deviceId: 'device-1', position }])
 
     const participantsResponse = await fetch(`${baseUrl}/events/${eventId}/participants`)
     const { participants } = (await participantsResponse.json()) as {
@@ -166,8 +183,8 @@ describe('event lifecycle end to end', () => {
     subscriber.close()
     await subscriber.closed
 
-    const left = await admin.next('USER_LEFT')
-    expect(left.deviceId).toBe('device-1')
+    const departure = await admin.batchWith(update => update.left.length > 0)
+    expect(departure.left).toEqual(['device-1'])
 
     admin.close()
     await admin.closed
