@@ -87,7 +87,17 @@ onMount(() => {
       This event is finished. Its devices and distances are no longer in the runtime.
     </p>
   {:else}
-    <div class="grid min-h-0 flex-1 lg:grid-cols-[1fr_18rem]">
+    <!--
+      The row has to be capped as well as the container. A grid row left at
+      `auto` is sized by its tallest item's content, so a long device list makes
+      the row taller than the grid and the overflow escapes upwards — the pane
+      never scrolls because it was never asked to fit. `minmax(0, 1fr)` is what
+      makes the row obey the height it was given.
+
+      Only from `lg`, where the two panes sit side by side. Stacked on a narrow
+      screen the list belongs below the field and scrolls with the page.
+    -->
+    <div class="grid min-h-0 flex-1 lg:grid-cols-[1fr_18rem] lg:grid-rows-[minmax(0,1fr)]">
       <section class="flex min-h-0 flex-col">
         <div class="relative min-h-[40svh] flex-1">
           <FieldCanvas {pixels} {edges} lastEffect={live?.lastEffect ?? null} />
