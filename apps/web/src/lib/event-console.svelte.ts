@@ -4,6 +4,7 @@ import {
   type Effect,
   type EventGraph,
   type Location,
+  type MessageOf,
   type NodePosition,
   safeParseJsonMessage,
   socketPaths,
@@ -14,12 +15,20 @@ import { apiSocketUrl } from '$lib/api/client'
 
 export interface DeviceState {
   deviceId: string
-  /** Null while the only thing seen about a device is a position report. */
+  /** Null while the only thing seen about a device is a position. */
   location: Location | null
   /** Absent until the worker has published a position for this device. */
   position: NodePosition | null
-  /** Wall clock of the last frame about this device — drives the "recent" fade. */
-  updatedAt: number
+  /**
+   * What the two above were before the last batch. Updates arrive once a
+   * second; without somewhere to move *from*, the field would tick rather than
+   * move, so the canvas glides between the two across `window`.
+   */
+  previousLocation: Location | null
+  previousPosition: NodePosition | null
+  /** When the current values landed, and how long the glide has to cover. */
+  changedAt: number
+  window: number
 }
 
 export type ConnectionStatus =
@@ -75,7 +84,10 @@ export class EventConsole {
         deviceId,
         location: metadata.location,
         position: metadata.position ?? null,
-        updatedAt: now,
+        previousLocation: null,
+        previousPosition: null,
+        changedAt: now,
+        window: 0,
       })
     }
 
@@ -168,38 +180,9 @@ export class EventConsole {
         this.#retries = 0
         break
 
-      case 'USER_JOINED':
-      case 'LOCATION_UPDATE_REPORT':
-        this.#upsertDevice(message.deviceId, { location: message.location, updatedAt: now })
+      case 'FIELD_UPDATE':
+        this.#applyBatch(message, now)
         break
-
-      case 'SET_POINT_REPORT':
-        this.#upsertDevice(message.deviceId, { position: message.position, updatedAt: now })
-        break
-
-      case 'USER_LEFT': {
-        this.devices.delete(message.deviceId)
-
-        for (const [key, edge] of this.edges) {
-          if (edge.from === message.deviceId || edge.to === message.deviceId) {
-            this.edges.delete(key)
-          }
-        }
-        break
-      }
-
-      case 'DISTANCE_REPORT': {
-        const key = edgeKey(message.from, message.to)
-
-        // A null distance means the devices went out of range: the edge is
-        // dropped, not zeroed.
-        if (message.distance === null) {
-          this.edges.delete(key)
-        } else {
-          this.edges.set(key, { from: message.from, to: message.to, value: message.distance })
-        }
-        break
-      }
 
       case 'EFFECT':
         this.lastEffect = { effect: message.effect, firedAt: now }
@@ -208,19 +191,74 @@ export class EventConsole {
   }
 
   /**
-   * Reports can name a device the panel never saw join — it joined while the
-   * socket was down, and `USER_JOINED` does not replay. Whatever the report
-   * carries is enough to start tracking it.
+   * The whole batch, applied in one pass.
+   *
+   * Departures go last on purpose. The server already keeps a batch consistent
+   * — nothing it sends references a device it is also reporting gone — but
+   * arrivals before departures is the only order that stays right if that ever
+   * slips, because a stale edge added after the sweep is one nothing later
+   * retracts: the server has said all it has to say about that pair.
    */
-  #upsertDevice(deviceId: string, patch: Partial<Omit<DeviceState, 'deviceId'>>) {
+  #applyBatch(update: MessageOf<'FIELD_UPDATE'>, now: number) {
+    for (const { deviceId, location } of update.locations) {
+      this.#upsertDevice(deviceId, now, update.window, { location })
+    }
+
+    for (const { deviceId, position } of update.placed) {
+      this.#upsertDevice(deviceId, now, update.window, { position })
+    }
+
+    for (const edge of update.edges) {
+      const key = edgeKey(edge.from, edge.to)
+
+      // A null distance means the devices went out of range: the edge is
+      // dropped, not zeroed.
+      if (edge.distance === null) {
+        this.edges.delete(key)
+      } else {
+        this.edges.set(key, { from: edge.from, to: edge.to, value: edge.distance })
+      }
+    }
+
+    if (update.left.length === 0) return
+
+    for (const deviceId of update.left) {
+      this.devices.delete(deviceId)
+    }
+
+    // One sweep for the whole batch rather than one per departure: the map
+    // holds an edge per pair, and walking it for each of a thousand leavers is
+    // the shape of stall this batching exists to avoid.
+    const gone = new Set(update.left)
+
+    for (const [key, edge] of this.edges) {
+      if (gone.has(edge.from) || gone.has(edge.to)) this.edges.delete(key)
+    }
+  }
+
+  /**
+   * A batch can name a device the panel never saw arrive — it joined while the
+   * socket was down, and batches carry changes rather than replaying history.
+   * Whatever the entry carries is enough to start tracking it.
+   */
+  #upsertDevice(
+    deviceId: string,
+    now: number,
+    window: number,
+    patch: { location?: Location; position?: NodePosition },
+  ) {
     const existing = this.devices.get(deviceId)
 
     this.devices.set(deviceId, {
       deviceId,
-      location: existing?.location ?? null,
-      position: existing?.position ?? null,
-      updatedAt: Date.now(),
-      ...patch,
+      location: patch.location ?? existing?.location ?? null,
+      position: patch.position ?? existing?.position ?? null,
+      // A device seen for the first time has nowhere to glide from and should
+      // simply appear where it is.
+      previousLocation: existing?.location ?? null,
+      previousPosition: existing?.position ?? null,
+      changedAt: now,
+      window,
     })
   }
 }
