@@ -146,7 +146,29 @@ both a blocker and a reflector, and the seats under it get more of each.
 
 ## Who can hear whom
 
-*(grid.ts — arrives with the commit after)*
+A device ranges its neighbours several times a minute. Comparing each one to
+twenty thousand others is four hundred million distance checks a sweep, so
+`grid.ts` is a uniform grid over the crowd's true positions and a query touches
+nine cells.
+
+**It is built over the whole crowd, not one thread's slice.** A device at the
+edge of a shard's range has real neighbours owned by another thread, and an
+index that stopped at the boundary would quietly thin the distance graph exactly
+where the crowd is continuous.
+
+**Cells are laid out by counting sort** into two flat arrays — a start table and
+an entry list. Twenty thousand small arrays rebuilt every few seconds would keep
+the garbage collector busy for nothing.
+
+**Height is deliberately not indexed.** A bowl is wide and shallow compared to a
+six-metre radio range, so a third dimension would mostly add empty cells. The
+candidates a 2D query returns are filtered by true 3D distance anyway, so the
+answer is identical and the index is smaller.
+
+The grid takes its "is this device present" bit mask as a constructor argument
+rather than importing it. That is what keeps `crowd/` from reaching into
+[`run/`](../run) for a storage detail it does not otherwise care about — the
+module depends on nothing but [`noise/random`](../noise).
 
 ## Parameters
 
