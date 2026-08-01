@@ -1,35 +1,35 @@
-import type { FastifySchema } from 'fastify';
-import { jsonSchemaTransform } from 'fastify-type-provider-zod';
+import type { FastifySchema } from 'fastify'
+import { jsonSchemaTransform } from 'fastify-type-provider-zod'
 
 /** Payload examples a route declares for its request and its responses. */
 export interface RouteExamples {
-  body?: unknown;
+  body?: unknown
   /** Keyed by path parameter name — OpenAPI carries one example per parameter. */
-  params?: Record<string, unknown>;
+  params?: Record<string, unknown>
   /** Keyed by query parameter name, same reason. */
-  querystring?: Record<string, unknown>;
+  querystring?: Record<string, unknown>
   /** Keyed by status code. */
-  response?: Record<string, unknown>;
+  response?: Record<string, unknown>
 }
 
 declare module 'fastify' {
   interface FastifySchema {
-    examples?: RouteExamples;
+    examples?: RouteExamples
   }
 }
 
 interface JsonSchema {
-  properties?: Record<string, JsonSchema>;
-  examples?: unknown[];
-  [key: string]: unknown;
+  properties?: Record<string, JsonSchema>
+  examples?: unknown[]
+  [key: string]: unknown
 }
 
 interface TransformedSchema {
-  body?: JsonSchema;
-  params?: JsonSchema;
-  querystring?: JsonSchema;
-  response?: Record<string, JsonSchema>;
-  examples?: RouteExamples;
+  body?: JsonSchema
+  params?: JsonSchema
+  querystring?: JsonSchema
+  response?: Record<string, JsonSchema>
+  examples?: RouteExamples
 }
 
 // @fastify/swagger folds a single-entry `examples` array into the OpenAPI
@@ -37,20 +37,20 @@ interface TransformedSchema {
 // alike, so writing the array is all that is needed here.
 function setExample(schema: JsonSchema | undefined, example: unknown) {
   if (schema && example !== undefined) {
-    schema.examples = [example];
+    schema.examples = [example]
   }
 }
 
 function setPropertyExamples(schema: JsonSchema | undefined, examples: Record<string, unknown>) {
   for (const [property, example] of Object.entries(examples)) {
-    setExample(schema?.properties?.[property], example);
+    setExample(schema?.properties?.[property], example)
   }
 }
 
 interface TransformInput {
-  schema: FastifySchema;
-  url: string;
-  route?: { websocket?: boolean };
+  schema: FastifySchema
+  url: string
+  route?: { websocket?: boolean }
 }
 
 /**
@@ -64,26 +64,26 @@ interface TransformInput {
  * descriptions, and hiding them would drop half the API from the reference.
  */
 export function openapiTransform(input: TransformInput) {
-  const examples = input.schema?.examples;
+  const examples = input.schema?.examples
   const result = jsonSchemaTransform({
     url: input.url,
     schema: input.route?.websocket ? { ...input.schema, hide: false } : input.schema,
-  });
-  const schema = result.schema as TransformedSchema;
+  })
+  const schema = result.schema as TransformedSchema
 
   // The transform copies unknown keys verbatim, and `examples` is ours to
   // consume — it is not an OpenAPI operation field.
-  delete schema.examples;
+  delete schema.examples
 
-  if (!examples) return result;
+  if (!examples) return result
 
-  setExample(schema.body, examples.body);
-  setPropertyExamples(schema.params, examples.params ?? {});
-  setPropertyExamples(schema.querystring, examples.querystring ?? {});
+  setExample(schema.body, examples.body)
+  setPropertyExamples(schema.params, examples.params ?? {})
+  setPropertyExamples(schema.querystring, examples.querystring ?? {})
 
   for (const [statusCode, example] of Object.entries(examples.response ?? {})) {
-    setExample(schema.response?.[statusCode], example);
+    setExample(schema.response?.[statusCode], example)
   }
 
-  return result;
+  return result
 }

@@ -1,7 +1,7 @@
-import type { FastifyInstance } from 'fastify';
-import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { z } from 'zod';
-import { errorResponseSchema } from '../responses.js';
+import type { FastifyInstance } from 'fastify'
+import type { ZodTypeProvider } from 'fastify-type-provider-zod'
+import { z } from 'zod'
+import { errorResponseSchema } from '../responses.js'
 
 export async function healthRoute(app: FastifyInstance) {
   app.withTypeProvider<ZodTypeProvider>().get(
@@ -31,14 +31,14 @@ export async function healthRoute(app: FastifyInstance) {
     async (_request, reply) => {
       // Liveness + readiness: fail if any datastore dependency is down.
       if (app.hasDecorator('prisma')) {
-        await app.prisma.$queryRaw`SELECT 1`;
+        await app.prisma.$queryRaw`SELECT 1`
       }
 
       if (app.hasDecorator('redis')) {
-        await app.redis.ping();
+        await app.redis.ping()
       }
 
-      return reply.send({ status: 'ok' });
+      return reply.send({ status: 'ok' })
     },
-  );
+  )
 }

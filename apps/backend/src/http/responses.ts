@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod'
 
 /**
  * The error envelopes `errorHandler` emits. Routes list the ones they can
@@ -11,7 +11,7 @@ import { z } from 'zod';
 
 export const errorResponseSchema = z.object({
   message: z.string().describe('Human-readable reason for the failure.'),
-});
+})
 
 export const validationErrorResponseSchema = z.object({
   message: z.string().describe('Always `Validation error`.'),
@@ -21,7 +21,7 @@ export const validationErrorResponseSchema = z.object({
       'Zod issues — an array for request schema failures, an object keyed by ' +
         'field name for a `schema.parse()` inside a handler.',
     ),
-});
+})
 
 /** Illustrative payloads, reused as OpenAPI examples across routes. */
 export const errorExamples = {
@@ -46,4 +46,4 @@ export const errorExamples = {
   },
   invalidToken: { message: 'Invalid auth token' },
   eventNotFound: { message: 'Event not found' },
-} as const;
+} as const

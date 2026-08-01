@@ -1,6 +1,6 @@
-import type { FastifyError, FastifyReply, FastifyRequest } from 'fastify';
-import { ZodError } from 'zod';
-import { HttpError } from './errors.js';
+import type { FastifyError, FastifyReply, FastifyRequest } from 'fastify'
+import { ZodError } from 'zod'
+import { HttpError } from './errors.js'
 
 export function errorHandler(error: FastifyError, request: FastifyRequest, reply: FastifyReply) {
   // Schema validation failures raised by the Zod type provider
@@ -8,7 +8,7 @@ export function errorHandler(error: FastifyError, request: FastifyRequest, reply
     return reply.status(400).send({
       message: 'Validation error',
       issues: error.validation,
-    });
+    })
   }
 
   // Manual schema.parse() calls inside handlers
@@ -16,14 +16,14 @@ export function errorHandler(error: FastifyError, request: FastifyRequest, reply
     return reply.status(400).send({
       message: 'Validation error',
       issues: error.flatten().fieldErrors,
-    });
+    })
   }
 
   if (error instanceof HttpError) {
-    return reply.status(error.statusCode).send({ message: error.message });
+    return reply.status(error.statusCode).send({ message: error.message })
   }
 
-  request.log.error({ err: error }, 'unhandled error');
+  request.log.error({ err: error }, 'unhandled error')
 
-  return reply.status(500).send({ message: 'Internal server error.' });
+  return reply.status(500).send({ message: 'Internal server error.' })
 }

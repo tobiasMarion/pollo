@@ -1,5 +1,5 @@
-import { z } from 'zod';
-import { locationSchema } from './location.js';
+import { z } from 'zod'
+import { locationSchema } from './location.js'
 
 export const vector3Schema = z
   .object({
@@ -7,11 +7,11 @@ export const vector3Schema = z
     y: z.number(),
     z: z.number(),
   })
-  .describe('A point in meters.');
+  .describe('A point in meters.')
 
-export type Vector3 = z.infer<typeof vector3Schema>;
+export type Vector3 = z.infer<typeof vector3Schema>
 
-export const nodeSchema = z.string().describe('A device id — one node of the distance graph.');
+export const nodeSchema = z.string().describe('A device id — one node of the distance graph.')
 
 export const edgeSchema = z
   .object({
@@ -19,10 +19,10 @@ export const edgeSchema = z
     to: nodeSchema.describe('Device that was measured.'),
     value: z.number().describe('Measured distance in meters.'),
   })
-  .describe('A measured distance. Directed — A→B and B→A are stored separately.');
+  .describe('A measured distance. Directed — A→B and B→A are stored separately.')
 
-export type Node = z.infer<typeof nodeSchema>;
-export type Edge = z.infer<typeof edgeSchema>;
+export type Node = z.infer<typeof nodeSchema>
+export type Edge = z.infer<typeof edgeSchema>
 
 /** A position in both frames: relative to the event origin and absolute (ECEF-like). */
 export const positionPairSchema = z
@@ -30,9 +30,9 @@ export const positionPairSchema = z
     relative: vector3Schema.describe('Offset from the event origin, in meters.'),
     absolute: vector3Schema.describe('Earth-centered coordinate, in meters.'),
   })
-  .describe('The same point expressed in both frames.');
+  .describe('The same point expressed in both frames.')
 
-export type PositionPair = z.infer<typeof positionPairSchema>;
+export type PositionPair = z.infer<typeof positionPairSchema>
 
 /**
  * `uncorrected` comes straight from reported GPS locations; `simulated` is the
@@ -45,9 +45,9 @@ export const positionSchema = z
       'Force-directed refinement over the distance graph — this is what clients render.',
     ),
   })
-  .describe('Where a pixel sits, before and after the simulation.');
+  .describe('Where a pixel sits, before and after the simulation.')
 
-export type NodePosition = z.infer<typeof positionSchema>;
+export type NodePosition = z.infer<typeof positionSchema>
 
 export const metadataSchema = z
   .object({
@@ -56,25 +56,25 @@ export const metadataSchema = z
       .nullish()
       .describe('Absent until the worker has published a position for this device.'),
   })
-  .describe('What is known about one device in the graph.');
+  .describe('What is known about one device in the graph.')
 
-export type Metadata = z.infer<typeof metadataSchema>;
-export type NodesWithMetadata = Record<Node, Metadata>;
+export type Metadata = z.infer<typeof metadataSchema>
+export type NodesWithMetadata = Record<Node, Metadata>
 
 export const eventGraphSchema = z
   .object({
     nodes: z.record(metadataSchema).describe('Device id -> what is known about that device.'),
     edges: z.array(edgeSchema).describe('Every measured distance, directed.'),
   })
-  .describe('The graph. Both fields are empty until devices join and report.');
+  .describe('The graph. Both fields are empty until devices join and report.')
 
-export type EventGraph = z.infer<typeof eventGraphSchema>;
+export type EventGraph = z.infer<typeof eventGraphSchema>
 
 export const participantSchema = z
   .object({
     deviceId: nodeSchema.describe('Id the device sent in its `JOIN` message.'),
     location: locationSchema,
   })
-  .describe('A device in the event, as the last thing it told us.');
+  .describe('A device in the event, as the last thing it told us.')
 
-export type Participant = z.infer<typeof participantSchema>;
+export type Participant = z.infer<typeof participantSchema>

@@ -1,13 +1,13 @@
-import { eventSchema } from '@pollo/contracts';
-import type { FastifyInstance } from 'fastify';
-import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { z } from 'zod';
-import { NotFoundError } from '../../errors.js';
+import { eventSchema } from '@pollo/contracts'
+import type { FastifyInstance } from 'fastify'
+import type { ZodTypeProvider } from 'fastify-type-provider-zod'
+import { z } from 'zod'
+import { NotFoundError } from '../../errors.js'
 import {
   errorExamples,
   errorResponseSchema,
   validationErrorResponseSchema,
-} from '../../responses.js';
+} from '../../responses.js'
 
 export async function getEvent(app: FastifyInstance) {
   app.withTypeProvider<ZodTypeProvider>().get(
@@ -51,15 +51,15 @@ export async function getEvent(app: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { eventId } = request.params;
+      const { eventId } = request.params
 
-      const event = await app.prisma.event.findUnique({ where: { id: eventId } });
+      const event = await app.prisma.event.findUnique({ where: { id: eventId } })
 
       if (!event) {
-        throw new NotFoundError('Event not found');
+        throw new NotFoundError('Event not found')
       }
 
-      return reply.send({ event });
+      return reply.send({ event })
     },
-  );
+  )
 }

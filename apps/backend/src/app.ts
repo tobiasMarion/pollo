@@ -1,51 +1,51 @@
-import fastifyCors from '@fastify/cors';
-import fastifyJwt from '@fastify/jwt';
-import fastifySwagger from '@fastify/swagger';
-import fastifyWebsocket from '@fastify/websocket';
-import scalarApiReference from '@scalar/fastify-api-reference';
-import { fastify } from 'fastify';
+import fastifyCors from '@fastify/cors'
+import fastifyJwt from '@fastify/jwt'
+import fastifySwagger from '@fastify/swagger'
+import fastifyWebsocket from '@fastify/websocket'
+import scalarApiReference from '@scalar/fastify-api-reference'
+import { fastify } from 'fastify'
 import {
   serializerCompiler,
   validatorCompiler,
   type ZodTypeProvider,
-} from 'fastify-type-provider-zod';
-import type { Redis } from 'ioredis';
-import type { Env } from './env.js';
-import type { Bus } from './events/bus.js';
-import type { PrismaClient } from './generated/prisma/client.js';
-import { errorHandler } from './http/error-handler.js';
-import { openapiTransform } from './http/openapi.js';
-import { routes } from './http/routes/index.js';
-import { createLogger, type Logger } from './logger.js';
-import { eventsRuntimePlugin } from './plugins/events-runtime.js';
-import { prismaPlugin } from './plugins/prisma.js';
-import { redisPlugin } from './plugins/redis.js';
+} from 'fastify-type-provider-zod'
+import type { Redis } from 'ioredis'
+import type { Env } from './env.js'
+import type { Bus } from './events/bus.js'
+import type { PrismaClient } from './generated/prisma/client.js'
+import { errorHandler } from './http/error-handler.js'
+import { openapiTransform } from './http/openapi.js'
+import { routes } from './http/routes/index.js'
+import { createLogger, type Logger } from './logger.js'
+import { eventsRuntimePlugin } from './plugins/events-runtime.js'
+import { prismaPlugin } from './plugins/prisma.js'
+import { redisPlugin } from './plugins/redis.js'
 
 export interface BuildAppOptions {
-  env: Env;
-  logger?: Logger;
+  env: Env
+  logger?: Logger
   /** Test overrides — production wiring creates real clients from env. */
-  prisma?: PrismaClient;
-  redis?: Redis;
-  bus?: Bus;
+  prisma?: PrismaClient
+  redis?: Redis
+  bus?: Bus
 }
 
 export async function buildApp({ env, logger, prisma, redis, bus }: BuildAppOptions) {
   const app = fastify({
     loggerInstance: logger ?? createLogger(env),
-  }).withTypeProvider<ZodTypeProvider>();
+  }).withTypeProvider<ZodTypeProvider>()
 
-  app.decorate('env', env);
+  app.decorate('env', env)
 
-  app.setValidatorCompiler(validatorCompiler);
-  app.setSerializerCompiler(serializerCompiler);
-  app.setErrorHandler(errorHandler);
+  app.setValidatorCompiler(validatorCompiler)
+  app.setSerializerCompiler(serializerCompiler)
+  app.setErrorHandler(errorHandler)
 
-  await app.register(fastifyCors, { origin: true });
+  await app.register(fastifyCors, { origin: true })
   await app.register(fastifyJwt, {
     secret: env.JWT_SECRET,
     sign: { expiresIn: '7d' },
-  });
+  })
 
   await app.register(fastifySwagger, {
     openapi: {
@@ -91,7 +91,7 @@ export async function buildApp({ env, logger, prisma, redis, bus }: BuildAppOpti
       },
     },
     transform: openapiTransform,
-  });
+  })
   await app.register(scalarApiReference, {
     routePrefix: '/docs',
     configuration: {
@@ -127,22 +127,22 @@ export async function buildApp({ env, logger, prisma, redis, bus }: BuildAppOpti
       withDefaultFonts: true,
       isEditable: false,
     },
-  });
-  await app.register(fastifyWebsocket);
+  })
+  await app.register(fastifyWebsocket)
 
-  await app.register(prismaPlugin, { client: prisma });
-  await app.register(redisPlugin, { client: redis });
-  await app.register(eventsRuntimePlugin, { bus });
+  await app.register(prismaPlugin, { client: prisma })
+  await app.register(redisPlugin, { client: redis })
+  await app.register(eventsRuntimePlugin, { bus })
 
-  await app.register(routes);
+  await app.register(routes)
 
-  return app;
+  return app
 }
 
-export type App = Awaited<ReturnType<typeof buildApp>>;
+export type App = Awaited<ReturnType<typeof buildApp>>
 
 declare module 'fastify' {
   interface FastifyInstance {
-    env: Env;
+    env: Env
   }
 }

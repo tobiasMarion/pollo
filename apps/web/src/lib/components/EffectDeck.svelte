@@ -1,30 +1,30 @@
 <script lang="ts">
-import { type Effect, type EffectPreset, effectPresets } from '@pollo/contracts';
+import { type Effect, type EffectPreset, effectPresets } from '@pollo/contracts'
 
 let {
   disabled,
   onfire,
 }: {
-  disabled: boolean;
-  onfire: (effect: Effect) => void;
-} = $props();
+  disabled: boolean
+  onfire: (effect: Effect) => void
+} = $props()
 
-const FLASH_MS = 320;
+const FLASH_MS = 320
 
 /** Which pad is lit, so a tap is visibly acknowledged even off the field. */
-let flashing = $state<string | null>(null);
-let flashTimer: ReturnType<typeof setTimeout> | null = null;
+let flashing = $state<string | null>(null)
+let flashTimer: ReturnType<typeof setTimeout> | null = null
 
 function fire(preset: EffectPreset) {
-  if (disabled) return;
+  if (disabled) return
 
-  onfire(preset.effect);
+  onfire(preset.effect)
 
-  flashing = preset.id;
-  if (flashTimer) clearTimeout(flashTimer);
+  flashing = preset.id
+  if (flashTimer) clearTimeout(flashTimer)
   flashTimer = setTimeout(() => {
-    flashing = null;
-  }, FLASH_MS);
+    flashing = null
+  }, FLASH_MS)
 }
 
 /**
@@ -32,17 +32,17 @@ function fire(preset: EffectPreset) {
  * hand on the laptop and no time to aim at a target the size of a stamp.
  */
 function onkeydown(event: KeyboardEvent) {
-  if (event.metaKey || event.ctrlKey || event.altKey) return;
+  if (event.metaKey || event.ctrlKey || event.altKey) return
 
-  const target = event.target as HTMLElement | null;
-  if (target && ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)) return;
+  const target = event.target as HTMLElement | null
+  if (target && ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)) return
 
-  const index = Number(event.key) - 1;
-  const preset = effectPresets[index];
+  const index = Number(event.key) - 1
+  const preset = effectPresets[index]
 
   if (Number.isInteger(index) && index >= 0 && preset) {
-    event.preventDefault();
-    fire(preset);
+    event.preventDefault()
+    fire(preset)
   }
 }
 </script>

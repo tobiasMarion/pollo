@@ -1,39 +1,39 @@
 <script lang="ts">
-import type { EventType } from '@pollo/contracts';
-import { untrack } from 'svelte';
-import { enhance } from '$app/forms';
-import { formatCoordinates, formatTimestamp } from '$lib/format';
+import type { EventType } from '@pollo/contracts'
+import { untrack } from 'svelte'
+import { enhance } from '$app/forms'
+import { formatCoordinates, formatTimestamp } from '$lib/format'
 
-let { data, form } = $props();
+let { data, form } = $props()
 
 // Every field is local state, seeded once from the action result for the
 // no-JavaScript path. Reading them straight off `form` in the markup would
 // re-apply that stale snapshot on each render — filling in the coordinates
 // would then wipe whatever else had been typed.
-let name = $state(untrack(() => form?.name) ?? '');
-let type = $state<EventType>(untrack(() => form?.type as EventType) ?? 'TORCH');
-let latitude = $state(untrack(() => form?.latitude) ?? '');
-let longitude = $state(untrack(() => form?.longitude) ?? '');
-let locating = $state(false);
-let locationError = $state('');
+let name = $state(untrack(() => form?.name) ?? '')
+let type = $state<EventType>(untrack(() => form?.type as EventType) ?? 'TORCH')
+let latitude = $state(untrack(() => form?.latitude) ?? '')
+let longitude = $state(untrack(() => form?.longitude) ?? '')
+let locating = $state(false)
+let locationError = $state('')
 
 /** The operator is usually standing on the spot the event radiates from. */
 function useMyLocation() {
-  locating = true;
-  locationError = '';
+  locating = true
+  locationError = ''
 
   navigator.geolocation.getCurrentPosition(
-    (position) => {
-      latitude = position.coords.latitude.toFixed(5);
-      longitude = position.coords.longitude.toFixed(5);
-      locating = false;
+    position => {
+      latitude = position.coords.latitude.toFixed(5)
+      longitude = position.coords.longitude.toFixed(5)
+      locating = false
     },
     () => {
-      locationError = 'Your browser would not share a location. Type the coordinates instead.';
-      locating = false;
+      locationError = 'Your browser would not share a location. Type the coordinates instead.'
+      locating = false
     },
     { enableHighAccuracy: true, timeout: 10_000 },
-  );
+  )
 }
 </script>
 

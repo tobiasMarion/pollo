@@ -1,4 +1,4 @@
-import { type MessageType, messageSchemas } from './schemas.js';
+import { type MessageType, messageSchemas } from './schemas.js'
 
 /**
  * The published documentation of a socket, rendered from the same record the
@@ -6,14 +6,14 @@ import { type MessageType, messageSchemas } from './schemas.js';
  * message changes; derived, it cannot.
  */
 export function messageTable(direction: { types: readonly MessageType[] }): string {
-  const rows = direction.types.map((type) => {
-    const schema = messageSchemas[type];
+  const rows = direction.types.map(type => {
+    const schema = messageSchemas[type]
     const payload = Object.keys(schema.shape)
-      .filter((field) => field !== 'type')
-      .map((field) => `\`${field}\``);
+      .filter(field => field !== 'type')
+      .map(field => `\`${field}\``)
 
-    return `| \`${type}\` | ${payload.join(', ') || '—'} | ${schema.description ?? ''} |`;
-  });
+    return `| \`${type}\` | ${payload.join(', ') || '—'} | ${schema.description ?? ''} |`
+  })
 
-  return ['| type | payload | meaning |', '| --- | --- | --- |', ...rows].join('\n');
+  return ['| type | payload | meaning |', '| --- | --- | --- |', ...rows].join('\n')
 }

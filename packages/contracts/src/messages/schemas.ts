@@ -1,8 +1,8 @@
-import { z } from 'zod';
-import { effectSchema } from '../effects/schemas.js';
-import { positionSchema } from '../graph.js';
-import { locationSchema } from '../location.js';
-import { unionFrom } from '../union.js';
+import { z } from 'zod'
+import { effectSchema } from '../effects/schemas.js'
+import { positionSchema } from '../graph.js'
+import { locationSchema } from '../location.js'
+import { unionFrom } from '../union.js'
 
 /**
  * Every frame that crosses a Pollo socket, keyed by its own `type` so the union
@@ -104,14 +104,14 @@ export const messageSchemas = {
       effect: effectSchema,
     })
     .describe('A cue, fired by the admin and relayed untouched to every device.'),
-} as const;
+} as const
 
-export const messageSchema = unionFrom('type', messageSchemas);
+export const messageSchema = unionFrom('type', messageSchemas)
 
-export type Message = z.infer<typeof messageSchema>;
-export type MessageType = Message['type'];
+export type Message = z.infer<typeof messageSchema>
+export type MessageType = Message['type']
 
 /** One member of the union, picked by type. */
-export type MessageOf<Type extends MessageType> = Extract<Message, { type: Type }>;
+export type MessageOf<Type extends MessageType> = Extract<Message, { type: Type }>
 
-export const messageTypes = Object.keys(messageSchemas) as [MessageType, ...MessageType[]];
+export const messageTypes = Object.keys(messageSchemas) as [MessageType, ...MessageType[]]

@@ -1,10 +1,10 @@
-import { userSchema } from '@pollo/contracts';
-import type { FastifyInstance } from 'fastify';
-import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { z } from 'zod';
-import { BadRequestError } from '../../errors.js';
-import { auth } from '../../middlewares/auth.js';
-import { errorExamples, errorResponseSchema } from '../../responses.js';
+import { userSchema } from '@pollo/contracts'
+import type { FastifyInstance } from 'fastify'
+import type { ZodTypeProvider } from 'fastify-type-provider-zod'
+import { z } from 'zod'
+import { BadRequestError } from '../../errors.js'
+import { auth } from '../../middlewares/auth.js'
+import { errorExamples, errorResponseSchema } from '../../responses.js'
 
 export async function getProfile(app: FastifyInstance) {
   app
@@ -45,18 +45,18 @@ export async function getProfile(app: FastifyInstance) {
         },
       },
       async (request, reply) => {
-        const userId = await request.getCurrentUserId();
+        const userId = await request.getCurrentUserId()
 
         const user = await app.prisma.user.findUnique({
           select: { id: true, name: true, email: true, avatarUrl: true },
           where: { id: userId },
-        });
+        })
 
         if (!user) {
-          throw new BadRequestError('User not found.');
+          throw new BadRequestError('User not found.')
         }
 
-        return reply.send({ user });
+        return reply.send({ user })
       },
-    );
+    )
 }

@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod'
 
 export const userSchema = z
   .object({
@@ -7,6 +7,6 @@ export const userSchema = z
     email: z.string().email().describe('GitHub email — the identity users are keyed by.'),
     avatarUrl: z.string().url().nullable().describe('GitHub avatar, if any.'),
   })
-  .describe('A Pollo account, as it reached us from GitHub at signup time.');
+  .describe('A Pollo account, as it reached us from GitHub at signup time.')
 
-export type User = z.infer<typeof userSchema>;
+export type User = z.infer<typeof userSchema>
