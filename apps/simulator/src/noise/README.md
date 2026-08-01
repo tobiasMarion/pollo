@@ -13,6 +13,7 @@ produce a stated outcome.
 
 - [Randomness](#randomness) — the primitive everything else samples through
 - [Drift](#drift) — why the error has memory
+- [Reflections](#reflections) — why multipath is a state, not a spike
 
 ## Randomness
 
@@ -113,6 +114,56 @@ The vertical layers are slower than the horizontal (45 s / 1200 s against 15 s /
 which turns over on the timescale the constellation moves, not the timescale a
 phone moves.
 
+## Reflections
+
+The standard GPS error budget puts multipath at about **±1 m** — and then notes
+that it is "more severe in urban canyons". A stadium bowl is an urban canyon
+with better catering. That nominal metre is the open-sky case and says nothing
+about a seat with a stand rising behind it, which is why reflections get their
+own model here instead of a larger σ.
+
+### Why a state and not a spike
+
+| | model | biased? | persists? | directional? | verdict |
+|---|---|---|---|---|---|
+| Student's t | heavy tail on the error | no | no | no | rejected |
+| Gaussian mixture | occasional wide draw | no | no | no | rejected |
+| **Two-state Markov chain** | clean ⇄ reflected | yes | yes | yes | chosen |
+
+The two rejected models are cheaper and wrong in the same way: they produce
+spikes that **vanish on the next sample**. A three-point median removes those
+entirely. A worker tuned against them has been tuned against a problem that does
+not exist, and would meet the real one — which a median does not touch —
+untrained.
+
+What makes multipath hard is that it *persists*. The reflection geometry holds
+for seconds, so the error looks like a plausible new position rather than an
+obvious outlier. The device is not noisy; it is confidently somewhere else.
+
+It is also **directional**, and the direction is not random. See
+[`crowd/README.md`](../crowd/README.md#where-a-reflected-fix-goes) for why it
+points inward over the pitch: this module supplies the dwell times and the
+magnitude, the zone supplies the heading.
+
+Each device's bias direction is the zone's, perturbed by 35% of a random unit
+vector. If every device in a sector shared one exact vector, an estimator could
+cancel the whole effect by averaging neighbours — which is not a defence that
+works in the field.
+
+### The reported accuracy lies, deliberately
+
+`horizontalAccuracy` and `verticalAccuracy` are computed from the zone's clean
+σ, **ignoring any reflection in progress**.
+
+This is the single most important line in the module. A phone publishes the
+*formal* uncertainty of its solution — a function of geometry and signal
+strength. It has no term for a reflection it does not know happened. Reporting
+the true error would hand the worker an oracle saying "discard me right now",
+and a worker built on that oracle falls over the first time it meets hardware.
+
+Each device also carries a fixed optimism factor in [0.7, 1.1], because
+receivers do not all lie by the same amount about how well they know themselves.
+
 ## Parameters
 
 | symbol | value | provenance |
@@ -122,6 +173,12 @@ phone moves.
 | horizontal τ | 15 s, 400 s | calibrated — two decades apart, approximating 1/f over the length of a show |
 | vertical τ | 45 s, 1200 s | calibrated — slower than horizontal, on the reasoning above |
 | layer σ | `1/√2` each | derived — independent layers add in variance, so two equal layers give unit total |
+| `CLEAN_DWELL_AT_FULL_EXPOSURE` | 40 s | calibrated — divided by susceptibility, so a sheltered seat waits proportionally longer |
+| `REFLECTED_DWELL` | 8 s mean | calibrated — long enough that a three-point median cannot remove it, which is the point |
+| `MAGNITUDE_SHAPE` | 2 | calibrated — a gamma shape of 2 gives a hump with a tail rather than a bell or an exponential |
+| magnitude scale | 7 + 8·susceptibility m | calibrated — well above the ±1 m nominal multipath term, which is the open-sky case |
+| `SIGMA_INFLATION` | 2.5 | calibrated — the clean error also worsens while the geometry is bad, not only the bias |
+| bias spread | 0.35 of a unit vector | calibrated — enough that averaging neighbours cannot cancel the sector's direction |
 
 ## Sources
 
