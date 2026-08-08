@@ -88,7 +88,6 @@ export class Random {
   exponential(mean: number) {
     return -Math.log(1 - this.float()) * mean
   }
-
 }
 
 function rotateLeft(value: number, bits: number) {
