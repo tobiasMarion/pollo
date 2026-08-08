@@ -439,6 +439,27 @@ onMount(() => {
   }
 
   /**
+   * Where every pixel is *right now*, keyed by device.
+   *
+   * An edge has to be read off the same clock as the two dots it joins. Built
+   * from the settled positions it would snap to the far end of a move while the
+   * crowd was still gliding there — the mesh arriving a batch ahead of the
+   * people, and visibly detached from them on the way.
+   *
+   * The map is reused rather than rebuilt: a crowd of twenty thousand is a map
+   * and an array per frame otherwise.
+   */
+  const livePositions = new Map<string, Vector3>()
+
+  function positionsAt(now: number) {
+    livePositions.clear()
+
+    for (const pixel of pixels) livePositions.set(pixel.deviceId, interpolate(pixel, now))
+
+    return livePositions
+  }
+
+  /**
    * The ground plane, ruled at whatever spacing the ruler is using, so the
    * crowd has something to sit on rather than floating in the dark.
    */
@@ -653,16 +674,15 @@ onMount(() => {
     // running along y has to cross the whole field, however wide that is.
     const reach = Math.max(extent.x, extent.y)
 
+    const now = Date.now()
+
     if (showGrid) drawGrid(extent)
     drawAxes(extent)
 
-    if (showEdges) {
-      drawEdges(edges, new Map(pixels.map(({ deviceId, point }) => [deviceId, point])))
-    }
+    if (showEdges) drawEdges(edges, positionsAt(now))
 
     const placed = pixels.filter(pixel => pixel.placed)
     const center = centroid(placed.length > 0 ? placed : pixels)
-    const now = Date.now()
     const elapsed = lastEffect ? (now - lastEffect.firedAt) / 1000 : 0
 
     // Far side of the bowl first, so the near stand is not drawn behind the one
