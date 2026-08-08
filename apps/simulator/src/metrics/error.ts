@@ -1,3 +1,4 @@
+import { vector } from '@pollo/contracts'
 import { alignClouds, applyAlignment } from './align.js'
 
 export interface ErrorSummary {
@@ -79,10 +80,8 @@ export function compareClouds(
       z: truth[i * 3 + 2] ?? 0,
     }
 
-    raw[i] = Math.hypot(point.x - target.x, point.y - target.y, point.z - target.z)
-
-    const moved = applyAlignment(alignment, point)
-    aligned[i] = Math.hypot(moved.x - target.x, moved.y - target.y, moved.z - target.z)
+    raw[i] = vector.distance(point, target)
+    aligned[i] = vector.distance(applyAlignment(alignment, point), target)
   }
 
   return { raw: summarize(raw, count), aligned: summarize(aligned, count) }

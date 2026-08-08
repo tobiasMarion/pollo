@@ -4,6 +4,7 @@ import {
   safeParseJsonMessage,
   unprojectLocation,
   type Vector3,
+  vector,
 } from '@pollo/contracts'
 import type { Seat } from '../crowd/seat.js'
 import { DeviceGnss, type ErrorBudget, type SharedErrorField } from '../noise/gnss.js'
@@ -121,20 +122,13 @@ export class VirtualDevice {
   /** Where the phone really is: its seat, or a point along a walk, plus the sway. */
   private truePosition(now: number): Vector3 {
     const sway = this.sway.value
-    const seat = this.seat().point
 
-    if (!this.walk) {
-      return { x: seat.x + sway.x, y: seat.y + sway.y, z: seat.z + sway.z }
-    }
+    if (!this.walk) return vector.add(this.seat().point, sway)
 
     const span = this.walk.endsAt - this.walk.startedAt
     const progress = span <= 0 ? 1 : Math.min(1, (now - this.walk.startedAt) / span)
 
-    return {
-      x: this.walk.from.x + (this.walk.to.x - this.walk.from.x) * progress + sway.x,
-      y: this.walk.from.y + (this.walk.to.y - this.walk.from.y) * progress + sway.y,
-      z: this.walk.from.z + (this.walk.to.z - this.walk.from.z) * progress + sway.z,
-    }
+    return vector.add(vector.lerp(this.walk.from, this.walk.to, progress), sway)
   }
 
   /**
@@ -156,13 +150,7 @@ export class VirtualDevice {
     const reading = this.gnss.sample(field, dt)
     const noisy = this.noisy
 
-    const reported = noisy
-      ? {
-          x: truth.x + reading.offset.x,
-          y: truth.y + reading.offset.y,
-          z: truth.z + reading.offset.z,
-        }
-      : truth
+    const reported = noisy ? vector.add(truth, reading.offset) : truth
 
     const { shared } = this.context
 

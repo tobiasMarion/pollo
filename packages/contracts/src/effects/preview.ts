@@ -1,4 +1,5 @@
 import type { Vector3 } from '../graph.js'
+import { subtract } from '../vector.js'
 import type { Effect, EffectName, EffectOf } from './schemas.js'
 
 /**
@@ -47,11 +48,7 @@ const delayByEffect: {
 
 /** Seconds a pixel at `point` waits before lighting up. */
 export function effectDelaySeconds(effect: Effect, point: Vector3, center: Vector3): number {
-  const offset = {
-    x: point.x - center.x,
-    y: point.y - center.y,
-    z: point.z - center.z,
-  }
+  const offset = subtract(point, center)
 
   // The record is keyed by the same literal the effect is discriminated on, so
   // this pairing is sound; TypeScript cannot correlate the two on its own.

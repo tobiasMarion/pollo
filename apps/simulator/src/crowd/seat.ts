@@ -1,4 +1,4 @@
-import type { Vector3 } from '@pollo/contracts'
+import { type Vector3, vector } from '@pollo/contracts'
 import type { Random } from '../noise/random.js'
 
 /** Shoulder to shoulder: how far apart two people in the same row stand. */
@@ -23,14 +23,13 @@ export interface Seat {
  * a reconstruction tuned against one has been tuned against a lattice.
  */
 export function seatAt(point: Vector3, level: number, random: Random): Seat {
-  return {
-    point: {
-      x: point.x + random.between(-JITTER, JITTER),
-      y: point.y + random.between(-JITTER, JITTER),
-      // Height varies with the person, not with where they are standing, so it
-      // wanders less than the floor plan does.
-      z: point.z + random.between(-JITTER / 2, JITTER / 2),
-    },
-    level,
+  const wobble = {
+    x: random.between(-JITTER, JITTER),
+    y: random.between(-JITTER, JITTER),
+    // Height varies with the person, not with where they are standing, so it
+    // wanders less than the floor plan does.
+    z: random.between(-JITTER / 2, JITTER / 2),
   }
+
+  return { point: vector.add(point, wobble), level }
 }

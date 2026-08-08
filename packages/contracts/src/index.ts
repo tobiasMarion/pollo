@@ -11,5 +11,8 @@ export * from './messages/parse.js'
 export * from './messages/schemas.js'
 export * from './union.js'
 export * from './user.js'
+// Namespaced rather than flattened: `add(a, b)` at a call site says nothing
+// about what is being added, and `length` is far too common a word to take.
+export * as vector from './vector.js'
 export * from './wire.js'
 export * from './ws.js'
