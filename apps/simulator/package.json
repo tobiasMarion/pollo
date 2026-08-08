@@ -1,0 +1,24 @@
+{
+  "name": "@pollo/simulator",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Emulates an audience against a live event — noisy phones in, worker accuracy out",
+  "scripts": {
+    "start": "tsx src/io/cli.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@pollo/contracts": "*",
+    "ws": "^8.18.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.7",
+    "@types/ws": "^8.5.12",
+    "tsx": "^4.19.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0"
+  }
+}
