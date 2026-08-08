@@ -1,4 +1,4 @@
-import type { Vector3 } from '@pollo/contracts'
+import { type Vector3, vector } from '@pollo/contracts'
 
 /** A rigid motion: a rotation in row-major order, then a translation. */
 export interface Alignment {
@@ -214,14 +214,7 @@ export function alignClouds(from: Float32Array, to: Float32Array, count: number)
   const rotation = multiply(corrected, transpose(u))
   const turnedCentre = rotate(rotation, centreFrom)
 
-  return {
-    rotation,
-    translation: {
-      x: centreTo.x - turnedCentre.x,
-      y: centreTo.y - turnedCentre.y,
-      z: centreTo.z - turnedCentre.z,
-    },
-  }
+  return { rotation, translation: vector.subtract(centreTo, turnedCentre) }
 }
 
 function rotate(rotation: Float64Array, point: Vector3): Vector3 {
@@ -233,11 +226,5 @@ function rotate(rotation: Float64Array, point: Vector3): Vector3 {
 }
 
 export function applyAlignment({ rotation, translation }: Alignment, point: Vector3): Vector3 {
-  const turned = rotate(rotation, point)
-
-  return {
-    x: turned.x + translation.x,
-    y: turned.y + translation.y,
-    z: turned.z + translation.z,
-  }
+  return vector.add(rotate(rotation, point), translation)
 }
