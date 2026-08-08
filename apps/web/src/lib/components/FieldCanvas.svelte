@@ -27,12 +27,20 @@ let {
   lastEffect,
   showEdges = true,
   showGrid = true,
+  lightUnplaced = false,
 }: {
   pixels: FieldPixel[]
   edges: Edge[]
   lastEffect: { effect: Effect; firedAt: number } | null
   showEdges?: boolean
   showGrid?: boolean
+  /**
+   * Let a cue reach the devices the worker has not placed. Off by default,
+   * because their positions are GPS guesses metres wide — but until a worker
+   * exists, they are the only devices there are, and a panel where no cue ever
+   * lights anything cannot be judged at all.
+   */
+  lightUnplaced?: boolean
 } = $props()
 
 let canvas: HTMLCanvasElement
@@ -88,6 +96,13 @@ const MAX_DOT_PX = 4
 
 /** How much a lit pixel swells. Kept small, or the field solidifies on a cue. */
 const GLOW_SWELL = 0.6
+
+/**
+ * How much of a cue an unplaced device takes, when they are lit at all. A
+ * fraction rather than all of it: the light says where the wave is, and the
+ * dimness says the panel is guessing.
+ */
+const UNPLACED_GLOW = 0.4
 
 /** A point in canvas pixels, as opposed to the meters `Vector3` carries. */
 type Vector2 = { x: number; y: number }
@@ -350,22 +365,24 @@ onMount(() => {
 
   function drawCrowd(list: FieldPixel[], center: Vector3, elapsed: number, now: number) {
     const bands: Vector2[][] = Array.from({ length: BRIGHTNESS_BANDS + 1 }, () => [])
-    const outlines: Vector2[] = []
+    const outlineBands: Vector2[][] = Array.from({ length: BRIGHTNESS_BANDS + 1 }, () => [])
     const glows: Array<{ at: Vector2; glow: number }> = []
 
     for (const pixel of list) {
       const at = project(interpolate(pixel, now))
 
-      if (!pixel.placed) {
-        outlines.push(at)
-        continue
-      }
+      const lit = pixel.placed || lightUnplaced
+      const glow =
+        lastEffect && lit
+          ? effectBrightness(lastEffect.effect, pixel.point, center, elapsed) *
+            (pixel.placed ? 1 : UNPLACED_GLOW)
+          : 0
 
-      const glow = lastEffect
-        ? effectBrightness(lastEffect.effect, pixel.point, center, elapsed)
-        : 0
+      const band = Math.round(glow * BRIGHTNESS_BANDS)
 
-      bands[Math.round(glow * BRIGHTNESS_BANDS)]?.push(at)
+      if (pixel.placed) bands[band]?.push(at)
+      else outlineBands[band]?.push(at)
+
       if (glow > 0.02) glows.push({ at, glow })
     }
 
@@ -401,24 +418,29 @@ onMount(() => {
       context.fill()
     }
 
-    if (outlines.length === 0) return
+    // Devices the worker has not placed stay outlines whatever else happens to
+    // them: an estimate drawn as a pixel is an estimate the panel is passing off
+    // as a measurement. Wider than a placed pixel so the ring is still a ring —
+    // at stadium zoom the two are a pixel apart and barely distinguishable,
+    // which zooming in fixes and nothing else can.
+    for (let band = 0; band < outlineBands.length; band++) {
+      const points = outlineBands[band]
+      if (!points || points.length === 0) continue
 
-    // Devices the worker has not placed: shown, but never as light. Wider than
-    // a placed pixel so the ring is still a ring — at stadium zoom the two are
-    // a pixel apart and barely distinguishable, which zooming in fixes and
-    // nothing else can.
-    const ring = Math.max(dotRadius(0) * 1.6, 1.4)
+      const glow = band / BRIGHTNESS_BANDS
+      const ring = Math.max(dotRadius(glow) * 1.6, 1.4)
 
-    context.strokeStyle = 'rgba(158, 151, 176, 0.55)'
-    context.lineWidth = Math.min(1, ring)
-    context.beginPath()
+      context.strokeStyle = `rgba(158, 151, 176, ${0.55 + glow * 0.45})`
+      context.lineWidth = Math.min(1, ring)
+      context.beginPath()
 
-    for (const { x, y } of outlines) {
-      context.moveTo(x + ring, y)
-      context.arc(x, y, ring, 0, Math.PI * 2)
+      for (const { x, y } of points) {
+        context.moveTo(x + ring, y)
+        context.arc(x, y, ring, 0, Math.PI * 2)
+      }
+
+      context.stroke()
     }
-
-    context.stroke()
   }
 
   /**

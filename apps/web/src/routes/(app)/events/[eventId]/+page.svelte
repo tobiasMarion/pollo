@@ -16,14 +16,22 @@ const pixels = $derived(toFieldPixels(devices, data.event))
 const unplaced = $derived(pixels.filter(pixel => !pixel.placed).length)
 
 /**
- * What the field draws. Both are worth turning off: the mesh is unreadable once
- * a crowd has thousands of edges, and the grid is scaffolding rather than data.
+ * What the field draws. The first two are worth turning off: the mesh is
+ * unreadable once a crowd has thousands of edges, and the grid is scaffolding
+ * rather than data.
+ *
+ * `unplaced` is a bench switch. A device the worker has not placed is drawn
+ * from its own GPS and never lit, because an estimate shown as a pixel is an
+ * estimate passed off as a measurement — but with no worker running, every
+ * device is one of those, and a cue lights nothing at all. Turning it on makes
+ * the panel testable against the simulator; leaving it off is the truth.
  */
-const layers = $state({ edges: true, grid: true })
+const layers = $state({ edges: true, grid: true, unplaced: false })
 
 const layerToggles = [
   { key: 'edges', label: 'Edges' },
   { key: 'grid', label: 'Grid' },
+  { key: 'unplaced', label: 'Light unplaced' },
 ] as const satisfies ReadonlyArray<{ key: keyof typeof layers; label: string }>
 
 const showConsole = $derived(data.isAdmin && data.event.status !== 'FINISHED')
@@ -124,6 +132,7 @@ onMount(() => {
         lastEffect={live?.lastEffect ?? null}
         showEdges={layers.edges}
         showGrid={layers.grid}
+        lightUnplaced={layers.unplaced}
       />
 
       <div class="pointer-events-none absolute inset-x-5 top-5 flex justify-between gap-4">
