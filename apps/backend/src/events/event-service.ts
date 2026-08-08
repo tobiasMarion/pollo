@@ -125,6 +125,22 @@ export class EventService {
   }
 
   /**
+   * Throws away a graph nobody is connected to any more.
+   *
+   * Only sound while this runtime has no subscribers — on the way up, before
+   * any socket has been accepted, and on the way out once the event is closed.
+   * A node exists because a device is connected, so with an empty subscriber
+   * map every node in the store is a leftover from a process that is gone.
+   */
+  async clearStaleGraph() {
+    if (this.subscribers.size > 0) {
+      throw new Error(`Refusing to clear the graph of ${this.id}: it has live subscribers.`)
+    }
+
+    await this.graphStore.deleteGraph()
+  }
+
+  /**
    * Straight to the admin, unbatched. Only for frames the panel acts on the
    * moment they arrive rather than draws — its own cue, coming back.
    */

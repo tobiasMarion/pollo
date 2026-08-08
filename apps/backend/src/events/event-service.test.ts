@@ -220,4 +220,36 @@ describe('EventService', () => {
       { deviceId: 'd1', location: { ...location, altitude: 150 } },
     ])
   })
+
+  describe('clearStaleGraph', () => {
+    it('throws away a graph left behind by sockets this runtime never had', async () => {
+      service.subscribe({ deviceId: 'd1', location, sendMessage: () => {} })
+      service.subscribe({ deviceId: 'd2', location, sendMessage: () => {} })
+      service.setDistanceToDevice('d1', 'd2', 3)
+      await service.settled()
+
+      expect((await service.getEventGraph()).nodes).not.toEqual({})
+
+      // What a restart leaves: the store still full, and nobody connected.
+      service.unsubscribe('d1')
+      service.unsubscribe('d2')
+      await service.settled()
+
+      await service.clearStaleGraph()
+
+      const graph = await service.getEventGraph()
+
+      expect(graph.nodes).toEqual({})
+      expect(graph.edges).toEqual([])
+    })
+
+    it('refuses while anybody is still connected', async () => {
+      service.subscribe({ deviceId: 'd1', location, sendMessage: () => {} })
+      await service.settled()
+
+      await expect(service.clearStaleGraph()).rejects.toThrow(/live subscribers/)
+
+      expect((await service.getEventGraph()).nodes).not.toEqual({})
+    })
+  })
 })

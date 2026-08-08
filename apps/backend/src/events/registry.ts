@@ -47,7 +47,22 @@ export class EventRegistry {
     const openEvents = await this.prisma.event.findMany({ where: { status: 'OPEN' } })
 
     for (const { id, latitude, longitude, userId } of openEvents) {
-      this.register(id, userId, exactLocationSchema.parse({ latitude, longitude }))
+      const service = this.register(id, userId, exactLocationSchema.parse({ latitude, longitude }))
+
+      // Whatever is in the store belongs to sockets this process never had.
+      //
+      // A device is in the graph because it is connected, and every connection
+      // died with the process that held it — so a runtime that has just been
+      // built, with no subscribers at all, cannot have a single live node. Left
+      // alone they are permanent: nothing ever disconnects them, because there
+      // is nothing to disconnect, and the panel goes on drawing a crowd that
+      // went home. In development, where the API reloads on every save, that is
+      // a fresh layer of ghosts per edit.
+      //
+      // This assumes one API against one Redis, which is the deployment Pollo
+      // has. A second instance booting would wipe the first one's live graph,
+      // so scaling out means expiring nodes instead of clearing them.
+      await service.clearStaleGraph()
     }
 
     this.logger.info({ count: openEvents.length }, 'event registry booted')
@@ -74,6 +89,10 @@ export class EventRegistry {
     this.subscriptions.delete(id)
     this.services.delete(id)
 
+    // The comment above has always said this; now it is true. A FINISHED event
+    // never reopens, so its graph is unreachable the moment it closes.
+    await service.clearStaleGraph()
+
     await this.prisma.event.update({
       where: { id },
       data: { status: 'FINISHED' },
@@ -90,7 +109,7 @@ export class EventRegistry {
     this.services.clear()
   }
 
-  private register(id: string, adminId: string, location: ExactLocation) {
+  private register(id: string, adminId: string, location: ExactLocation): EventService {
     const service = new EventService({
       id,
       location,
@@ -112,5 +131,7 @@ export class EventRegistry {
       latitude: location.latitude,
       longitude: location.longitude,
     })
+
+    return service
   }
 }
