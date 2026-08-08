@@ -10,7 +10,15 @@ import { DeviceGnss, type ErrorBudget, type SharedErrorField } from '../noise/gn
 import type { Random } from '../noise/random.js'
 import { Ranging } from '../noise/ranging.js'
 import { Sway } from '../noise/sway.js'
-import { bump, COUNTER, DEVICE, type SharedState, writeVector } from '../run/shared.js'
+import {
+  bump,
+  COUNTER,
+  DEVICE,
+  read,
+  SETTING,
+  type SharedState,
+  writeVector,
+} from '../run/shared.js'
 import type { SimulatorConfig } from './config.js'
 import type { Connect, Transport } from './transport.js'
 
@@ -25,6 +33,14 @@ const BLACKOUT_SECONDS = { mean: 4, min: 1, max: 30 }
 
 /** Reconnect delay after an unexpected close, so a dead API is not hammered. */
 const RECONNECT_DELAY_MS = 2_000
+
+/**
+ * What a device claims about itself while the noise is switched off. Not zero:
+ * nothing downstream should have to cope with a phone asserting that its fix is
+ * perfect, and a run that only works against that number has been tuned to a
+ * value no receiver reports.
+ */
+const IDEAL_ACCURACY_M = 1
 
 export function deviceIdFor(index: number) {
   return `sim-${index}`
@@ -121,24 +137,41 @@ export class VirtualDevice {
     }
   }
 
+  /**
+   * Whether the sensors are lying at the moment. Flipped from the terminal
+   * mid-run, so it is read on every reading rather than captured once: an
+   * operator switching the noise off wants the next message to be clean, not
+   * the next run.
+   */
+  private get noisy() {
+    return read(this.context.shared.settings, SETTING.NOISE) === 1
+  }
+
   private locationAt(now: number, field: SharedErrorField, dt: number) {
     const truth = this.truePosition(now)
-    const reading = this.gnss.sample(field, dt)
 
-    const noisy = {
-      x: truth.x + reading.offset.x,
-      y: truth.y + reading.offset.y,
-      z: truth.z + reading.offset.z,
-    }
+    // Sampled either way: the drift has to keep running while it is switched
+    // off, or turning the noise back on would resume from a process that spent
+    // the interval frozen — a discontinuity no sky produces.
+    const reading = this.gnss.sample(field, dt)
+    const noisy = this.noisy
+
+    const reported = noisy
+      ? {
+          x: truth.x + reading.offset.x,
+          y: truth.y + reading.offset.y,
+          z: truth.z + reading.offset.z,
+        }
+      : truth
 
     const { shared } = this.context
 
-    writeVector(shared.reported, this.index, noisy)
+    writeVector(shared.reported, this.index, reported)
     shared.flags[this.index] = (shared.flags[this.index] ?? 0) | DEVICE.REPORTED
 
-    return unprojectLocation(noisy, this.context.origin, {
-      horizontalAccuracy: reading.horizontalAccuracy,
-      verticalAccuracy: reading.verticalAccuracy,
+    return unprojectLocation(reported, this.context.origin, {
+      horizontalAccuracy: noisy ? reading.horizontalAccuracy : IDEAL_ACCURACY_M,
+      verticalAccuracy: noisy ? reading.verticalAccuracy : IDEAL_ACCURACY_M,
     })
   }
 
@@ -293,6 +326,7 @@ export class VirtualDevice {
 
     const here = this.truePosition(now)
     const chosen = new Set<number>()
+    const noisy = this.noisy
 
     for (let i = 0; i < wanted; i++) {
       const peer = peers[i] as number
@@ -304,7 +338,14 @@ export class VirtualDevice {
         (shared.truth[peer * 3 + 2] ?? 0) - here.z,
       )
 
-      const measured = this.ranging.measure(distance)
+      // Clean still means *in range*: a radio that hears everybody is not an
+      // ideal radio, it is a different problem, and the worker would be handed
+      // a graph no crowd can produce.
+      const measured = noisy
+        ? this.ranging.measure(distance)
+        : distance <= config.range
+          ? distance
+          : null
 
       if (measured !== null) {
         this.send({ type: 'DISTANCE', to: deviceIdFor(peer), distance: measured })

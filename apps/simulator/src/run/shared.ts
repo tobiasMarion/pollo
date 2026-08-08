@@ -31,12 +31,27 @@ export const COUNTER = {
 
 const COUNTER_SLOTS = Object.keys(COUNTER).length
 
+/**
+ * Switches the main thread flips and every shard reads, mid-run.
+ *
+ * Shared memory rather than a message per shard, for the same reason the
+ * counters are: a device reads this on every reading it takes, and it has to be
+ * reading the same value as the device on the next thread.
+ */
+export const SETTING = {
+  /** 1 while the sensors lie, 0 while the crowd reports the truth exactly. */
+  NOISE: 0,
+} as const
+
+const SETTING_SLOTS = Object.keys(SETTING).length
+
 export interface SharedBuffers {
   truth: SharedArrayBuffer
   reported: SharedArrayBuffer
   estimate: SharedArrayBuffer
   flags: SharedArrayBuffer
   counters: SharedArrayBuffer
+  settings: SharedArrayBuffer
 }
 
 export interface SharedState {
@@ -49,6 +64,7 @@ export interface SharedState {
   estimate: Float32Array
   flags: Uint8Array
   counters: Int32Array
+  settings: Int32Array
 }
 
 export function createSharedBuffers(count: number): SharedBuffers {
@@ -60,6 +76,7 @@ export function createSharedBuffers(count: number): SharedBuffers {
     estimate: vectors(),
     flags: new SharedArrayBuffer(count),
     counters: new SharedArrayBuffer(COUNTER_SLOTS * Int32Array.BYTES_PER_ELEMENT),
+    settings: new SharedArrayBuffer(SETTING_SLOTS * Int32Array.BYTES_PER_ELEMENT),
   }
 }
 
@@ -71,6 +88,7 @@ export function attach(buffers: SharedBuffers, count: number): SharedState {
     estimate: new Float32Array(buffers.estimate),
     flags: new Uint8Array(buffers.flags),
     counters: new Int32Array(buffers.counters),
+    settings: new Int32Array(buffers.settings),
   }
 }
 
@@ -91,6 +109,10 @@ export function bump(counters: Int32Array, counter: number, by = 1) {
 /** Read and reset, so a rate needs no agreement about when the last read was. */
 export function drain(counters: Int32Array, counter: number) {
   return Atomics.exchange(counters, counter, 0)
+}
+
+export function write(target: Int32Array, slot: number, value: number) {
+  Atomics.store(target, slot, value)
 }
 
 export function read(counters: Int32Array, counter: number) {

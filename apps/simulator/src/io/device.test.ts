@@ -3,7 +3,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Seat } from '../crowd/seat.js'
 import { type ErrorBudget, SharedErrorField } from '../noise/gnss.js'
 import { Random } from '../noise/random.js'
-import { attach, COUNTER, createSharedBuffers, DEVICE, read } from '../run/shared.js'
+import {
+  attach,
+  COUNTER,
+  createSharedBuffers,
+  DEVICE,
+  read,
+  SETTING,
+  write,
+} from '../run/shared.js'
 import { parseConfig, type SimulatorConfig } from './config.js'
 import { type DeviceContext, VirtualDevice } from './device.js'
 import type { Transport, TransportHandlers } from './transport.js'
@@ -73,6 +81,10 @@ function harness(flags: string[] = [], budget: ErrorBudget = EXACT) {
 
   const config: SimulatorConfig = parsed.config
   const shared = attach(createSharedBuffers(config.clients), config.clients)
+
+  // What the pool does at startup: a zeroed buffer would mean a run that begins
+  // with every sensor telling the truth.
+  write(shared.settings, SETTING.NOISE, 1)
 
   // A short row of people a metre apart: near enough to hear each other, far
   // enough not to be the same device.
@@ -346,6 +358,66 @@ describe('VirtualDevice', () => {
     expect((run.shared.flags[0] ?? 0) & DEVICE.PLACED).toBe(DEVICE.PLACED)
     expect(read(run.shared.counters, COUNTER.SET_POINTS)).toBe(1)
     expect(read(run.shared.counters, COUNTER.RECEIVED)).toBe(2)
+  })
+
+  it('tells the exact truth once the noise is switched off', () => {
+    const run = harness(['--report-hz', '4', '--distance-hz', '4', '--neighbors', '8'], {
+      horizontal: 20,
+      vertical: 30,
+    })
+
+    run.advance(0.1)
+    run.latest().accept()
+
+    write(run.shared.settings, SETTING.NOISE, 0)
+    run.advance(5)
+
+    const clean = run.latest().sentOfType('LOCATION_UPDATE')
+    expect(clean.length).toBeGreaterThan(0)
+
+    for (const message of clean) {
+      const { location } = message as { location: Parameters<typeof projectLocation>[0] }
+      const where = projectLocation(location, ORIGIN)
+
+      // The seat, plus the sway — which is where the device really is, and so
+      // is the truth rather than an error.
+      expect(Math.hypot(where.x, where.y)).toBeLessThan(0.6)
+      expect(location.horizontalAccuracy).toBe(1)
+    }
+
+    const measured = run.latest().sentOfType('DISTANCE') as { to: string; distance: number }[]
+    const toFirstPeer = measured.filter(edge => edge.to === 'sim-1' && edge.distance !== null)
+
+    expect(toFirstPeer.length).toBeGreaterThan(0)
+    for (const edge of toFirstPeer) expect(edge.distance).toBeCloseTo(1, 0)
+  })
+
+  it('starts lying again when the noise comes back', () => {
+    const run = harness(['--report-hz', '4', '--distance-hz', '0.01', '--common-mode', '0'], {
+      horizontal: 20,
+      vertical: 30,
+    })
+
+    run.advance(0.1)
+    run.latest().accept()
+
+    write(run.shared.settings, SETTING.NOISE, 0)
+    run.advance(5)
+
+    write(run.shared.settings, SETTING.NOISE, 1)
+    run.advance(60)
+
+    const errors = run
+      .latest()
+      .sentOfType('LOCATION_UPDATE')
+      .map(message => {
+        const { location } = message as { location: Parameters<typeof projectLocation>[0] }
+        const where = projectLocation(location, ORIGIN)
+
+        return Math.hypot(where.x, where.y)
+      })
+
+    expect(Math.max(...errors)).toBeGreaterThan(2)
   })
 
   it('drifts around its seat without ever leaving it', () => {

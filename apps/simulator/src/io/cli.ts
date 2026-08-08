@@ -57,6 +57,7 @@ async function main() {
 
     clearInterval(sampler)
     clearTimeout(deadline)
+    releaseKeyboard()
 
     // Leaving is not optional. Every device holds a socket the API believes in,
     // and a run that lingers keeps reporting a crowd that is not there — which
@@ -72,6 +73,14 @@ async function main() {
   }
 
   const sampler = setInterval(() => reporter.render(pool.sample()), SAMPLE_INTERVAL_MS)
+
+  const releaseKeyboard = readKeys({
+    onSpace: () => {
+      pool.setNoise(!pool.noise)
+      reporter.render(pool.sample())
+    },
+    onInterrupt: () => void finish(0),
+  })
 
   const deadline = config.duration
     ? setTimeout(() => void finish(), config.duration * 1_000)
@@ -119,6 +128,40 @@ async function main() {
         void finish(1)
       }
     }, ORPHAN_CHECK_MS).unref()
+  }
+}
+
+/**
+ * Keys the operator can press while the run is live.
+ *
+ * Raw mode is what makes a single keypress arrive at all — a cooked terminal
+ * holds the line until a newline — and it also takes Ctrl-C away from the
+ * kernel, so the interrupt arrives here as a byte and has to be honoured by
+ * hand. Anywhere without a terminal, this does nothing and the run behaves as
+ * it always did.
+ */
+function readKeys(handlers: { onSpace: () => void; onInterrupt: () => void }) {
+  const input = process.stdin
+
+  if (!input.isTTY) return () => {}
+
+  input.setRawMode(true)
+  input.resume()
+  input.setEncoding('utf8')
+
+  const onData = (chunk: string) => {
+    for (const key of chunk) {
+      if (key === ' ') handlers.onSpace()
+      else if (key === '\u0003') handlers.onInterrupt()
+    }
+  }
+
+  input.on('data', onData)
+
+  return () => {
+    input.off('data', onData)
+    input.setRawMode(false)
+    input.pause()
   }
 }
 

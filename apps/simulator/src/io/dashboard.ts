@@ -92,7 +92,11 @@ export function dashboardReporter(config: SimulatorConfig): Reporter {
             `   latency ${snapshot.latencyMs.toFixed(0)}ms   errors ${snapshot.errors}   reconnects ${snapshot.reconnects}`,
           colors,
         ),
-        dim(config.duration ? '' : 'Ctrl-C to stop', colors),
+        dim(
+          `space ${snapshot.noise ? 'silences the sensors' : 'lets the sensors lie again'}` +
+            (config.duration ? '' : '   Ctrl-C to stop'),
+          colors,
+        ),
       ]
 
       // One write per frame. Drawing piecemeal is what makes a redrawing
@@ -121,6 +125,8 @@ function headerLine(header: ReportHeader | null, snapshot: Snapshot, colors: boo
     dim('·', colors),
     formatDuration(snapshot.elapsedSeconds),
     dim(`· ${header.venue} · seed ${header.seed} · ${header.shards} shards`, colors),
+    // Loud, because it changes what every other number on the screen means.
+    snapshot.noise ? '' : bold('· NOISE OFF', colors),
   ].join(' ')
 }
 

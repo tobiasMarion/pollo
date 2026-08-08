@@ -83,6 +83,7 @@ export function plainReporter(config: SimulatorConfig): Reporter {
           formatMeters(snapshot.gps.aligned.rmse).padStart(14),
           formatRate(snapshot.sentPerSecond).padStart(8),
           `${snapshot.latencyMs.toFixed(0)}ms`.padStart(9),
+          snapshot.noise ? '' : '  noise off',
         ].join(''),
       )
     },

@@ -10,7 +10,9 @@ import {
   DEVICE,
   drain,
   read,
+  SETTING,
   type SharedState,
+  write,
 } from './shared.js'
 
 export interface Snapshot {
@@ -30,6 +32,8 @@ export interface Snapshot {
   reconnects: number
   /** Mean `LOCATION_UPDATE` to `SET_POINT` round trip, in ms. */
   latencyMs: number
+  /** Whether the sensors are lying, which the operator can switch mid-run. */
+  noise: boolean
 }
 
 export const EMPTY_SNAPSHOT: Snapshot = {
@@ -44,6 +48,7 @@ export const EMPTY_SNAPSHOT: Snapshot = {
   errors: 0,
   reconnects: 0,
   latencyMs: 0,
+  noise: true,
 }
 
 /**
@@ -70,6 +75,10 @@ export class SimulationPool {
   ) {
     const buffers = createSharedBuffers(config.clients)
     this.shared = attach(buffers, config.clients)
+
+    // A `SharedArrayBuffer` starts zeroed, and zero here would mean a run that
+    // begins with every sensor telling the truth.
+    write(this.shared.settings, SETTING.NOISE, 1)
 
     const size = config.clients * 3
     this.truthOf = new Float32Array(size)
@@ -101,6 +110,22 @@ export class SimulationPool {
         new Worker(new URL('./shard-entry.mjs', import.meta.url), { workerData: data }),
       )
     }
+  }
+
+  /**
+   * Switch the sensor noise off, or back on, without stopping the run.
+   *
+   * The point is the comparison. Every number on the dashboard is a claim about
+   * how much the noise costs, and the only way to read that claim is to remove
+   * the noise and watch what happens to it — with the same crowd, the same
+   * seats and the same sockets, mid-flight.
+   */
+  setNoise(enabled: boolean) {
+    write(this.shared.settings, SETTING.NOISE, enabled ? 1 : 0)
+  }
+
+  get noise() {
+    return read(this.shared.settings, SETTING.NOISE) === 1
   }
 
   onShardError(handler: (error: Error) => void) {
@@ -153,6 +178,7 @@ export class SimulationPool {
       errors: read(counters, COUNTER.ERRORS),
       reconnects: read(counters, COUNTER.RECONNECTS),
       latencyMs: latencySamples === 0 ? 0 : latencySum / latencySamples,
+      noise: this.noise,
     }
   }
 
