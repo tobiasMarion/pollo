@@ -27,13 +27,24 @@ const BALCONY_RISE = 0.45
 /** How the house is filled. The floor takes most of it; the top balcony least. */
 const SHARES = [0.6, 0.25, 0.15]
 
-/** Where each balcony's floor sits above the stalls. */
+/**
+ * Where each balcony's floor sits above the stalls, in a house of ordinary size.
+ * A floor, not a ceiling — see `build`.
+ */
 const BALCONY_HEIGHTS = [0, 6, 11]
+
+/**
+ * Headroom over the level below. A balcony has to clear the back of the bank it
+ * overhangs, and clear the people standing in it.
+ */
+const CLEARANCE = 3.5
 
 interface Bank {
   seats: Seat[]
   /** Radius of the last row, so the next level up knows where to start. */
   outerRadius: number
+  /** Floor height of the last row — what the level above has to clear. */
+  backHeight: number
 }
 
 /**
@@ -51,14 +62,16 @@ function buildBank(
 ): Bank {
   const seats: Seat[] = []
   let radius = firstRadius
+  let backHeight = baseHeight
   let row = 0
 
   while (seats.length < wanted) {
     radius = firstRadius + row * ROW_DEPTH
+    backHeight = baseHeight + row * rise
 
     const step = SEAT_PITCH / radius
     const places = Math.floor((2 * HALF_ANGLE) / step)
-    const z = baseHeight + row * rise + PHONE_HEIGHT
+    const z = backHeight + PHONE_HEIGHT
 
     for (let place = 0; place <= places; place++) {
       const angle = -HALF_ANGLE + place * step
@@ -75,7 +88,7 @@ function buildBank(
     row++
   }
 
-  return { seats, outerRadius: radius }
+  return { seats, outerRadius: radius, backHeight }
 }
 
 /**
@@ -98,16 +111,25 @@ export const theater: Venue = {
   build(capacity: number, random: Random): Seat[] {
     const seats: Seat[] = []
     let radius = FIRST_ROW_RADIUS
+    let below = 0
 
     for (let level = 0; level < SHARES.length; level++) {
       const wanted = Math.ceil(capacity * (SHARES[level] as number))
       const rise = level === 0 ? STALLS_RISE : BALCONY_RISE
 
-      const bank = buildBank(wanted, radius, BALCONY_HEIGHTS[level] as number, rise, level, random)
+      // The published height is what a house of ordinary size has. A bigger
+      // crowd rakes further back and further up, and a balcony pinned to six
+      // metres would end up buried inside the bank it is supposed to overhang —
+      // so the floor below sets the floor above.
+      const base = level === 0 ? 0 : Math.max(BALCONY_HEIGHTS[level] as number, below + CLEARANCE)
+
+      const bank = buildBank(wanted, radius, base, rise, level, random)
 
       // Spreading would put every seat on the call stack, and a full house is
       // tens of thousands of them.
       for (const seat of bank.seats) seats.push(seat)
+
+      below = bank.backHeight
 
       // A balcony reaches back over the level below, but never past the first
       // row of the house — a small crowd would otherwise hang its balcony over

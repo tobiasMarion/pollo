@@ -50,6 +50,27 @@ describe('theater', () => {
     expect(lowest(2)).toBeGreaterThan(highest(1))
   })
 
+  it('keeps the balconies clear however big the house gets', () => {
+    // The stalls rake back and up with the crowd. Balconies pinned to a fixed
+    // height end up buried inside the bank they are meant to overhang, and past
+    // ten thousand people they did.
+    for (const capacity of [3_000, 30_000, 120_000]) {
+      const house = theater.build(capacity, new Random(2))
+
+      const bands = [0, 1, 2].map(index => {
+        const bank = house.filter(seat => seat.level === index)
+
+        return {
+          low: Math.min(...bank.map(seat => seat.point.z)),
+          high: Math.max(...bank.map(seat => seat.point.z)),
+        }
+      })
+
+      expect(bands[1]?.low).toBeGreaterThan(bands[0]?.high as number)
+      expect(bands[2]?.low).toBeGreaterThan(bands[1]?.high as number)
+    }
+  })
+
   it('sets the balconies back over the rear of the house', () => {
     expect(average(level(1).map(radius))).toBeGreaterThan(average(level(0).map(radius)))
     expect(average(level(2).map(radius))).toBeGreaterThan(average(level(1).map(radius)))
