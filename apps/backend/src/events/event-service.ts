@@ -125,6 +125,31 @@ export class EventService {
   }
 
   /**
+   * Throws the graph away because the event is over. Whoever is still connected
+   * is about to be disconnected by the closing itself, so their nodes go too.
+   */
+  async discardGraph() {
+    await this.graphStore.deleteGraph()
+  }
+
+  /**
+   * Throws away a graph nobody is connected to any more.
+   *
+   * A node exists because a device is connected, so with an empty subscriber map
+   * every node in the store is a leftover from a process that is gone. The guard
+   * is the whole argument: this is only sound before the first socket is
+   * accepted, and calling it anywhere else is a mistake worth a stack trace
+   * rather than a silently emptied field.
+   */
+  async clearStaleGraph() {
+    if (this.subscribers.size > 0) {
+      throw new Error(`Refusing to clear the graph of ${this.id}: it has live subscribers.`)
+    }
+
+    await this.discardGraph()
+  }
+
+  /**
    * Straight to the admin, unbatched. Only for frames the panel acts on the
    * moment they arrive rather than draws — its own cue, coming back.
    */
