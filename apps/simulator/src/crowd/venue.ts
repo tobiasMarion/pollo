@@ -1,3 +1,4 @@
+import type { ErrorBudget } from '../noise/gnss.js'
 import type { Random } from '../noise/random.js'
 import type { Seat } from './seat.js'
 import { square } from './square.js'
@@ -17,7 +18,7 @@ export interface Venue {
    * actually differs between a field and a theatre: roughly how wrong a fix is
    * in this kind of room.
    */
-  sigma: { horizontal: number; vertical: number }
+  sigma: ErrorBudget
   /** Lays out at least `capacity` seats, sized to fit them. */
   build(capacity: number, random: Random): Seat[]
 }
