@@ -243,6 +243,16 @@ describe('EventService', () => {
       expect(graph.edges).toEqual([])
     })
 
+    it('goes ahead anyway when the event itself is ending', async () => {
+      service.subscribe({ deviceId: 'd1', location, sendMessage: () => {} })
+      await service.settled()
+
+      // Closing an event with a crowd still in it is how events normally end.
+      await service.discardGraph()
+
+      expect((await service.getEventGraph()).nodes).toEqual({})
+    })
+
     it('refuses while anybody is still connected', async () => {
       service.subscribe({ deviceId: 'd1', location, sendMessage: () => {} })
       await service.settled()

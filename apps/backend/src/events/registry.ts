@@ -90,8 +90,10 @@ export class EventRegistry {
     this.services.delete(id)
 
     // The comment above has always said this; now it is true. A FINISHED event
-    // never reopens, so its graph is unreachable the moment it closes.
-    await service.clearStaleGraph()
+    // never reopens, so its graph is unreachable the moment it closes — and
+    // unguarded, because closing an event with a crowd still in it is the
+    // normal way an event ends.
+    await service.discardGraph()
 
     await this.prisma.event.update({
       where: { id },
