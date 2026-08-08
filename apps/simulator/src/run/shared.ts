@@ -1,6 +1,10 @@
 /**
  * State every shard reads and the main thread aggregates, in `SharedArrayBuffer`
- * rather than messages. See ./README.md#why-shared-memory.
+ * rather than messages.
+ *
+ * The alternative is postMessage, which copies: sampling twenty thousand
+ * positions twice a second would then be a structured clone twice a second, and
+ * the run would spend its time measuring itself.
  */
 
 /** Bits in the per-device flag byte. */
