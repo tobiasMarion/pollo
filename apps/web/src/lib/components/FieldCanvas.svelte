@@ -768,7 +768,11 @@ onMount(() => {
       case 'ArrowDown':
         orbit(0, step)
         break
-      case '0':
+      // Not a number key: the whole numeric row belongs to the cue pads, and an
+      // operator who fires a cue with the field focused must not also have the
+      // camera jump.
+      case 'r':
+      case 'R':
         resetCamera()
         break
       default:
@@ -813,5 +817,5 @@ onMount(() => {
   bind:this={canvas}
   class="block h-full w-full cursor-grab touch-none select-none active:cursor-grabbing"
   tabindex="0"
-  aria-label="The field seen from a raised corner. Drag or use the arrow keys to orbit, scroll to zoom, double-click or press 0 to reset."
+  aria-label="The field seen from a raised corner. Drag or use the arrow keys to orbit, scroll to zoom, double-click or press R to reset."
 ></canvas>

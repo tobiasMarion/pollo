@@ -26,6 +26,18 @@ const layerToggles = [
   { key: 'grid', label: 'Grid' },
 ] as const satisfies ReadonlyArray<{ key: keyof typeof layers; label: string }>
 
+const showConsole = $derived(data.isAdmin && data.event.status !== 'FINISHED')
+
+/**
+ * The deck sits below the fold, and the canvas eats the wheel to zoom — so
+ * there has to be one deliberate way down that is not the scrollbar.
+ */
+let deck = $state<HTMLElement | null>(null)
+
+function showCues() {
+  deck?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+}
+
 const statusLabels: Record<ConnectionStatus, string> = {
   connecting: 'Connecting',
   authenticating: 'Authenticating',
@@ -54,7 +66,14 @@ onMount(() => {
   <title>{data.event.name} · Pollo</title>
 </svelte:head>
 
-<div class="flex min-h-0 flex-1 flex-col">
+<!--
+  `h-full` and `shrink-0`: the field is worth a whole screen, so the first pane
+  is exactly as tall as the scrolling area it sits in and refuses to be squeezed
+  by what follows it. The cue deck is therefore below the fold — which is the
+  point. It is reached by the number keys during a show, and by `showCues` when
+  somebody actually wants to look at it.
+-->
+<div class="flex h-full min-h-0 shrink-0 flex-col">
   <div
     class="flex flex-wrap items-center gap-x-6 gap-y-2 border-dusk-800 border-b px-5 py-3 md:px-8"
   >
@@ -98,54 +117,64 @@ onMount(() => {
       This event is finished. Its devices and distances are no longer in the runtime.
     </p>
   {:else}
-    <section class="flex min-h-0 flex-1 flex-col">
-      <div class="relative min-h-0 flex-1">
-        <FieldCanvas
-          {pixels}
-          {edges}
-          lastEffect={live?.lastEffect ?? null}
-          showEdges={layers.edges}
-          showGrid={layers.grid}
-        />
+    <section class="relative min-h-0 flex-1">
+      <FieldCanvas
+        {pixels}
+        {edges}
+        lastEffect={live?.lastEffect ?? null}
+        showEdges={layers.edges}
+        showGrid={layers.grid}
+      />
 
-        <div class="pointer-events-none absolute inset-x-5 top-5 flex justify-between gap-4">
-          <div class="pointer-events-auto flex gap-1.5">
-            {#each layerToggles as toggle (toggle.key)}
-              <button
-                type="button"
-                aria-pressed={layers[toggle.key]}
-                onclick={() => (layers[toggle.key] = !layers[toggle.key])}
-                class="rounded-full border px-3 py-1 text-xs transition-colors {layers[toggle.key]
-                  ? 'border-dusk-600 bg-dusk-900 text-dusk-100'
-                  : 'border-dusk-800 text-dusk-500 hover:text-dusk-300'}"
-              >
-                {toggle.label}
-              </button>
-            {/each}
-          </div>
-
-          {#if unplaced > 0}
-            <p class="text-right text-dusk-500 text-xs">
-              <span data-numeric>{unplaced}</span> shown from GPS — outlines are devices the worker
-              has not placed yet.
-            </p>
-          {/if}
+      <div class="pointer-events-none absolute inset-x-5 top-5 flex justify-between gap-4">
+        <div class="pointer-events-auto flex gap-1.5">
+          {#each layerToggles as toggle (toggle.key)}
+            <button
+              type="button"
+              aria-pressed={layers[toggle.key]}
+              onclick={() => (layers[toggle.key] = !layers[toggle.key])}
+              class="rounded-full border px-3 py-1 text-xs transition-colors {layers[toggle.key]
+                ? 'border-dusk-600 bg-dusk-900 text-dusk-100'
+                : 'border-dusk-800 text-dusk-500 hover:text-dusk-300'}"
+            >
+              {toggle.label}
+            </button>
+          {/each}
         </div>
 
-        {#if pixels.length === 0}
-          <p
-            class="pointer-events-none absolute inset-0 flex items-center justify-center px-8 text-center text-dusk-500"
-          >
-            {#if live?.status === 'rejected'}
-              {live.error}
-            {:else}
-              No devices yet. Phones within about a kilometre can find this event and join.
-            {/if}
+        {#if unplaced > 0}
+          <p class="text-right text-dusk-500 text-xs">
+            <span data-numeric>{unplaced}</span> shown from GPS — outlines are devices the worker
+            has not placed yet.
           </p>
         {/if}
       </div>
 
-      <EffectDeck disabled={live?.status !== 'live'} onfire={(effect) => live?.fireEffect(effect)} />
+      {#if pixels.length === 0}
+        <p
+          class="pointer-events-none absolute inset-0 flex items-center justify-center px-8 text-center text-dusk-500"
+        >
+          {#if live?.status === 'rejected'}
+            {live.error}
+          {:else}
+            No devices yet. Phones within about a kilometre can find this event and join.
+          {/if}
+        </p>
+      {/if}
+
+      <button
+        type="button"
+        onclick={showCues}
+        class="-translate-x-1/2 absolute bottom-5 left-1/2 rounded-full border border-dusk-800 bg-dusk-950/80 px-4 py-1.5 text-dusk-500 text-xs backdrop-blur transition-colors hover:border-dusk-600 hover:text-dusk-200"
+      >
+        Cues ↓
+      </button>
     </section>
   {/if}
 </div>
+
+{#if showConsole}
+  <div bind:this={deck}>
+    <EffectDeck disabled={live?.status !== 'live'} onfire={(effect) => live?.fireEffect(effect)} />
+  </div>
+{/if}

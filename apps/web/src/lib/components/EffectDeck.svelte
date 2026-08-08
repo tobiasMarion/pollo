@@ -28,28 +28,41 @@ function fire(preset: EffectPreset) {
 }
 
 /**
- * Number keys fire the first nine pads. An operator running an event has one
- * hand on the laptop and no time to aim at a target the size of a stamp.
+ * The number row, as it sits on the keyboard: 1 through 9, then 0 for the tenth
+ * pad. An operator running an event has one hand on the laptop and no time to
+ * aim at a target the size of a stamp — and the deck is below the fold, so for
+ * most of a show these keys are the only control there is.
  */
+function shortcutFor(index: number) {
+  if (index < 9) return String(index + 1)
+  if (index === 9) return '0'
+
+  return undefined
+}
+
 function onkeydown(event: KeyboardEvent) {
   if (event.metaKey || event.ctrlKey || event.altKey) return
 
   const target = event.target as HTMLElement | null
   if (target && ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)) return
 
-  const index = Number(event.key) - 1
-  const preset = effectPresets[index]
+  // A single digit, tested rather than coerced: `Number(' ')` is zero, and the
+  // space bar has no business firing a cue.
+  if (!/^[0-9]$/.test(event.key)) return
 
-  if (Number.isInteger(index) && index >= 0 && preset) {
-    event.preventDefault()
-    fire(preset)
-  }
+  const digit = Number(event.key)
+  const preset = effectPresets[digit === 0 ? 9 : digit - 1]
+
+  if (!preset) return
+
+  event.preventDefault()
+  fire(preset)
 }
 </script>
 
 <svelte:window {onkeydown} />
 
-<section class="border-dusk-800 border-t px-5 py-4 md:px-8">
+<section id="cues" class="border-dusk-800 border-t px-5 py-4 md:px-8">
   <div class="flex items-baseline justify-between gap-4">
     <h2 class="eyebrow">Cues</h2>
     <p class="text-dusk-500 text-xs">
@@ -66,11 +79,12 @@ function onkeydown(event: KeyboardEvent) {
     class:opacity-40={disabled}
   >
     {#each effectPresets as preset, index (preset.id)}
+      {@const shortcut = shortcutFor(index)}
       <button
         type="button"
         onclick={() => fire(preset)}
         {disabled}
-        aria-keyshortcuts={index < 9 ? String(index + 1) : undefined}
+        aria-keyshortcuts={shortcut}
         class="group flex aspect-[7/5] flex-col justify-between rounded-lg border border-dusk-700 bg-dusk-900 p-3 text-left transition-colors duration-75 enabled:hover:border-dusk-600 enabled:hover:bg-dusk-800 enabled:active:bg-dusk-700 disabled:cursor-not-allowed"
         class:fired={flashing === preset.id}
       >
@@ -78,8 +92,8 @@ function onkeydown(event: KeyboardEvent) {
           <span class="text-[0.625rem] text-dusk-500 uppercase" data-numeric>
             {preset.effect.name}
           </span>
-          {#if index < 9}
-            <span class="text-[0.625rem] text-dusk-600" data-numeric>{index + 1}</span>
+          {#if shortcut}
+            <span class="text-[0.625rem] text-dusk-600" data-numeric>{shortcut}</span>
           {/if}
         </span>
 
