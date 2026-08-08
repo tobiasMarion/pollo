@@ -13,6 +13,7 @@
 - [Requirements](#requirements)
 - [Development](#development)
 - [Tests](#tests)
+- [Simulation](#simulation)
 - [Production](#production)
 - [Contact](#contact)
 
@@ -57,6 +58,7 @@ has to read a cue the same way, or the crowd falls out of step.
 apps/
   backend/     Fastify + TypeScript API (REST + WebSockets, Prisma/Postgres, Redis)
   web/         admin panel (SvelteKit + Tailwind)
+  simulator/   emulates an audience against a live event
   # worker/    position estimation (Rust)       — phase 3 (rewritten by hand)
   # mobile/    sensor client (SwiftUI/iOS)
 packages/
@@ -116,9 +118,9 @@ just web                      # admin panel, in another shell    ->  http://loca
 just contracts-watch          # only if you are editing packages/contracts
 ```
 
-Both apps import the contracts package's **build output**, so it compiles before
-they do — `just all`, `just dev`, `just web` and `just test` each take care of
-that on their own.
+Every app imports the contracts package's **build output**, so it compiles
+before they do — `just all`, `just dev`, `just web`, `just simulate` and
+`just test` each take care of that on their own.
 
 The panel signs in with the same GitHub OAuth app as the API, so the app's
 **Authorization callback URL** must be exactly `GITHUB_OAUTH_CLIENT_REDIRECT_URI`
@@ -140,9 +142,50 @@ Integration and e2e run against a dedicated `pollo_test` database and Redis
 logical db 1 — they never touch dev data.
 
 CI (GitHub Actions) runs the same pipeline on every PR: Biome, a typecheck of
-all three workspaces, the panel build, migrations, every workspace suite and the
-two backend tiers that need datastores — plus a job that builds the production
+every workspace, the panel build, migrations, every workspace suite and the two
+backend tiers that need datastores — plus a job that builds the production
 images and boots the full stack against its healthchecks.
+
+---
+
+## 🎛️ Simulation <a name="simulation"></a>
+
+A crowd of phones is not a thing anyone has lying around. `apps/simulator`
+emulates one: it seats an audience, gives everybody a receiver that lies about
+where it is, and reports the results over the same sockets a real device would
+use.
+
+```bash
+just simulate --event <uuid> --venue theater --clients 500   # --help lists every knob
+```
+
+The event has to be open — create one in the panel and pass its id. Nothing else
+is needed: `GET /events/:eventId` is public, so the origin comes back without a
+token.
+
+**Where the crowd is standing is a choice**, because the shape of it decides
+everything downstream. `--venue square` is a flat hall, `stands` a raked block
+around a pitch, `theater` curved rows with two balconies overhanging the floor —
+the only venue where people stand above other people, and the only one indoors.
+
+**The noise is the product.** Anything can add a random number to a coordinate;
+what comes of that is a worker tuned for a world nobody lives in. So the error
+drifts on two time scales rather than resampling, the crowd shares most of its
+mistakes rather than erring independently, the room decides how bad a fix is,
+nobody stands perfectly still, and phones lose signal and come back. Each of
+those is a decision with a cheaper, wrong alternative, and each is written up
+next to the code that implements it.
+
+**What comes out** is a chart of how far the crowd is from where it really is,
+with two lines. On its own the worker's error means nothing; raw GPS, given
+identical treatment, is the control, and the gap between them is what the worker
+is worth. Both are RMSE after a Procrustes alignment, because a reconstruction
+from distances alone has no idea which way north is and would otherwise be
+scored on an ambiguity rather than on its geometry.
+
+Every run prints its seed and replays exactly from it. `--json` swaps the
+dashboard for NDJSON. The whole thing is written up in
+[`apps/simulator`](apps/simulator).
 
 ---
 
