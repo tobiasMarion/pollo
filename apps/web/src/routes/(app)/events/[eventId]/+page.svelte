@@ -75,13 +75,13 @@ onMount(() => {
 </svelte:head>
 
 <!--
-  `h-full` and `shrink-0`: the field is worth a whole screen, so the first pane
-  is exactly as tall as the scrolling area it sits in and refuses to be squeezed
-  by what follows it. The cue deck is therefore below the fold — which is the
-  point. It is reached by the number keys during a show, and by `showCues` when
-  somebody actually wants to look at it.
+  Nearly the whole scrolling area, and `shrink-0` so what follows cannot squeeze
+  it: the field is worth a screen. The 3.5rem it gives back is deliberate — it
+  leaves the top of the cue deck showing, which is the only honest way to say
+  that there is something below the fold. A page that ends exactly at the fold
+  looks like a page that ends.
 -->
-<div class="flex h-full min-h-0 shrink-0 flex-col">
+<div class="flex h-[calc(100%-3.5rem)] min-h-0 shrink-0 flex-col">
   <div
     class="flex flex-wrap items-center gap-x-6 gap-y-2 border-dusk-800 border-b px-5 py-3 md:px-8"
   >
