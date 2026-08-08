@@ -98,6 +98,10 @@ const MAX_DOT_PX = 4
 /** How much a lit pixel swells. Kept small, or the field solidifies on a cue. */
 const GLOW_SWELL = 0.6
 
+/** How far a halo reaches past its own dot, and how hard it burns at full glow. */
+const HALO_SPREAD = 6
+const HALO_PEAK = 0.75
+
 /**
  * How much of a cue an unplaced device takes, when they are lit at all. A
  * fraction rather than all of it: the light says where the wave is, and the
@@ -428,7 +432,14 @@ onMount(() => {
       HALO_RADIUS_PX,
     )
 
+    // Falloff, not a ramp. A linear gradient still has half its alpha left at
+    // half its radius, which is a disc of fog with a bright middle; light from a
+    // point drops off far faster than that, so most of the sprite is nearly
+    // nothing and only the core carries.
     gradient.addColorStop(0, 'rgba(245, 242, 252, 1)')
+    gradient.addColorStop(0.12, 'rgba(245, 242, 252, 0.55)')
+    gradient.addColorStop(0.3, 'rgba(245, 242, 252, 0.16)')
+    gradient.addColorStop(0.6, 'rgba(245, 242, 252, 0.03)')
     gradient.addColorStop(1, 'rgba(245, 242, 252, 0)')
 
     spriteContext.fillStyle = gradient
@@ -474,18 +485,33 @@ onMount(() => {
       if (pixel.placed) bands[band]?.push(at)
       else outlineBands[band]?.push(at)
 
-      if (glow > 0.02) glows.push({ at, glow })
+      // Below this a halo is a sprite the size of a thumbnail carrying almost
+      // no light, and there can be thousands of them at once.
+      if (glow > 0.08) glows.push({ at, glow })
     }
 
     // Halos first, so a lit pixel's core is not washed out by its neighbour's
     // glow. Only lit pixels have one, so a field at rest pays nothing for this.
-    for (const { at, glow } of glows) {
-      const radius = dotRadius(glow) * 7
+    //
+    // `lighter` because this is light, and light adds. Painted the usual way,
+    // each halo *replaces* a share of what is under it with its own white, so a
+    // hundred overlapping ones converge on flat white — the crowd goes milky
+    // instead of bright, and the brightest place on the field looks the same as
+    // the dimmest. Adding, two half-lit pixels make one brighter one, and a
+    // crowd that is not lit contributes nothing at all.
+    context.globalCompositeOperation = 'lighter'
 
-      context.globalAlpha = 0.1 + glow * 0.4
+    for (const { at, glow } of glows) {
+      const radius = dotRadius(glow) * HALO_SPREAD
+
+      // No floor under this: an alpha that starts at 0.1 means the faintest
+      // edge of a pass still lays a wide veil over everything it touches, which
+      // is fog. Squared, the leading edge is a rumour and the peak is the event.
+      context.globalAlpha = glow * glow * HALO_PEAK
       context.drawImage(halo, at.x - radius, at.y - radius, radius * 2, radius * 2)
     }
 
+    context.globalCompositeOperation = 'source-over'
     context.globalAlpha = 1
 
     for (let band = 0; band < bands.length; band++) {
