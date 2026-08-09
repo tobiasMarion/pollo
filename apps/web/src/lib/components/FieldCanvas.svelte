@@ -6,6 +6,7 @@ import {
   type EffectOf,
   effectBrightness,
   type Vector3,
+  vector,
 } from '@pollo/contracts'
 import { onMount } from 'svelte'
 import type { FieldPixel } from '$lib/field'
@@ -131,18 +132,7 @@ const REFRAME_EASE = 0.06
 type Vector2 = { x: number; y: number }
 
 function centroid(list: FieldPixel[]): Vector3 {
-  if (list.length === 0) return { x: 0, y: 0, z: 0 }
-
-  const sum = list.reduce(
-    (total, { point }) => ({
-      x: total.x + point.x,
-      y: total.y + point.y,
-      z: total.z + point.z,
-    }),
-    { x: 0, y: 0, z: 0 },
-  )
-
-  return { x: sum.x / list.length, y: sum.y / list.length, z: sum.z / list.length }
+  return vector.centroid(list.map(pixel => pixel.point))
 }
 
 /** A round number of meters that lands between 60 and 160 pixels. */
@@ -580,11 +570,7 @@ onMount(() => {
     const progress = Math.min(1, Math.max(0, (now - pixel.since) / pixel.window))
     if (progress >= 1) return pixel.point
 
-    return {
-      x: pixel.from.x + (pixel.point.x - pixel.from.x) * progress,
-      y: pixel.from.y + (pixel.point.y - pixel.from.y) * progress,
-      z: pixel.from.z + (pixel.point.z - pixel.from.z) * progress,
-    }
+    return vector.lerp(pixel.from, pixel.point, progress)
   }
 
   /**

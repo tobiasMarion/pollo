@@ -58,6 +58,12 @@ dev: contracts
 web: contracts
     npm run dev --workspace=@pollo/web
 
+# Emulate an audience against a live event. Every flag is passed straight
+# through, so `just simulate --help` lists them.
+[doc('Emulate an audience — `just simulate --event <uuid> --venue theater`')]
+simulate *ARGS: contracts
+    npm run -s start --workspace=@pollo/simulator -- {{ARGS}}
+
 # Apply Prisma migrations (dev datastores must be up)
 migrate:
     npm run db:migrate --workspace=@pollo/backend
