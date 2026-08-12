@@ -7,6 +7,15 @@ import { jsonReporter, plainReporter, type Reporter } from './reporter.js'
 /** How often the crowd is measured and drawn. */
 const SAMPLE_INTERVAL_MS = 500
 
+/**
+ * How often the field view is redrawn between samples.
+ *
+ * A cue is over in a couple of seconds, so at the sampling rate a wave crossing
+ * the venue would be four still frames. Nothing is re-measured here — the shards
+ * write the crowd into shared memory continuously and this only reads it.
+ */
+const FRAME_INTERVAL_MS = 50
+
 /** How long a tidy shutdown gets before the process leaves anyway. */
 const SHUTDOWN_GRACE_MS = 5_000
 
@@ -37,7 +46,7 @@ async function main() {
     ? jsonReporter()
     : config['no-chart']
       ? plainReporter(config)
-      : dashboardReporter(config)
+      : dashboardReporter(config, pool.field())
   const shards = Math.min(config.threads, config.clients)
 
   reporter.start({
@@ -56,6 +65,7 @@ async function main() {
     stopping = true
 
     clearInterval(sampler)
+    clearInterval(frames)
     clearTimeout(deadline)
     releaseKeyboard()
 
@@ -73,9 +83,12 @@ async function main() {
   }
 
   const sampler = setInterval(() => reporter.render(pool.sample()), SAMPLE_INTERVAL_MS)
+  const frames = setInterval(() => reporter.redraw?.(), FRAME_INTERVAL_MS)
 
   const releaseKeyboard = readKeys({
-    onSpace: () => {
+    onKey: key => {
+      if (key !== ' ') return reporter.key?.(key)
+
       pool.setNoise(!pool.noise)
       reporter.render(pool.sample())
     },
@@ -140,7 +153,7 @@ async function main() {
  * hand. Anywhere without a terminal, this does nothing and the run behaves as
  * it always did.
  */
-function readKeys(handlers: { onSpace: () => void; onInterrupt: () => void }) {
+function readKeys(handlers: { onKey: (key: string) => void; onInterrupt: () => void }) {
   const input = process.stdin
 
   if (!input.isTTY) return () => {}
@@ -151,8 +164,8 @@ function readKeys(handlers: { onSpace: () => void; onInterrupt: () => void }) {
 
   const onData = (chunk: string) => {
     for (const key of chunk) {
-      if (key === ' ') handlers.onSpace()
-      else if (key === '\u0003') handlers.onInterrupt()
+      if (key === '\u0003') handlers.onInterrupt()
+      else handlers.onKey(key)
     }
   }
 

@@ -1,3 +1,4 @@
+import type { Effect, Location, Participant } from '@pollo/contracts'
 import { projectLocation } from '@pollo/contracts'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Seat } from '../crowd/seat.js'
@@ -23,6 +24,28 @@ const ORIGIN = { latitude: -30.03, longitude: -51.23 }
 const EXACT: ErrorBudget = { horizontal: 0.0001, vertical: 0.0001 }
 
 const NOTHING_HAPPENS = { churn: 0, blackout: 0, move: 0 }
+
+const SOMEWHERE: Location = {
+  latitude: ORIGIN.latitude,
+  longitude: ORIGIN.longitude,
+  horizontalAccuracy: 5,
+  altitude: 100,
+  verticalAccuracy: 3,
+}
+
+/** The roster the API would answer with, for a set of device indices. */
+function crowdOf(indices: number[]): Participant[] {
+  return indices.map(index => ({ deviceId: `sim-${index}`, location: SOMEWHERE }))
+}
+
+/**
+ * Lets the roster promise resolve. Fake timers do not touch microtasks, but the
+ * device applies its roster in a `then`, so a synchronous run of ticks would
+ * never see it land.
+ */
+async function settle() {
+  for (let turn = 0; turn < 5; turn++) await Promise.resolve()
+}
 
 /** A socket the test holds both ends of. */
 class FakeSocket implements Transport {
@@ -100,7 +123,13 @@ function harness(flags: string[] = [], budget: ErrorBudget = EXACT) {
   }
 
   const sockets: FakeSocket[] = []
+  const effects: Effect[] = []
   let neighbors = [1, 2, 3, 4, 5]
+
+  /** What the next roster read answers: a crowd, a failure, or nothing yet. */
+  let answer: Participant[] | Error | null = crowdOf([1, 2, 3, 4, 5])
+  let waiting: { resolve: (crowd: Participant[]) => void; reject: (cause: Error) => void } | null =
+    null
 
   const context: DeviceContext = {
     url: 'ws://localhost/join',
@@ -121,6 +150,13 @@ function harness(flags: string[] = [], budget: ErrorBudget = EXACT) {
 
       return socket
     },
+    roster: () =>
+      new Promise((resolve, reject) => {
+        if (answer === null) waiting = { resolve, reject }
+        else if (answer instanceof Error) reject(answer)
+        else resolve(answer)
+      }),
+    onEffect: effect => effects.push(effect),
   }
 
   const field = new SharedErrorField(new Random(1))
@@ -132,9 +168,24 @@ function harness(flags: string[] = [], budget: ErrorBudget = EXACT) {
     device,
     shared,
     sockets,
+    effects,
     latest: () => sockets[sockets.length - 1] as FakeSocket,
     setNeighbors: (next: number[]) => {
       neighbors = next
+    },
+    /** What the roster read will answer. `null` leaves it hanging until answered. */
+    setRoster: (next: number[] | Error | null) => {
+      answer = Array.isArray(next) ? crowdOf(next) : next
+    },
+    /** Answers a roster read the test left hanging. */
+    answerRoster: async (crowd: number[]) => {
+      waiting?.resolve(crowdOf(crowd))
+      await settle()
+    },
+    /** The API accepted the socket, and whatever roster it owed has landed. */
+    accept: async () => {
+      ;(sockets[sockets.length - 1] as FakeSocket).accept()
+      await settle()
     },
     at: () => clock,
     /** Runs the device forward, ticking every 50 ms as a shard does. */
@@ -161,13 +212,13 @@ afterEach(() => {
 })
 
 describe('VirtualDevice', () => {
-  it('opens a socket and joins with where it thinks it is', () => {
+  it('opens a socket and joins with where it thinks it is', async () => {
     const run = harness()
 
     run.advance(0.1)
     expect(run.sockets.length).toBe(1)
 
-    run.latest().accept()
+    await run.accept()
 
     const [join] = run.latest().sentOfType('JOIN') as [{ deviceId: string; location: never }]
 
@@ -180,11 +231,11 @@ describe('VirtualDevice', () => {
     expect(where.z).toBeCloseTo(1.4, 1)
   })
 
-  it('reports its location at the rate it was given', () => {
+  it('reports its location at the rate it was given', async () => {
     const run = harness(['--report-hz', '2', '--distance-hz', '0.01'])
 
     run.advance(0.1)
-    run.latest().accept()
+    await run.accept()
     run.advance(10)
 
     const updates = run.latest().sentOfType('LOCATION_UPDATE').length
@@ -194,14 +245,14 @@ describe('VirtualDevice', () => {
     expect(updates).toBeLessThanOrEqual(21)
   })
 
-  it('lies about where it is, by about as much as the venue says', () => {
+  it('lies about where it is, by about as much as the venue says', async () => {
     const run = harness(['--report-hz', '4', '--distance-hz', '0.01', '--common-mode', '0'], {
       horizontal: 6,
       vertical: 12,
     })
 
     run.advance(0.1)
-    run.latest().accept()
+    await run.accept()
     run.advance(200)
 
     const errors = run
@@ -220,11 +271,11 @@ describe('VirtualDevice', () => {
     expect(worst).toBeLessThan(60)
   })
 
-  it('ranges no more peers per sweep than it was told to', () => {
+  it('ranges no more peers per sweep than it was told to', async () => {
     const run = harness(['--distance-hz', '2', '--neighbors', '3', '--report-hz', '0.01'])
 
     run.advance(0.1)
-    run.latest().accept()
+    await run.accept()
     run.advance(0.6)
 
     const sweep = run.latest().sentOfType('DISTANCE')
@@ -233,11 +284,11 @@ describe('VirtualDevice', () => {
     expect(sweep.length).toBeLessThanOrEqual(3)
   })
 
-  it('measures a peer as being about as far away as it is', () => {
+  it('measures a peer as being about as far away as it is', async () => {
     const run = harness(['--distance-hz', '2', '--neighbors', '8', '--report-hz', '0.01'])
 
     run.advance(0.1)
-    run.latest().accept()
+    await run.accept()
     run.advance(30)
 
     const measured = run.latest().sentOfType('DISTANCE') as { to: string; distance: number }[]
@@ -254,11 +305,11 @@ describe('VirtualDevice', () => {
     expect(average).toBeLessThan(1.5)
   })
 
-  it('retracts an edge when the peer is no longer in earshot', () => {
+  it('retracts an edge when the peer is no longer in earshot', async () => {
     const run = harness(['--distance-hz', '2', '--neighbors', '8', '--report-hz', '0.01'])
 
     run.advance(0.1)
-    run.latest().accept()
+    await run.accept()
     run.advance(3)
 
     expect(
@@ -275,11 +326,134 @@ describe('VirtualDevice', () => {
     expect(retraction.length).toBeGreaterThan(0)
   })
 
-  it('leaves the event, and stays away long enough for the API to notice', () => {
+  /** Who a sweep actually reached, by peer id. */
+  function measured(socket: { sentOfType(type: string): unknown[] }) {
+    return new Set(
+      (socket.sentOfType('DISTANCE') as { to: string; distance: number | null }[])
+        .filter(edge => edge.distance !== null)
+        .map(edge => edge.to),
+    )
+  }
+
+  it('measures nobody it has not been told about', async () => {
+    const run = harness(['--distance-hz', '2', '--neighbors', '8', '--report-hz', '0.01'])
+
+    // Every one of them is a metre away and perfectly audible. What the phone
+    // does not have is any reason to believe they exist.
+    run.setRoster([])
+
+    run.advance(0.1)
+    await run.accept()
+    run.advance(5)
+
+    expect(run.latest().sentOfType('DISTANCE')).toEqual([])
+  })
+
+  it('starts measuring a peer the moment it hears it join', async () => {
+    const run = harness(['--distance-hz', '2', '--neighbors', '8', '--report-hz', '0.01'])
+
+    run.setRoster([])
+
+    run.advance(0.1)
+    await run.accept()
+    run.advance(2)
+
+    expect(run.latest().sentOfType('DISTANCE')).toEqual([])
+
+    run.latest().deliver({ type: 'USER_JOINED', deviceId: 'sim-3', location: SOMEWHERE })
+    run.advance(2)
+
+    expect([...measured(run.latest())]).toEqual(['sim-3'])
+  })
+
+  /**
+   * The gap the ordering exists to close. The roster describes an instant and
+   * arrives after it, so anybody who joins in between is named by the socket and
+   * not by the snapshot — and if the snapshot overwrote what the socket said,
+   * nothing would ever mention them again.
+   */
+  it('keeps a peer that joined while the roster was in flight', async () => {
+    const run = harness(['--distance-hz', '2', '--neighbors', '8', '--report-hz', '0.01'])
+
+    run.setRoster(null)
+
+    run.advance(0.1)
+    await run.accept()
+
+    run.latest().deliver({ type: 'USER_JOINED', deviceId: 'sim-3', location: SOMEWHERE })
+    await run.answerRoster([1])
+
+    run.advance(3)
+
+    expect([...measured(run.latest())].sort()).toEqual(['sim-1', 'sim-3'])
+  })
+
+  it('stops measuring a peer once it hears it leave', async () => {
+    const run = harness(['--distance-hz', '2', '--neighbors', '8', '--report-hz', '0.01'])
+
+    run.advance(0.1)
+    await run.accept()
+    run.advance(3)
+
+    expect(measured(run.latest()).has('sim-5')).toBe(true)
+
+    run.latest().deliver({ type: 'USER_LEFT', deviceId: 'sim-5' })
+    run.advance(3)
+
+    const retraction = (
+      run.latest().sentOfType('DISTANCE') as { to: string; distance: number | null }[]
+    ).filter(edge => edge.to === 'sim-5' && edge.distance === null)
+
+    expect(retraction.length).toBeGreaterThan(0)
+  })
+
+  /**
+   * A phone that loses signal has not forgotten the room it is standing in. What
+   * it misses is whoever arrived while it was away — so the roster read on the
+   * way back is a repair, not the source, and the crowd is still there when it
+   * fails.
+   */
+  it('still knows the crowd after a blackout it came back from', async () => {
+    const run = harness(['--distance-hz', '2', '--neighbors', '8', '--report-hz', '0.01'])
+
+    run.advance(0.1)
+    await run.accept()
+    run.advance(2)
+
+    run.advance(0.05, { churn: 0, blackout: 1, move: 0 })
+    run.setRoster(new Error('the API is having a bad second'))
+
+    run.advance(31)
+    await run.accept()
+    run.advance(3)
+
+    expect(measured(run.latest()).size).toBeGreaterThan(0)
+    expect(read(run.shared.counters, COUNTER.ERRORS)).toBe(1)
+  })
+
+  it('hands a cue to the run rather than dropping it', async () => {
     const run = harness()
 
     run.advance(0.1)
-    run.latest().accept()
+    await run.accept()
+
+    const effect = {
+      name: 'PULSE',
+      coordinateType: 'RELATIVE',
+      activeTime: 1,
+      spreadDelayPerUnit: 0,
+    }
+
+    run.latest().deliver({ type: 'EFFECT', effect })
+
+    expect(run.effects).toEqual([effect])
+  })
+
+  it('leaves the event, and stays away long enough for the API to notice', async () => {
+    const run = harness()
+
+    run.advance(0.1)
+    await run.accept()
     run.advance(0.1)
 
     run.advance(0.05, { churn: 1, blackout: 0, move: 0 })
@@ -296,11 +470,11 @@ describe('VirtualDevice', () => {
     expect(run.sockets.length).toBe(2)
   })
 
-  it('loses signal, and is back within the minute', () => {
+  it('loses signal, and is back within the minute', async () => {
     const run = harness()
 
     run.advance(0.1)
-    run.latest().accept()
+    await run.accept()
     run.advance(0.1)
 
     run.advance(0.05, { churn: 0, blackout: 1, move: 0 })
@@ -312,18 +486,18 @@ describe('VirtualDevice', () => {
 
     expect(run.sockets.length).toBe(2)
 
-    run.latest().accept()
+    await run.accept()
     run.advance(0.1)
 
     expect(run.latest().sentOfType('JOIN').length).toBe(1)
     expect(read(run.shared.counters, COUNTER.CONNECTED)).toBe(1)
   })
 
-  it('comes back after the API drops it, without being told to', () => {
+  it('comes back after the API drops it, without being told to', async () => {
     const run = harness()
 
     run.advance(0.1)
-    run.latest().accept()
+    await run.accept()
     run.advance(0.1)
 
     run.latest().hangUp()
@@ -336,11 +510,11 @@ describe('VirtualDevice', () => {
     expect(run.sockets.length).toBe(2)
   })
 
-  it('takes the position the worker sends it, and nothing else', () => {
+  it('takes the position the worker sends it, and nothing else', async () => {
     const run = harness()
 
     run.advance(0.1)
-    run.latest().accept()
+    await run.accept()
 
     const somewhere = { x: 0, y: 0, z: 0 }
 
@@ -360,14 +534,14 @@ describe('VirtualDevice', () => {
     expect(read(run.shared.counters, COUNTER.RECEIVED)).toBe(2)
   })
 
-  it('tells the exact truth once the noise is switched off', () => {
+  it('tells the exact truth once the noise is switched off', async () => {
     const run = harness(['--report-hz', '4', '--distance-hz', '4', '--neighbors', '8'], {
       horizontal: 20,
       vertical: 30,
     })
 
     run.advance(0.1)
-    run.latest().accept()
+    await run.accept()
 
     write(run.shared.settings, SETTING.NOISE, 0)
     run.advance(5)
@@ -392,14 +566,14 @@ describe('VirtualDevice', () => {
     for (const edge of toFirstPeer) expect(edge.distance).toBeCloseTo(1, 0)
   })
 
-  it('starts lying again when the noise comes back', () => {
+  it('starts lying again when the noise comes back', async () => {
     const run = harness(['--report-hz', '4', '--distance-hz', '0.01', '--common-mode', '0'], {
       horizontal: 20,
       vertical: 30,
     })
 
     run.advance(0.1)
-    run.latest().accept()
+    await run.accept()
 
     write(run.shared.settings, SETTING.NOISE, 0)
     run.advance(5)
@@ -420,11 +594,11 @@ describe('VirtualDevice', () => {
     expect(Math.max(...errors)).toBeGreaterThan(2)
   })
 
-  it('drifts around its seat without ever leaving it', () => {
+  it('drifts around its seat without ever leaving it', async () => {
     const run = harness(['--report-hz', '0.01', '--distance-hz', '0.01'])
 
     run.advance(0.1)
-    run.latest().accept()
+    await run.accept()
 
     let moved = 0
 
@@ -437,11 +611,11 @@ describe('VirtualDevice', () => {
     expect(moved).toBeLessThan(1)
   })
 
-  it('walks to another seat rather than teleporting into it', () => {
+  it('walks to another seat rather than teleporting into it', async () => {
     const run = harness(['--report-hz', '0.01', '--distance-hz', '0.01'])
 
     run.advance(0.1)
-    run.latest().accept()
+    await run.accept()
 
     run.advance(0.05, { churn: 0, blackout: 0, move: 1 })
     run.advance(3)

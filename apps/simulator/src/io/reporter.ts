@@ -5,6 +5,17 @@ export interface Reporter {
   start(header: ReportHeader): void
   render(snapshot: Snapshot): void
   stop(): void
+  /**
+   * Draw again from what is already known, without taking a sample.
+   *
+   * The two cadences came apart the moment a cue could be animated: error is
+   * measured twice a second because that is how often it is worth measuring,
+   * while a wave crossing a venue has to be drawn at something a person reads as
+   * motion. Only a reporter that redraws in place has one of these.
+   */
+  redraw?(): void
+  /** A key the operator pressed. Reporters that draw nothing ignore it. */
+  key?(key: string): void
 }
 
 export interface ReportHeader {

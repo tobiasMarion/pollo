@@ -1,6 +1,9 @@
 import {
+  type DeviceInboundMessage,
   deviceInbound,
+  type Effect,
   type Origin,
+  type Participant,
   safeParseJsonMessage,
   unprojectLocation,
   type Vector3,
@@ -47,6 +50,15 @@ export function deviceIdFor(index: number) {
   return `sim-${index}`
 }
 
+/** The inverse, for the peers the API names back at us. `-1` for anything else. */
+export function indexOfDeviceId(deviceId: string): number {
+  if (!deviceId.startsWith('sim-')) return -1
+
+  const index = Number(deviceId.slice(4))
+
+  return Number.isInteger(index) && index >= 0 ? index : -1
+}
+
 export interface DeviceContext {
   url: string
   origin: Origin
@@ -59,6 +71,10 @@ export interface DeviceContext {
   spareSeats: number[]
   neighborsOf: (index: number, into: number[]) => number[]
   connect: Connect
+  /** Everybody already in the event, read once per join. */
+  roster: () => Promise<Participant[]>
+  /** A cue, on its way to the terminal. Fired once per device that hears it. */
+  onEffect: (effect: Effect) => void
 }
 
 /**
@@ -97,6 +113,28 @@ export class VirtualDevice {
   private readonly reportedPeers = new Set<number>()
   private readonly candidates: number[] = []
 
+  /**
+   * Who this phone has ever been told about, one bit per device.
+   *
+   * A `Set` would be the obvious choice and the wrong one: with a roster on every
+   * join the thing is dense, so at twenty thousand clients it is twenty thousand
+   * sets of twenty thousand numbers. A bit each is 2.5 KB per device and answers
+   * the only question ever asked of it in constant time.
+   */
+  private readonly known: Uint8Array
+
+  /**
+   * Frames that arrived while the roster was in flight, replayed once it lands.
+   *
+   * The snapshot describes an instant, and it arrives after it. Apply the frames
+   * as they come and one of them loses: a peer that leaves after the snapshot is
+   * cut is erased here, then handed straight back by a roster older than the
+   * departure, and nothing will ever mention it again. Replayed on top instead,
+   * the later truth wins — and since both operations are idempotent, a frame the
+   * snapshot already reflects costs nothing to apply twice.
+   */
+  private pendingPeerChanges: DeviceInboundMessage[] | null = null
+
   constructor(
     readonly index: number,
     seatIndex: number,
@@ -111,8 +149,29 @@ export class VirtualDevice {
     this.gnss = new DeviceGnss(context.budget, random, context.config['common-mode'])
     this.sway = new Sway(random)
     this.ranging = new Ranging(random, context.config.range)
+    this.known = new Uint8Array(Math.ceil(context.config.clients / 8))
 
     writeVector(context.shared.truth, index, this.truePosition(0))
+  }
+
+  private learn(deviceId: string) {
+    const peer = indexOfDeviceId(deviceId)
+    if (peer < 0) return
+
+    const byte = this.known[peer >> 3]
+    if (byte !== undefined) this.known[peer >> 3] = byte | (1 << (peer & 7))
+  }
+
+  private forget(deviceId: string) {
+    const peer = indexOfDeviceId(deviceId)
+    if (peer < 0) return
+
+    const byte = this.known[peer >> 3]
+    if (byte !== undefined) this.known[peer >> 3] = byte & ~(1 << (peer & 7))
+  }
+
+  private knows(peer: number) {
+    return ((this.known[peer >> 3] ?? 0) & (1 << (peer & 7))) !== 0
   }
 
   private seat() {
@@ -195,11 +254,55 @@ export class VirtualDevice {
     this.lastReportAt = now
 
     this.send({ type: 'JOIN', deviceId: this.deviceId, location: this.locationAt(now, field, 1) })
+    this.readRoster()
 
     // Staggered, or every device reports on the same millisecond and the run
     // measures a thundering herd rather than the API.
     this.nextReportAt = now + this.random.float() * (1_000 / config['report-hz'])
     this.nextDistanceAt = now + this.random.float() * (1_000 / config['distance-hz'])
+  }
+
+  /**
+   * Asks who is already here, after the `JOIN` and not before.
+   *
+   * The order is the whole guarantee. Read first and anybody who joins between
+   * the response and the subscription appears in neither the roster nor the
+   * `USER_JOINED` stream, and a device it never hears about is a device it can
+   * never measure. Asking second, the overlap is duplicates, and duplicates are
+   * free.
+   */
+  private readRoster() {
+    const pending: DeviceInboundMessage[] = []
+    this.pendingPeerChanges = pending
+
+    void this.context
+      .roster()
+      .then(participants => {
+        // A reconnection happened while this was in flight, and it has its own
+        // roster coming: this one describes a crowd from before the gap.
+        if (this.pendingPeerChanges !== pending) return
+
+        for (const { deviceId } of participants) this.learn(deviceId)
+        for (const message of pending) this.applyPeerChange(message)
+
+        this.pendingPeerChanges = null
+      })
+      .catch(() => {
+        bump(this.context.shared.counters, COUNTER.ERRORS)
+
+        if (this.pendingPeerChanges !== pending) return
+
+        // Fall back on the stream alone rather than dropping what it buffered:
+        // this phone now knows only the arrivals, until it reconnects.
+        for (const message of pending) this.applyPeerChange(message)
+
+        this.pendingPeerChanges = null
+      })
+  }
+
+  private applyPeerChange(message: DeviceInboundMessage) {
+    if (message.type === 'USER_JOINED') this.learn(message.deviceId)
+    else if (message.type === 'USER_LEFT') this.forget(message.deviceId)
   }
 
   private closed() {
@@ -233,14 +336,28 @@ export class VirtualDevice {
     bump(shared.counters, COUNTER.RECEIVED)
 
     const { success, data } = safeParseJsonMessage(raw, deviceInbound.schema)
-    if (!success || data.type !== 'SET_POINT') return
+    if (!success) return
 
-    writeVector(shared.estimate, this.index, data.position.simulated.relative)
-    shared.flags[this.index] = (shared.flags[this.index] ?? 0) | DEVICE.PLACED
+    switch (data.type) {
+      case 'SET_POINT':
+        writeVector(shared.estimate, this.index, data.position.simulated.relative)
+        shared.flags[this.index] = (shared.flags[this.index] ?? 0) | DEVICE.PLACED
 
-    bump(shared.counters, COUNTER.SET_POINTS)
-    bump(shared.counters, COUNTER.LATENCY_SUM_MS, Math.round(Date.now() - this.lastReportAt))
-    bump(shared.counters, COUNTER.LATENCY_SAMPLES)
+        bump(shared.counters, COUNTER.SET_POINTS)
+        bump(shared.counters, COUNTER.LATENCY_SUM_MS, Math.round(Date.now() - this.lastReportAt))
+        bump(shared.counters, COUNTER.LATENCY_SAMPLES)
+        break
+
+      case 'USER_JOINED':
+      case 'USER_LEFT':
+        if (this.pendingPeerChanges) this.pendingPeerChanges.push(data)
+        else this.applyPeerChange(data)
+        break
+
+      case 'EFFECT':
+        this.context.onEffect(data.effect)
+        break
+    }
   }
 
   /** The person leaves for a while. The socket really closes: the API must see it go. */
@@ -296,9 +413,32 @@ export class VirtualDevice {
     this.walk = { from, to: this.seat().point, startedAt: now, endsAt: now + WALK_SECONDS * 1_000 }
   }
 
+  /**
+   * Drops the peers this phone has never been told about, in place.
+   *
+   * The grid is the radio, not the roster: it answers who is close enough to be
+   * heard, which is physics and stays. What it must not be allowed to do is
+   * introduce strangers. A device learns that another device exists from the
+   * API and nowhere else — with UWB that message is what carries the discovery
+   * token, and without it there is no ranging to attempt at all. Filtering the
+   * grid's answer rather than walking everyone known keeps the sweep proportional
+   * to how dense the venue is instead of how large the crowd is.
+   */
+  private keepKnown(peers: number[]) {
+    let kept = 0
+
+    for (const peer of peers) {
+      if (this.knows(peer)) peers[kept++] = peer
+    }
+
+    peers.length = kept
+
+    return peers
+  }
+
   private sweepDistances(now: number) {
     const { config, neighborsOf, shared } = this.context
-    const peers = neighborsOf(this.index, this.candidates)
+    const peers = this.keepKnown(neighborsOf(this.index, this.candidates))
 
     // A sample rather than everyone in earshot, so a dense venue does not
     // silently raise the message rate.

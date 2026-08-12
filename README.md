@@ -183,6 +183,15 @@ is worth. Both are RMSE after a Procrustes alignment, because a reconstruction
 from distances alone has no idea which way north is and would otherwise be
 scored on an ambiguity rather than on its geometry.
 
+**`V` swaps that chart for the crowd itself**, and the two coordinates on that
+screen come from different places on purpose: a phone is *drawn* where it really
+is and *lit* from where the worker thinks it is. The panel cannot show this — it
+draws the estimate, so its ring is always clean over a crowd of whatever shape
+the worker imagined. Here the same error arrives as confetti over a crowd
+standing exactly where it is, which is the difference an RMSE cannot report:
+half a metre spread evenly is a slightly soft ring, and half a metre piled onto
+one clique is a hole in the wave.
+
 Every run prints its seed and replays exactly from it. `--json` swaps the
 dashboard for NDJSON. The whole thing is written up in
 [`apps/simulator`](apps/simulator).

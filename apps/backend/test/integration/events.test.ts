@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import { createTestApp, createUser, truncateDatabase, waitFor } from '../helpers.js'
+import { createTestApp, createUser, truncateDatabase } from '../helpers.js'
 
 type TestApp = Awaited<ReturnType<typeof createTestApp>>
 
@@ -159,18 +159,17 @@ describe('event REST routes', () => {
       sendMessage: () => {},
     })
 
-    const participants = await waitFor(
-      async () => {
-        const response = await app.inject({
-          method: 'GET',
-          url: `/events/${eventId}/participants`,
-        })
-        return response.json<{ participants: Array<{ deviceId: string }> }>().participants
-      },
-      list => list.length === 1,
-    )
+    // No polling. A joining device reads this once, and the socket frames that
+    // follow only ever name arrivals — so anybody the first read misses is
+    // missed for good, and "it shows up eventually" is not the guarantee.
+    const response = await app.inject({
+      method: 'GET',
+      url: `/events/${eventId}/participants`,
+    })
 
-    expect(participants[0]?.deviceId).toBe('device-1')
+    const { participants } = response.json<{ participants: Array<{ deviceId: string }> }>()
+
+    expect(participants.map(participant => participant.deviceId)).toEqual(['device-1'])
   })
 
   it('GET /events/:id/graph is only visible to the event admin', async () => {

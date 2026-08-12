@@ -89,7 +89,28 @@ describe('EventService', () => {
     expect(firstInbox).toContainEqual({ type: 'USER_JOINED', deviceId: 'd2', location })
     expect(bus.ingest.map(({ message }) => message.op)).toEqual(['JOIN', 'JOIN'])
 
-    expect(await service.getSubscribers()).toContainEqual({ deviceId: 'd1', location })
+    expect(service.getSubscribers()).toContainEqual({ deviceId: 'd1', location })
+  })
+
+  /**
+   * The roster a joining device reads has to be current the moment it asks. Read
+   * from the graph store this would still be empty here, because those writes are
+   * queued off the hot path — and `USER_JOINED` only covers arrivals after this
+   * point, so anybody missing from the snapshot is missing for good.
+   */
+  it('getSubscribers is current without waiting for the store', () => {
+    service.subscribe({ deviceId: 'd1', location, sendMessage: () => {} })
+
+    expect(service.getSubscribers()).toEqual([{ deviceId: 'd1', location }])
+  })
+
+  it('getSubscribers carries the latest location a device reported', () => {
+    const moved: Location = { ...location, latitude: -29.8 }
+
+    service.subscribe({ deviceId: 'd1', location, sendMessage: () => {} })
+    service.updateSubscriberLocation('d1', moved)
+
+    expect(service.getSubscribers()).toEqual([{ deviceId: 'd1', location: moved }])
   })
 
   it('setDistanceToDevice reports to the admin and publishes DISTANCE', async () => {
@@ -133,7 +154,7 @@ describe('EventService', () => {
     // Joining and leaving inside one window leaves the panel nothing to undo.
     expect(update.locations).toEqual([])
     expect(bus.ingest.map(({ message }) => message.op)).toEqual(['JOIN', 'LEAVE'])
-    expect(await service.getSubscribers()).toEqual([])
+    expect(service.getSubscribers()).toEqual([])
   })
 
   it('broadcastPositions routes SET_POINT to the right device and reports to the admin', () => {
@@ -196,7 +217,7 @@ describe('EventService', () => {
 
     expect(batch().edges).toEqual([])
     expect((await service.getEventGraph()).edges).toEqual([])
-    expect(await service.getSubscribers()).toEqual([])
+    expect(service.getSubscribers()).toEqual([])
   })
 
   it('ignores a distance from a device that never joined', () => {
