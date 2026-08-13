@@ -52,12 +52,22 @@ const presets: EffectPreset[] = [
   {
     id: 'shockwave',
     label: 'Shockwave',
-    hint: '0.01 s/m · 0.5 s',
+    hint: '1 m ring · 5 m/s',
+    /**
+     * A ring exactly one metre thick, travelling outwards at five metres a
+     * second. The two numbers are one choice: a pixel stays lit for as long as
+     * the front takes to cross a metre (`activeTime / spreadDelayPerUnit = 1`),
+     * so at any instant the lit band is a metre of crowd and no more.
+     *
+     * That width is the point. It is narrower than the error a worker fed on raw
+     * GPS carries, which makes this the cue that either draws a ring or proves
+     * there is nothing to draw it with.
+     */
     effect: {
       name: 'PULSE',
       coordinateType: 'RELATIVE',
-      activeTime: 0.5,
-      spreadDelayPerUnit: 0.01,
+      activeTime: 0.2,
+      spreadDelayPerUnit: 0.2,
     },
   },
   {

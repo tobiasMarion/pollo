@@ -253,11 +253,22 @@ export class EventService {
   /**
    * Fans out worker-computed positions (called by the positions subscription).
    * Only position travels — brightness is client-side.
+   *
+   * Positions for devices that are gone are dropped, the same guard the other
+   * three mutators carry. The worker is a separate process working from a
+   * snapshot, so it is *always* a little behind the connection map: it will
+   * publish a position for somebody who disconnected a moment ago, and it is
+   * right to. What that must not do is reach the panel. `placedAt` is an upsert
+   * at the far end, so a stale point recreates the device the panel was just
+   * told to forget — and the next one recreates it again. Kill a simulation of
+   * a thousand phones and the field never empties.
    */
   broadcastPositions(message: PositionsMessage) {
     for (const { deviceId, position } of message.points) {
-      this.subscribers.get(deviceId)?.sendMessage({ type: 'SET_POINT', position })
+      const connection = this.subscribers.get(deviceId)
+      if (!connection) continue
 
+      connection.sendMessage({ type: 'SET_POINT', position })
       this.digest.placedAt(deviceId, position)
     }
   }

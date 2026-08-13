@@ -113,6 +113,26 @@ describe('EventService', () => {
     expect(service.getSubscribers()).toEqual([{ deviceId: 'd1', location: moved }])
   })
 
+  /**
+   * The worker runs in another process off a snapshot, so it is always a little
+   * behind the connection map and will publish a position for somebody who just
+   * disconnected. The panel upserts on `placed`, so letting one through recreates
+   * a device it was told to forget — and a killed simulation never clears.
+   */
+  it('drops a position for a device that has already left', async () => {
+    service.subscribe({ deviceId: 'd1', location, sendMessage: () => {} })
+    service.unsubscribe('d1')
+
+    service.flushDigest()
+    expect(batch().left).toEqual(['d1'])
+
+    service.broadcastPositions({ kind: 'delta', points: [{ deviceId: 'd1', position }] })
+
+    // Nothing at all, rather than a batch that puts it back on the field.
+    expect(service.flushDigest()).toBeUndefined()
+    expect(adminInbox).toEqual([])
+  })
+
   it('setDistanceToDevice reports to the admin and publishes DISTANCE', async () => {
     service.subscribe({ deviceId: 'd1', location, sendMessage: () => {} })
 
