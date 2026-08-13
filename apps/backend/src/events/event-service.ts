@@ -1,4 +1,10 @@
-import type { ExactLocation, Location, Message, PositionsMessage } from '@pollo/contracts'
+import type {
+  ExactLocation,
+  Location,
+  Message,
+  Participant,
+  PositionsMessage,
+} from '@pollo/contracts'
 import type { FastifyBaseLogger } from 'fastify'
 import { AdminDigest, DIGEST_INTERVAL_MS } from './admin-digest.js'
 import type { Bus } from './bus.js'
@@ -11,6 +17,12 @@ export interface Subscriber {
   deviceId: string
   location: Location
   sendMessage: SendMessage
+}
+
+/** A live device: how to reach it, and the last thing it said about itself. */
+interface Connection {
+  sendMessage: SendMessage
+  location: Location
 }
 
 interface Admin {
@@ -37,7 +49,7 @@ export class EventService {
   private readonly id: string
   private readonly location: ExactLocation
   private readonly admin: Admin
-  private readonly subscribers = new Map<string, SendMessage>()
+  private readonly subscribers = new Map<string, Connection>()
   private readonly graphStore: GraphStore
   private readonly bus: Bus
   private readonly logger: FastifyBaseLogger | undefined
@@ -111,13 +123,18 @@ export class EventService {
     this.admin.sendMessage(this.digest.take(DIGEST_INTERVAL_MS))
   }
 
-  async getSubscribers() {
-    const metadata = await this.graphStore.listNodesMetadata()
-
-    return Object.entries(metadata).map(([deviceId, data]) => ({
-      deviceId,
-      location: data.location,
-    }))
+  /**
+   * Who is connected right now, straight from the connection map.
+   *
+   * Read from the graph store this would lag, because those writes are queued
+   * off the hot path — and a device joining reads the roster the moment it
+   * connects, so a stale answer is a device that never learns about a peer.
+   * Nothing else would tell it: `USER_JOINED` only covers arrivals *after* this
+   * point, which is precisely what makes this snapshot the thing they continue
+   * from. Missing somebody here means missing them for good.
+   */
+  getSubscribers(): Participant[] {
+    return [...this.subscribers].map(([deviceId, { location }]) => ({ deviceId, location }))
   }
 
   async getEventGraph() {
@@ -159,15 +176,12 @@ export class EventService {
 
   publish(message: Message) {
     this.notifyAdmin(message)
-
-    for (const sendMessage of this.subscribers.values()) {
-      sendMessage(message)
-    }
+    this.broadcastToDevices(message)
   }
 
   /** Fans out to the devices; the admin hears about it in the next batch. */
   private broadcastToDevices(message: Message) {
-    for (const sendMessage of this.subscribers.values()) {
+    for (const { sendMessage } of this.subscribers.values()) {
       sendMessage(message)
     }
   }
@@ -176,7 +190,7 @@ export class EventService {
     this.broadcastToDevices({ type: 'USER_JOINED', deviceId, location })
     this.digest.locationChanged(deviceId, location)
 
-    this.subscribers.set(deviceId, sendMessage)
+    this.subscribers.set(deviceId, { sendMessage, location })
 
     // The store copy exists for REST reads and worker hydration; the stream
     // publish is what actually drives the simulation.
@@ -213,7 +227,10 @@ export class EventService {
   }
 
   updateSubscriberLocation(deviceId: string, location: Location) {
-    if (!this.subscribers.has(deviceId)) return
+    const connection = this.subscribers.get(deviceId)
+    if (!connection) return
+
+    connection.location = location
 
     this.digest.locationChanged(deviceId, location)
     this.enqueueStoreWrite(() => this.graphStore.setNodeLocation(deviceId, location))
@@ -236,11 +253,22 @@ export class EventService {
   /**
    * Fans out worker-computed positions (called by the positions subscription).
    * Only position travels — brightness is client-side.
+   *
+   * Positions for devices that are gone are dropped, the same guard the other
+   * three mutators carry. The worker is a separate process working from a
+   * snapshot, so it is *always* a little behind the connection map: it will
+   * publish a position for somebody who disconnected a moment ago, and it is
+   * right to. What that must not do is reach the panel. `placedAt` is an upsert
+   * at the far end, so a stale point recreates the device the panel was just
+   * told to forget — and the next one recreates it again. Kill a simulation of
+   * a thousand phones and the field never empties.
    */
   broadcastPositions(message: PositionsMessage) {
     for (const { deviceId, position } of message.points) {
-      this.subscribers.get(deviceId)?.({ type: 'SET_POINT', position })
+      const connection = this.subscribers.get(deviceId)
+      if (!connection) continue
 
+      connection.sendMessage({ type: 'SET_POINT', position })
       this.digest.placedAt(deviceId, position)
     }
   }

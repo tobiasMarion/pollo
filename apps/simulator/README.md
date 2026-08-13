@@ -64,7 +64,33 @@ On top of all that, people are never quite still, phones lose signal for a few
 seconds, and people leave and come back. `--churn`, `--blackout` and
 `--move-prob` are the rates, per minute.
 
+## Who a phone is allowed to measure
+
+A device may only range against peers **the API has told it about**. On joining
+it reads `GET /events/:id/participants` for the crowd already present, and
+`USER_JOINED` and `USER_LEFT` on its socket are the continuation of that snapshot
+— which is read *after* the socket is up, or an arrival in between belongs to
+neither and would never be mentioned again.
+
+This is not bookkeeping. Two phones cannot range each other over UWB until each
+holds the other's discovery token, and that token only ever arrives out of band:
+the message is the credential, and without it there is nothing to attempt. A
+simulator that picks neighbours out of its own ground truth is measuring a world
+where discovery is free, and the worker gets tuned against a graph no crowd can
+produce.
+
+The spatial grid stays, with a narrower job: it is the **radio**, not the roster.
+It answers who is close enough to be heard, which is physics, and the candidates
+for a sweep are that answer intersected with what the phone knows. Knowledge
+survives a blackout — a phone has not forgotten the room it is standing in — so
+what a device loses while offline is only whoever arrived meanwhile, and the
+roster it reads on the way back repairs that.
+
 ## Reading a run
+
+Two screens, and `V` swaps them.
+
+### The chart
 
 The chart carries **two lines**, and that is the whole point of it. On its own
 the worker's error means nothing — there is no scale on which "4.2 m" is good or
@@ -77,8 +103,41 @@ distances has no idea which way north is, so scoring it against the truth
 directly measures an ambiguity rather than a geometry — see
 [`src/metrics/align.ts`](src/metrics/align.ts).
 
+### The field
+
+An RMSE is one number over the whole crowd, and the same number covers error
+spread thinly across everybody and error piled onto one corner. Those are not the
+same show. The field view puts the difference back on screen:
+
+**Where a dot sits is the truth. How bright it is comes from the estimate.**
+
+Every phone is projected onto one horizontal plane — `z` is dropped, so in the
+`theater` the balcony lands on top of the stalls — and drawn at the seat the
+simulator gave it. Its brightness is `effectBrightness` over the position the
+*worker* published back, about the centroid of the placed estimates, which is
+exactly what the admin panel computes. Fire a cue from the panel and watch both:
+the panel draws the estimate, so its ring is always clean over a crowd of
+whatever shape the worker imagined. Here the crowd is where it really is, and a
+worker that has people in the wrong place lights the wrong people. The ring
+arrives as confetti.
+
+Devices the worker has not placed stay dark. Its coverage reads as holes in the
+crowd, which is the honest thing for a screen that measures the worker — with no
+worker running, nothing lights at all, and that is the baseline rather than a
+bug.
+
+**Off and on are two colours, not two brightnesses.** A phone at rest is a cold
+blue that deepens with how many people share the cell; lit, it crosses to the
+same near-white the panel's light is made of. Painted as one colour at two
+intensities — which is what a grey ramp is — a packed cell of dark phones and a
+sparse cell of lit ones land on the same value, and a crowd that is entirely off
+reads as entirely on. The blue never appears in the light, so no amount of
+density can imitate a cue.
+
 Every run prints its seed and replays exactly from it. `--json` swaps the
-dashboard for NDJSON.
+dashboard for NDJSON; without colour (piped, or `NO_COLOR`) the field falls back
+to one glyph per cell on a brightness ramp. `--view field` opens on it, which is
+the only way to reach it when nothing owns a terminal to press `V` on.
 
 ## Layout
 
@@ -86,7 +145,7 @@ dashboard for NDJSON.
 src/
   crowd/    build an audience — the three venues, who sits where, who is close enough to hear whom
   noise/    the drift the crowd shares, the sway of standing still, what a radio measures
-  io/       argv, the API, the socket each device holds, the terminal
+  io/       argv, the API, the socket each device holds, the two terminal screens
   metrics/  Procrustes alignment, and the summaries the chart draws
   run/      threads, and the memory they share
 ```

@@ -96,6 +96,11 @@ const flags = {
     placeholder: '<p>',
     help: 'Chance per minute that somebody walks to another seat.',
   },
+  view: {
+    schema: z.enum(['chart', 'field']).default('chart'),
+    placeholder: '<chart|field>',
+    help: 'Which screen the dashboard opens on. V swaps them mid-run.',
+  },
   json: {
     schema: z.coerce.boolean().default(false),
     boolean: true,

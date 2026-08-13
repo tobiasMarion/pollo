@@ -21,9 +21,11 @@ export async function getParticipants(app: FastifyInstance) {
           'Devices that joined and have not left, with their last reported location.',
           'Public.',
           '',
-          'Served from the Redis graph store, whose writes are queued off the hot path:',
-          'a device that just sent `JOIN` may take a moment to appear. Poll, do not',
-          'assume.',
+          'Served from the live connections, so a device appears the instant its `JOIN`',
+          'is handled. This is the snapshot a joining device starts from, and the',
+          '`USER_JOINED` and `USER_LEFT` frames on its socket are the continuation of',
+          'it — open the socket first, then read this, or an arrival in between is lost',
+          'to both.',
         ].join('\n'),
         params: z.object({
           eventId: z.string().uuid().describe('Id of an open event.'),
@@ -65,9 +67,7 @@ export async function getParticipants(app: FastifyInstance) {
         throw new NotFoundError('Event not found')
       }
 
-      const participants = await event.getSubscribers()
-
-      return reply.send({ participants })
+      return reply.send({ participants: event.getSubscribers() })
     },
   )
 }

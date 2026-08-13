@@ -110,6 +110,27 @@ const HALO_PEAK = 0.75
 const UNPLACED_GLOW = 0.4
 
 /**
+ * A phone that is switched off, and the light it gives when it is on.
+ *
+ * These are two colours rather than two opacities of one, and that is the whole
+ * point of them. A dot at this size is mostly anti-aliasing, so a resting pixel
+ * has to stay near-opaque or a crowd at stadium zoom dissolves — which leaves
+ * opacity with almost no range to say anything with. Drawn as white either way,
+ * a dark field and a lit one differ by a fifth of an alpha channel, and the
+ * crowd reads as permanently on: the wave has nothing to arrive *into*.
+ *
+ * Cold and dim against warm and bright is a difference the eye takes as a
+ * change of state rather than a change of degree. Rest is also desaturated
+ * towards blue, where a screen has the least gamut, so a hundred of them beside
+ * each other still read as one dark surface.
+ */
+const REST_COLOR = { r: 96, g: 106, b: 138 }
+const LIT_COLOR = { r: 245, g: 242, b: 252 }
+
+/** The same, for a device the worker has not placed: lighter, and never a pixel. */
+const OUTLINE_REST = { r: 158, g: 151, b: 176 }
+
+/**
  * How much of the frame a re-framing move aims to fill. Short of the padding on
  * purpose: the slack it leaves is the room the crowd then has to move in
  * without the camera following it.
@@ -458,6 +479,17 @@ onMount(() => {
    */
   const BRIGHTNESS_BANDS = 8
 
+  /**
+   * What a pixel is painted with at a given glow: its resting colour, crossed
+   * towards the field's light. Alpha is passed separately because it is doing a
+   * different job — keeping a sub-pixel dot solid enough to see at all.
+   */
+  function pixelColor(glow: number, alpha: number, rest: typeof REST_COLOR) {
+    const mix = (from: number, to: number) => Math.round(from + (to - from) * glow)
+
+    return `rgba(${mix(rest.r, LIT_COLOR.r)}, ${mix(rest.g, LIT_COLOR.g)}, ${mix(rest.b, LIT_COLOR.b)}, ${alpha})`
+  }
+
   /** A person's footprint at the current zoom, in canvas pixels. */
   function dotRadius(glow: number) {
     const metres = PERSON_RADIUS_M * (1 + glow * GLOW_SWELL)
@@ -522,9 +554,10 @@ onMount(() => {
       const core = dotRadius(glow)
 
       // A dot this small is mostly anti-aliasing, so most of its area arrives
-      // at partial coverage; the resting alpha has to be high or a crowd at
-      // stadium zoom fades to nothing.
-      context.fillStyle = `rgba(245, 242, 252, ${0.78 + glow * 0.22})`
+      // at partial coverage; the alpha has to stay high or a crowd at stadium
+      // zoom fades to nothing. Which is why the state is carried by the colour:
+      // see REST_COLOR.
+      context.fillStyle = pixelColor(glow, 0.86 + glow * 0.14, REST_COLOR)
       context.beginPath()
 
       for (const { x, y } of points) {
@@ -547,7 +580,9 @@ onMount(() => {
       const glow = band / BRIGHTNESS_BANDS
       const ring = Math.max(dotRadius(glow) * 1.6, 1.4)
 
-      context.strokeStyle = `rgba(158, 151, 176, ${0.55 + glow * 0.45})`
+      // Same crossing, from its own resting colour: whatever an outline is, lit
+      // has to mean the one thing everywhere on this canvas.
+      context.strokeStyle = pixelColor(glow, 0.55 + glow * 0.45, OUTLINE_REST)
       context.lineWidth = Math.min(1, ring)
       context.beginPath()
 

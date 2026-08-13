@@ -1,8 +1,8 @@
 import { Worker } from 'node:worker_threads'
-import type { Origin } from '@pollo/contracts'
+import type { Effect, Origin } from '@pollo/contracts'
 import type { SimulatorConfig } from '../io/config.js'
 import { type CloudComparison, compareClouds, EMPTY_COMPARISON } from '../metrics/error.js'
-import type { ShardData } from './shard.js'
+import type { ShardData, ShardEffect } from './shard.js'
 import {
   attach,
   COUNTER,
@@ -14,6 +14,12 @@ import {
   type SharedState,
   write,
 } from './shared.js'
+
+/** What the field view reads: the live clouds, and the cue they are answering. */
+export interface FieldSource {
+  readonly shared: SharedState
+  readonly cue: { effect: Effect; firedAt: number } | null
+}
 
 export interface Snapshot {
   elapsedSeconds: number
@@ -62,6 +68,16 @@ export class SimulationPool {
 
   private lastSampledAt = Date.now()
 
+  /**
+   * The cue the crowd is currently answering, as one of them heard it.
+   *
+   * Every shard reports the same cue, because every device on it was sent the
+   * same frame; the first arrival wins and the rest are the same event told
+   * again. Which device heard it first is not interesting — what the field view
+   * needs is one clock to measure brightness from.
+   */
+  private cue: { effect: Effect; firedAt: number } | null = null
+
   /** Compacted copies of the crowd, reused so a 2 Hz scan allocates nothing. */
   private readonly truthOf: Float32Array
   private readonly estimateOf: Float32Array
@@ -106,9 +122,47 @@ export class SimulationPool {
         epoch: this.epoch,
       }
 
-      this.workers.push(
-        new Worker(new URL('./shard-entry.mjs', import.meta.url), { workerData: data }),
-      )
+      const worker = new Worker(new URL('./shard-entry.mjs', import.meta.url), { workerData: data })
+
+      worker.on('message', (message: ShardEffect | { type: string }) => {
+        if (message.type === 'effect') this.rememberCue(message as ShardEffect)
+      })
+
+      this.workers.push(worker)
+    }
+  }
+
+  private rememberCue({ effect, at }: ShardEffect) {
+    const payload = JSON.stringify(effect)
+
+    // Same cue, other shard. Keeping the earliest arrival means the animation is
+    // measured from when the crowd first heard it, not from whichever thread the
+    // scheduler got to last.
+    if (this.cue && JSON.stringify(this.cue.effect) === payload && at - this.cue.firedAt < 250) {
+      return
+    }
+
+    this.cue = { effect, firedAt: at }
+  }
+
+  /**
+   * A live window onto the crowd, handed out once and read every frame.
+   *
+   * Nothing is copied: the field view redraws twenty times a second over up to
+   * twenty thousand devices, and compacting that the way `sample()` does would be
+   * a hundred thousand vector copies a second to draw a picture that only reads
+   * them. `cue` is a getter for the same reason the arrays are shared — a value
+   * captured here would pin the view to whatever was firing when the reporter was
+   * built, which is nothing.
+   */
+  field(): FieldSource {
+    const pool = this
+
+    return {
+      shared: pool.shared,
+      get cue() {
+        return pool.cue
+      },
     }
   }
 
