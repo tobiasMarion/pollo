@@ -32,8 +32,21 @@ const DEFAULT_BACKGROUND = '\u001b[49m'
 /** The colour of a lit pixel — the same light the panel's halo is made of. */
 const LIT = { r: 245, g: 242, b: 252 } as const
 
-/** Grey of a subpixel holding one person, and of one holding a crowd. */
-const AMBIENT = { lone: 34, packed: 92 } as const
+/**
+ * A phone that is switched off, at its dimmest and at crowd density.
+ *
+ * Cold, and never on the same axis as the light. Grey would be the obvious
+ * choice and it is the one that ruins the screen: grey and white differ only in
+ * how much of the same thing there is, so a packed cell of dark phones and a
+ * sparse cell of lit ones land on the same value and the eye reads both as on.
+ * A blue that never appears in the light means "off" is a different kind of
+ * thing rather than less of the same one, and the density can then use the whole
+ * range it has without ever pretending to be a cue.
+ */
+const REST = { r: 62, g: 72, b: 104 } as const
+
+/** How much of the resting colour a lone phone gets, against a packed cell's full. */
+const LONE_DIM = 0.5
 
 /** How many people in one subpixel read as full density. */
 const DENSITY_FULL = 8
@@ -207,22 +220,26 @@ function centroidOfPlaced(shared: FieldSource['shared']): Vector3 | null {
   return { x: x / placed, y: y / placed, z: z / placed }
 }
 
-/** Grey that grows with how many people share a subpixel, so shape survives the dark. */
-function ambientOf(count: number) {
-  if (count === 0) return 0
-
-  const fill = Math.min(1, Math.log2(1 + count) / Math.log2(1 + DENSITY_FULL))
-
-  return AMBIENT.lone + (AMBIENT.packed - AMBIENT.lone) * fill
+/** How full a subpixel is, 0 to 1. Logarithmic: the first few people say the most. */
+function densityOf(count: number) {
+  return Math.min(1, Math.log2(1 + count) / Math.log2(1 + DENSITY_FULL))
 }
 
+/**
+ * A subpixel's colour: the resting blue, deepened by how many people share it,
+ * crossed towards the light by how bright they are.
+ *
+ * The two ends of that crossing are chosen so that no amount of density can
+ * reach any amount of light — a packed cell of dark phones is the strongest
+ * blue there is, and still nothing like the weakest lit one.
+ */
 function colorOf(count: number, light: number) {
-  const ambient = ambientOf(count)
-  if (ambient === 0) return null
+  if (count === 0) return null
 
-  const mix = (channel: number) => Math.round(ambient + (channel - ambient) * light)
+  const dim = LONE_DIM + (1 - LONE_DIM) * densityOf(count)
+  const mix = (rest: number, lit: number) => Math.round(rest * dim + (lit - rest * dim) * light)
 
-  return { r: mix(LIT.r), g: mix(LIT.g), b: mix(LIT.b) }
+  return { r: mix(REST.r, LIT.r), g: mix(REST.g, LIT.g), b: mix(REST.b, LIT.b) }
 }
 
 /**

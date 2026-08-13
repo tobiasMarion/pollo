@@ -126,6 +126,14 @@ crowd, which is the honest thing for a screen that measures the worker — with 
 worker running, nothing lights at all, and that is the baseline rather than a
 bug.
 
+**Off and on are two colours, not two brightnesses.** A phone at rest is a cold
+blue that deepens with how many people share the cell; lit, it crosses to the
+same near-white the panel's light is made of. Painted as one colour at two
+intensities — which is what a grey ramp is — a packed cell of dark phones and a
+sparse cell of lit ones land on the same value, and a crowd that is entirely off
+reads as entirely on. The blue never appears in the light, so no amount of
+density can imitate a cue.
+
 Every run prints its seed and replays exactly from it. `--json` swaps the
 dashboard for NDJSON; without colour (piped, or `NO_COLOR`) the field falls back
 to one glyph per cell on a brightness ramp. `--view field` opens on it, which is
