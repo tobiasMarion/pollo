@@ -1,6 +1,6 @@
 import {
   type ControlMessage,
-  type IngestMessage,
+  type IngestBatch,
   type PositionsMessage,
   positionsMessageSchema,
   STREAM_FIELD,
@@ -19,8 +19,8 @@ export interface PositionsSubscription {
  * interface). The Redis Streams implementation below is the current default.
  */
 export interface Bus {
-  /** Graph mutations, per event (Node -> worker). Fire-and-forget. */
-  publishIngest(eventId: string, message: IngestMessage): void
+  /** A window of graph mutations, per event (Node -> worker). Fire-and-forget. */
+  publishIngest(eventId: string, batch: IngestBatch): void
   /** Event lifecycle announcements (Node -> worker). Fire-and-forget. */
   publishControl(message: ControlMessage): void
   /** Position updates computed by the worker (worker -> Node). */
@@ -45,10 +45,10 @@ export class RedisStreamsBus implements Bus {
     })
   }
 
-  publishIngest(eventId: string, message: IngestMessage) {
+  publishIngest(eventId: string, batch: IngestBatch) {
     this.fireAndForget(
-      this.redis.xadd(streamKeys.ingest(eventId), '*', STREAM_FIELD, JSON.stringify(message)),
-      `ingest:${message.op}`,
+      this.redis.xadd(streamKeys.ingest(eventId), '*', STREAM_FIELD, JSON.stringify(batch)),
+      `ingest:${batch.ops.length} ops`,
     )
   }
 

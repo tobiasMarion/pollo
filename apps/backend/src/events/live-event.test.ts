@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import type { ControlMessage, IngestMessage, Location, Message } from '@pollo/contracts'
+import type { ControlMessage, IngestBatch, Location, Message } from '@pollo/contracts'
 import type { Redis } from 'ioredis'
 import RedisMock from 'ioredis-mock'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -21,11 +21,16 @@ const position = {
 }
 
 class FakeBus implements Bus {
-  ingest: Array<{ eventId: string; message: IngestMessage }> = []
+  ingest: Array<{ eventId: string; batch: IngestBatch }> = []
   control: ControlMessage[] = []
 
-  publishIngest(eventId: string, message: IngestMessage) {
-    this.ingest.push({ eventId, message })
+  publishIngest(eventId: string, batch: IngestBatch) {
+    this.ingest.push({ eventId, batch })
+  }
+
+  /** Every op the stream carried, across every window. */
+  get ops() {
+    return this.ingest.flatMap(({ batch }) => batch.ops)
   }
 
   publishControl(message: ControlMessage) {
@@ -90,7 +95,7 @@ describe('LiveEvent', () => {
     // it should measure change, which is a frame per device rather than a frame
     // per device per arrival.
     expect(firstInbox).toEqual([])
-    expect(bus.ingest.map(({ message }) => message.op)).toEqual(['JOIN', 'JOIN'])
+    expect(bus.ops.map(op => op.op)).toEqual(['JOIN', 'JOIN'])
 
     expect(service.getSubscribers()).toContainEqual({ deviceId: 'd1', location })
   })
@@ -167,8 +172,9 @@ describe('LiveEvent', () => {
     // Two changes to one edge inside a window are one entry: the later value.
     service.flushDigest()
     expect(batch().edges).toEqual([{ from: 'd1', to: 'd2', distance: null }])
-    expect(bus.ingest.map(({ message }) => message).slice(1)).toEqual([
-      { op: 'DISTANCE', from: 'd1', to: 'd2', distance: 4.2 },
+    // Two readings of one pair inside a window reach the worker as the later
+    // one, the same way the store sees them.
+    expect(bus.ops.filter(op => op.op === 'DISTANCE')).toEqual([
       { op: 'DISTANCE', from: 'd1', to: 'd2', distance: null },
     ])
 
@@ -179,7 +185,7 @@ describe('LiveEvent', () => {
     service.updateSubscriberLocation('ghost', location)
 
     expect(adminInbox).toEqual([])
-    expect(bus.ingest).toEqual([])
+    expect(bus.ops).toEqual([])
   })
 
   it('unsubscribe publishes LEAVE and forgets the device, telling nobody else', async () => {
@@ -196,8 +202,21 @@ describe('LiveEvent', () => {
     expect(update.left).toEqual(['d1'])
     // Joining and leaving inside one window leaves the panel nothing to undo.
     expect(update.locations).toEqual([])
-    expect(bus.ingest.map(({ message }) => message.op)).toEqual(['JOIN', 'LEAVE'])
+
+    // And the worker hears nothing at all. A device that arrived and left inside
+    // one window was never written, so there is nothing to tell it to undo.
+    expect(bus.ops).toEqual([])
     expect(service.getSubscribers()).toEqual([])
+  })
+
+  it('tells the worker about a departure it had already been told about', async () => {
+    service.subscribe({ deviceId: 'd1', location, sendMessage: () => {} })
+    await service.settled()
+
+    service.unsubscribe('d1')
+    await service.settled()
+
+    expect(bus.ops.map(op => op.op)).toEqual(['JOIN', 'LEAVE'])
   })
 
   it('broadcastPositions routes SET_POINT to the right device and reports to the admin', () => {
@@ -268,7 +287,7 @@ describe('LiveEvent', () => {
     service.flushDigest()
 
     expect(adminInbox).toEqual([])
-    expect(bus.ingest).toEqual([])
+    expect(bus.ops).toEqual([])
   })
 
   it('collapses a burst from one device into its latest reading', () => {
