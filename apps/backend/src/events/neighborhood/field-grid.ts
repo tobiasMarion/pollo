@@ -33,8 +33,9 @@ export class FieldGrid {
 
   /**
    * Puts a device at a point, and reports whether that moved it to another cell.
-   * Reacting to the return value rather than to every reading is what makes the
-   * work proportional to how much the crowd rearranged itself.
+   * A cell boundary is not a useful stand-in for "this device moved" — a point
+   * reported from GPS crosses lines while its owner stands still — so treat the
+   * answer as a fact about the index, not as a signal.
    */
   place(deviceId: string, point: Vector3): boolean {
     const column = Math.floor(point.x / this.cellSize)

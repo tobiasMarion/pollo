@@ -61,7 +61,22 @@ describe('Neighborhood', () => {
     expect(field.takeAssignments(1_000)).toEqual([])
   })
 
-  it('reconsiders a device that walked, and the ones that were measuring it', () => {
+  it('ignores a reading that crossed a cell without going anywhere', () => {
+    const field = new Neighborhood(options)
+
+    field.place('a', at(9, 0))
+    field.place('b', at(9, 2))
+    field.takeAssignments(0)
+
+    // Two metres east, over the line between cell 0 and cell 1. A phone standing
+    // still reports this much wander all day, and reacting to it was costing 45%
+    // of the process.
+    field.place('a', at(11, 0))
+
+    expect(field.takeAssignments(1_000)).toEqual([])
+  })
+
+  it('reconsiders a device that walked, and only that device', () => {
     const field = new Neighborhood(options)
 
     field.place('a', at(0, 0))
@@ -71,10 +86,25 @@ describe('Neighborhood', () => {
 
     field.place('a', at(41, 0))
 
-    expect(field.takeAssignments(1_000)).toEqual([
-      { deviceId: 'a', peers: ['c'] },
-      { deviceId: 'b', peers: [] },
-    ])
+    // `b` still names `a` and is not told otherwise. That list is no longer the
+    // best available, but it is not wrong — `a` exists and can be measured — and
+    // telling everyone who measured a device that it moved is what turns one
+    // move into seventeen recomputations.
+    expect(field.takeAssignments(1_000)).toEqual([{ deviceId: 'a', peers: ['c'] }])
+    expect(field.peersOf('b')).toEqual(['a'])
+  })
+
+  it('gives the measurers a new list once the floor comes round', () => {
+    const field = new Neighborhood(options)
+
+    field.place('a', at(0, 0))
+    field.place('b', at(2, 0))
+    field.takeAssignments(0)
+
+    field.place('a', at(400, 0))
+    field.takeAssignments(1_000)
+
+    expect(field.takeAssignments(20_000)).toContainEqual({ deviceId: 'b', peers: [] })
   })
 
   it('tells the devices that were measuring somebody who left, and nobody else', () => {

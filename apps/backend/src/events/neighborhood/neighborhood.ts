@@ -13,7 +13,7 @@ export const ASSIGNMENT_INTERVAL_MS = 1_000
  */
 export const DEFAULT_RADIUS_M = 10
 
-/** Half the radius: tight enough to keep the scan small, coarse enough to keep moves rare. */
+/** Half the radius: the smaller the cell, the tighter the box around the circle. */
 export const DEFAULT_CELL_SIZE_M = 5
 
 /**
@@ -28,6 +28,17 @@ export const DEFAULT_DEGREE = 16
  * it without anything happening *to* it.
  */
 export const DEFAULT_REFRESH_MS = 10_000
+
+/**
+ * How far a device has to drift from where its list was worked out before the
+ * list is worked out again, as a fraction of the radius.
+ *
+ * A reading is not a move. GPS is metres wrong, so a phone standing perfectly
+ * still reports a point that wanders — and reacting to that reported a crowd of
+ * five thousand as five thousand moves a second, which cost 45% of the process.
+ * A third of the radius is roughly when a different set of peers would win.
+ */
+const DRIFT_FRACTION = 1 / 3
 
 export interface NeighborhoodOptions {
   degree?: number
@@ -44,6 +55,8 @@ export interface Assignment {
 
 interface Placed {
   point: Vector3
+  /** Where the device was standing when its list was last worked out. */
+  assessedAt: Vector3
   peers: string[]
   /** Reconsider on the next flush, whatever the clock says. */
   stale: boolean
@@ -72,6 +85,7 @@ export class Neighborhood {
   private readonly degree: number
   private readonly radius: number
   private readonly refreshMs: number
+  private readonly driftSquared: number
 
   private readonly grid: FieldGrid
   private readonly devices = new Map<string, Placed>()
@@ -87,10 +101,15 @@ export class Neighborhood {
   /** Spreads the refresh floor out. See `scheduleRefresh`. */
   private refreshes = 0
 
+  /** What the last flush cost, for whoever is watching. Reset by `takeAssignments`. */
+  private computed = 0
+  private scanned = 0
+
   constructor({ degree, radius, cellSize, refreshMs }: NeighborhoodOptions = {}) {
     this.degree = degree ?? DEFAULT_DEGREE
     this.radius = radius ?? DEFAULT_RADIUS_M
     this.refreshMs = refreshMs ?? DEFAULT_REFRESH_MS
+    this.driftSquared = (this.radius * DRIFT_FRACTION) ** 2
     this.grid = new FieldGrid(cellSize ?? DEFAULT_CELL_SIZE_M)
   }
 
@@ -106,25 +125,40 @@ export class Neighborhood {
   /**
    * Records where a device is. Joining and moving are the same call: the
    * difference between them is a fact about the socket, not about the field.
+   *
+   * A list is only reconsidered once the device has drifted a real distance from
+   * where that list was worked out. Cell boundaries used to be the trigger, and
+   * they are the wrong one: a phone standing still reports a point that wanders
+   * by metres, so it crossed lines constantly and every reading became a
+   * recomputation.
    */
   place(deviceId: string, point: Vector3) {
-    const changedCell = this.grid.place(deviceId, point)
+    this.grid.place(deviceId, point)
+
     const placed = this.devices.get(deviceId)
 
     if (!placed) {
-      this.devices.set(deviceId, { point, peers: [], stale: true, refreshDueAt: 0 })
+      this.devices.set(deviceId, {
+        point,
+        assessedAt: point,
+        peers: [],
+        stale: true,
+        refreshDueAt: 0,
+      })
+
       return
     }
 
     placed.point = point
 
-    if (!changedCell) return
+    if (placed.stale || squaredDistance(point, placed.assessedAt) < this.driftSquared) return
 
+    // Only this device. Its measurers are not told, and that is the difference
+    // between a move costing one recomputation and costing seventeen — a device
+    // that walked is still there and still worth measuring, so their lists are
+    // merely no longer the best available, and the refresh floor fixes that.
+    // A departure is the case where they cannot wait, and `remove` handles it.
     placed.stale = true
-
-    // Whoever measures this device is now aiming at where it used to be — the
-    // same relationship as a departure, and walking is rare enough to be noise.
-    this.markMeasurersStale(deviceId)
   }
 
   /**
@@ -162,19 +196,26 @@ export class Neighborhood {
   takeAssignments(now = Date.now()): Assignment[] {
     const changed: Assignment[] = []
 
+    this.computed = 0
+    this.scanned = 0
+
     for (const [deviceId, placed] of this.devices) {
       if (!placed.stale && now < placed.refreshDueAt) continue
+
+      this.computed++
+      this.scanned += this.grid.around(placed.point, this.radius, this.candidates).length
 
       const peers = chooseNeighbors({
         deviceId,
         point: placed.point,
-        candidates: this.grid.around(placed.point, this.radius, this.candidates),
+        candidates: this.candidates,
         pointOf: id => this.devices.get(id)?.point,
         degree: this.degree,
         radius: this.radius,
       })
 
       placed.stale = false
+      placed.assessedAt = placed.point
       placed.refreshDueAt = this.scheduleRefresh(now)
 
       if (sameList(placed.peers, peers)) continue
@@ -187,6 +228,11 @@ export class Neighborhood {
     }
 
     return changed
+  }
+
+  /** Lists recomputed in the last flush, and candidates walked to do it. */
+  get lastFlush() {
+    return { computed: this.computed, scanned: this.scanned }
   }
 
   /**
@@ -223,6 +269,14 @@ export class Neighborhood {
       if (measurers.size === 0) this.measuredBy.delete(peer)
     }
   }
+}
+
+function squaredDistance(from: Vector3, to: Vector3) {
+  const east = to.x - from.x
+  const north = to.y - from.y
+  const up = to.z - from.z
+
+  return east * east + north * north + up * up
 }
 
 /**

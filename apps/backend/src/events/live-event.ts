@@ -176,7 +176,11 @@ export class LiveEvent {
       this.subscribers.get(deviceId)?.sendMessage({ type: 'SET_NEIGHBORS', peers })
     }
 
+    const { computed, scanned } = this.neighborhood.lastFlush
+
     this.metrics?.count('framesOut', assignments.length)
+    this.metrics?.count('assign:computed', computed)
+    this.metrics?.count('assign:scanned', scanned)
   }
 
   private stopAssigning() {

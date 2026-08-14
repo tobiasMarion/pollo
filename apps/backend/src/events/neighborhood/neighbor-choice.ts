@@ -47,6 +47,7 @@ export function chooseNeighbors({
 }: NeighborChoice): string[] {
   if (degree <= 0) return []
 
+  const radiusSquared = radius * radius
   const nearestPerSector = new Array<Nearest | undefined>(degree)
 
   for (const candidate of candidates) {
@@ -59,9 +60,13 @@ export function chooseNeighbors({
     const north = there.y - point.y
     const up = there.z - point.z
 
-    const distance = Math.hypot(east, north, up)
-    if (distance > radius) continue
+    // Rejected on the square, so the great majority of candidates never reach a
+    // square root or an arctangent. The grid hands over a box around a circle
+    // and a crowded box holds far more people than the circle inside it.
+    const squared = east * east + north * north + up * up
+    if (squared > radiusSquared) continue
 
+    const distance = Math.sqrt(squared)
     const sector = sectorOf(east, north, degree)
     const held = nearestPerSector[sector]
 
