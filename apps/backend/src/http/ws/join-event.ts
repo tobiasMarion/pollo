@@ -19,7 +19,7 @@ import { sendMessage } from './connection/protocol.js'
 const INBOUND_COUNTER: Record<DeviceOutboundMessage['type'], string> = {
   JOIN: 'in:JOIN',
   LOCATION_UPDATE: 'in:LOCATION_UPDATE',
-  DISTANCE: 'in:DISTANCE',
+  DISTANCES: 'in:DISTANCES',
 }
 
 interface JoinSocketDeps {
@@ -77,9 +77,9 @@ export function handleJoinSocket(
         }
         break
 
-      case 'DISTANCE':
+      case 'DISTANCES':
         if (deviceId !== null) {
-          event.setDistanceToDevice(deviceId, data.to, data.distance)
+          event.setDistancesFromDevice(deviceId, data.measurements)
         }
         break
     }
@@ -110,7 +110,8 @@ export async function joinEvent(app: FastifyInstance) {
           '',
           messageTable(deviceOutbound),
           '',
-          '`DISTANCE` has no `from` — the sender is always the origin.',
+          '`DISTANCES` carries a whole sweep: one frame per sweep rather than one per',
+          'peer, and no `from`, since the sender is always the origin.',
           '',
           '```json',
           '{ "type": "JOIN", "deviceId": "device-1", "location": {',

@@ -1,4 +1,4 @@
-import type { Effect } from '@pollo/contracts'
+import type { Measurement as Edge, Effect } from '@pollo/contracts'
 import { projectLocation } from '@pollo/contracts'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Seat } from '../crowd/seat.js'
@@ -233,10 +233,10 @@ describe('VirtualDevice', () => {
     run.assign([1, 2, 3])
     run.advance(0.6)
 
-    const sweep = run.latest().sentOfType('DISTANCE')
+    const sweeps = run.latest().sentOfType('DISTANCES') as { measurements: Edge[] }[]
 
-    expect(sweep.length).toBeGreaterThan(0)
-    expect(sweep.length).toBeLessThanOrEqual(3)
+    expect(sweeps.length).toBeGreaterThan(0)
+    for (const sweep of sweeps) expect(sweep.measurements.length).toBeLessThanOrEqual(3)
   })
 
   it('measures a peer as being about as far away as it is', () => {
@@ -247,24 +247,33 @@ describe('VirtualDevice', () => {
     run.assign([1, 2, 3, 4, 5])
     run.advance(30)
 
-    const measured = run.latest().sentOfType('DISTANCE') as { to: string; distance: number }[]
-    const toFirstPeer = measured.filter(edge => edge.to === 'sim-1' && edge.distance !== null)
+    const toFirstPeer = edgesOf(run.latest())
+      .filter(edge => edge.to === 'sim-1')
+      .map(edge => edge.distance)
+      .filter((distance): distance is number => distance !== null)
 
     expect(toFirstPeer.length).toBeGreaterThan(0)
 
-    for (const edge of toFirstPeer) expect(edge.distance).toBeGreaterThan(0)
+    for (const distance of toFirstPeer) expect(distance).toBeGreaterThan(0)
 
-    const average = toFirstPeer.reduce((sum, edge) => sum + edge.distance, 0) / toFirstPeer.length
+    const average = toFirstPeer.reduce((sum, distance) => sum + distance, 0) / toFirstPeer.length
 
     // The peer is one metre away, and the measurement is allowed to disagree.
     expect(average).toBeGreaterThan(0.6)
     expect(average).toBeLessThan(1.5)
   })
 
+  /** Every measurement across every sweep, flattened. */
+  function edgesOf(socket: { sentOfType(type: string): unknown[] }) {
+    return (socket.sentOfType('DISTANCES') as { measurements: Edge[] }[]).flatMap(
+      sweep => sweep.measurements,
+    )
+  }
+
   /** Who a sweep actually reached, by peer id. */
   function measured(socket: { sentOfType(type: string): unknown[] }) {
     return new Set(
-      (socket.sentOfType('DISTANCE') as { to: string; distance: number | null }[])
+      edgesOf(socket)
         .filter(edge => edge.distance !== null)
         .map(edge => edge.to),
     )
@@ -281,7 +290,7 @@ describe('VirtualDevice', () => {
     run.accept()
     run.advance(5)
 
-    expect(run.latest().sentOfType('DISTANCE')).toEqual([])
+    expect(run.latest().sentOfType('DISTANCES')).toEqual([])
   })
 
   it('starts measuring a peer the moment it is assigned one', () => {
@@ -291,7 +300,7 @@ describe('VirtualDevice', () => {
     run.accept()
     run.advance(2)
 
-    expect(run.latest().sentOfType('DISTANCE')).toEqual([])
+    expect(run.latest().sentOfType('DISTANCES')).toEqual([])
 
     run.assign([3])
     run.advance(2)
@@ -313,9 +322,9 @@ describe('VirtualDevice', () => {
     run.advance(3)
 
     // An edge nobody retracts is indistinguishable from one that is still true.
-    const retraction = (
-      run.latest().sentOfType('DISTANCE') as { to: string; distance: number | null }[]
-    ).filter(edge => edge.to === 'sim-2' && edge.distance === null)
+    const retraction = edgesOf(run.latest()).filter(
+      edge => edge.to === 'sim-2' && edge.distance === null,
+    )
 
     expect(retraction.length).toBeGreaterThan(0)
   })
@@ -333,9 +342,7 @@ describe('VirtualDevice', () => {
     run.advance(3)
 
     expect([...measured(run.latest())]).toEqual(['sim-1'])
-    expect(run.latest().sentOfType('DISTANCE')).not.toContainEqual(
-      expect.objectContaining({ to: 'sim-5' }),
-    )
+    expect(edgesOf(run.latest()).some(edge => edge.to === 'sim-5')).toBe(false)
   })
 
   it('waits to be told again after a blackout it came back from', () => {
@@ -353,7 +360,7 @@ describe('VirtualDevice', () => {
 
     // The list belonged to a socket that is gone, and the server owes this
     // device a fresh one on the socket that replaced it.
-    expect(run.latest().sentOfType('DISTANCE')).toEqual([])
+    expect(run.latest().sentOfType('DISTANCES')).toEqual([])
 
     run.assign([1, 2])
     run.advance(3)
@@ -490,8 +497,9 @@ describe('VirtualDevice', () => {
       expect(location.horizontalAccuracy).toBe(1)
     }
 
-    const measured = run.latest().sentOfType('DISTANCE') as { to: string; distance: number }[]
-    const toFirstPeer = measured.filter(edge => edge.to === 'sim-1' && edge.distance !== null)
+    const toFirstPeer = edgesOf(run.latest()).filter(
+      edge => edge.to === 'sim-1' && edge.distance !== null,
+    )
 
     expect(toFirstPeer.length).toBeGreaterThan(0)
     for (const edge of toFirstPeer) expect(edge.distance).toBeCloseTo(1, 0)

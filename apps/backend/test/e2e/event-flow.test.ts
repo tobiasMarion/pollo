@@ -141,7 +141,7 @@ describe('event lifecycle end to end', () => {
     const subscriber = await new WsClient(`${wsUrl}/events/${eventId}/join`).ready()
     subscriber.send({ type: 'JOIN', deviceId: 'device-1', location })
 
-    subscriber.send({ type: 'DISTANCE', to: 'device-2', distance: 3.2 })
+    subscriber.send({ type: 'DISTANCES', measurements: [{ to: 'device-2', distance: 3.2 }] })
 
     const arrival = await admin.batchWith(
       update => update.locations.length > 0 && update.edges.length > 0,

@@ -117,10 +117,9 @@ describe('LiveEvent', () => {
   })
 
   /**
-   * The roster a joining device reads has to be current the moment it asks. Read
-   * from the graph store this would still be empty here, because those writes are
-   * queued off the hot path — and `USER_JOINED` only covers arrivals after this
-   * point, so anybody missing from the snapshot is missing for good.
+   * The panel's opening snapshot has to be current the moment it asks. Read from
+   * the graph store it would still be empty here, because those writes are a
+   * flush behind on purpose.
    */
   it('getSubscribers is current without waiting for the store', () => {
     service.subscribe({ deviceId: 'd1', location, sendMessage: () => {} })
@@ -157,11 +156,11 @@ describe('LiveEvent', () => {
     expect(adminInbox).toEqual([])
   })
 
-  it('setDistanceToDevice reports to the admin and publishes DISTANCE', async () => {
+  it('takes a sweep, reports it to the admin and publishes one ingest per pair', async () => {
     service.subscribe({ deviceId: 'd1', location, sendMessage: () => {} })
 
-    service.setDistanceToDevice('d1', 'd2', 4.2)
-    service.setDistanceToDevice('d1', 'd2', null)
+    service.setDistancesFromDevice('d1', [{ to: 'd2', distance: 4.2 }])
+    service.setDistancesFromDevice('d1', [{ to: 'd2', distance: null }])
 
     await service.settled()
 
@@ -183,7 +182,7 @@ describe('LiveEvent', () => {
     expect(bus.ingest).toEqual([])
   })
 
-  it('unsubscribe publishes USER_LEFT and LEAVE, and forgets the device', async () => {
+  it('unsubscribe publishes LEAVE and forgets the device, telling nobody else', async () => {
     const inbox: Message[] = []
     service.subscribe({ deviceId: 'd1', location, sendMessage: m => inbox.push(m) })
 
@@ -217,7 +216,7 @@ describe('LiveEvent', () => {
 
   it('clearAdminConnection stops admin notifications', () => {
     service.clearAdminConnection()
-    service.setDistanceToDevice('d1', 'd2', 1)
+    service.setDistancesFromDevice('d1', [{ to: 'd2', distance: 1 }])
     service.flushDigest()
 
     expect(adminInbox).toEqual([])
@@ -234,7 +233,7 @@ describe('LiveEvent', () => {
     service.subscribe({ deviceId: 'd1', location, sendMessage: () => {} })
     service.subscribe({ deviceId: 'd2', location, sendMessage: () => {} })
 
-    service.setDistanceToDevice('d1', 'd2', 4.2)
+    service.setDistancesFromDevice('d1', [{ to: 'd2', distance: 4.2 }])
     service.unsubscribe('d1')
 
     service.flushDigest()
@@ -254,7 +253,7 @@ describe('LiveEvent', () => {
     // A socket that dies with frames still queued gets its DISTANCE handled
     // after its close. Writing the edge here resurrects the node that was just
     // removed, and nothing ever cleans it again.
-    service.setDistanceToDevice('d1', 'd2', 7)
+    service.setDistancesFromDevice('d1', [{ to: 'd2', distance: 7 }])
 
     await service.settled()
     service.flushDigest()
@@ -265,7 +264,7 @@ describe('LiveEvent', () => {
   })
 
   it('ignores a distance from a device that never joined', () => {
-    service.setDistanceToDevice('ghost', 'd2', 3)
+    service.setDistancesFromDevice('ghost', [{ to: 'd2', distance: 3 }])
     service.flushDigest()
 
     expect(adminInbox).toEqual([])
@@ -290,7 +289,7 @@ describe('LiveEvent', () => {
     it('throws away a graph left behind by sockets this runtime never had', async () => {
       service.subscribe({ deviceId: 'd1', location, sendMessage: () => {} })
       service.subscribe({ deviceId: 'd2', location, sendMessage: () => {} })
-      service.setDistanceToDevice('d1', 'd2', 3)
+      service.setDistancesFromDevice('d1', [{ to: 'd2', distance: 3 }])
       await service.settled()
 
       expect((await service.getEventGraph()).nodes).not.toEqual({})
