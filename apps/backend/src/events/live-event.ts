@@ -8,6 +8,7 @@ import type {
 import type { FastifyBaseLogger } from 'fastify'
 import type { Metrics } from '../observability/metrics.js'
 import { AdminDigest, DIGEST_INTERVAL_MS } from './batching/admin-digest.js'
+import { GraphWriter, WRITE_INTERVAL_MS } from './batching/graph-writer.js'
 import type { Bus } from './redis/bus.js'
 import type { GraphStore } from './redis/graph-store.js'
 
@@ -57,8 +58,9 @@ export class LiveEvent {
   private readonly logger: FastifyBaseLogger | undefined
   private readonly metrics: Metrics | undefined
 
-  private pendingStoreWrites: Promise<unknown> = Promise.resolve()
-  private pending = 0
+  private readonly writer = new GraphWriter()
+  private writeTimer: ReturnType<typeof setInterval> | null = null
+  private flushing: Promise<void> | null = null
 
   private readonly digest = new AdminDigest()
   private digestTimer: ReturnType<typeof setInterval> | null = null
@@ -78,35 +80,63 @@ export class LiveEvent {
   }
 
   /**
-   * Writes dispatched and not yet applied. Nobody awaits them, so a store that
-   * cannot keep up neither fails nor blocks — it only falls further behind.
+   * Changes waiting for the next flush. Bounded by how many devices there are
+   * rather than by how much they said, which is the whole point of batching.
    */
   get pendingWrites() {
-    return this.pending
+    return this.writer.pending
+  }
+
+  /** Only runs while there is something to write. */
+  private scheduleWrites() {
+    if (this.writeTimer) return
+
+    this.writeTimer = setInterval(() => void this.flushWrites(), WRITE_INTERVAL_MS)
+    this.writeTimer.unref?.()
+  }
+
+  private stopWriting() {
+    if (!this.writeTimer) return
+
+    clearInterval(this.writeTimer)
+    this.writeTimer = null
   }
 
   /**
-   * Store writes stay off the hot path (never awaited by callers), but they
-   * must apply in dispatch order — otherwise a removeEdge can overtake the
-   * setEdge that preceded it and resurrect the edge.
+   * One flush at a time. A batch still in flight while the next tick fires would
+   * race it — removals of one batch against the adds of the other — and skipping
+   * the tick costs nothing, because what accumulates meanwhile is coalesced into
+   * the batch after it.
    */
-  private enqueueStoreWrite(write: () => Promise<unknown>) {
-    this.pending++
+  private async flushWrites(): Promise<void> {
+    if (this.flushing) return await this.flushing
 
-    this.pendingStoreWrites = this.pendingStoreWrites.then(write).then(
-      () => {
-        this.pending--
-      },
-      error => {
-        this.pending--
-        this.logger?.error({ err: error }, 'graph store write failed')
-      },
-    )
+    if (this.writer.empty) {
+      this.stopWriting()
+      return
+    }
+
+    const batch = this.writer.take()
+    const startedAt = Date.now()
+
+    this.flushing = this.graphStore
+      .applyBatch(batch)
+      .then(() => {
+        this.metrics?.observe('storeFlushMs', Date.now() - startedAt)
+      })
+      .catch(error => this.logger?.error({ err: error }, 'graph store write failed'))
+      .finally(() => {
+        this.flushing = null
+      })
+
+    await this.flushing
   }
 
-  /** Resolves once every store write dispatched so far has been applied. */
+  /** Resolves once everything written so far has reached the store. */
   async settled() {
-    await this.pendingStoreWrites
+    await this.flushing
+
+    if (!this.writer.empty) await this.flushWrites()
   }
 
   getAdminId() {
@@ -171,6 +201,10 @@ export class LiveEvent {
    * is about to be disconnected by the closing itself, so their nodes go too.
    */
   async discardGraph() {
+    this.stopWriting()
+    this.writer.discard()
+
+    await this.flushing
     await this.graphStore.deleteGraph()
   }
 
@@ -222,32 +256,21 @@ export class LiveEvent {
 
     // The store copy exists for REST reads and worker hydration; the stream
     // publish is what actually drives the simulation.
-    this.enqueueStoreWrite(() => this.graphStore.addNode(deviceId))
-    this.enqueueStoreWrite(() => this.graphStore.setNodeLocation(deviceId, location))
+    this.writer.joined(deviceId, location)
+    this.scheduleWrites()
     this.bus.publishIngest(this.id, { op: 'JOIN', deviceId, location })
   }
 
   /**
-   * Ignores a measurement from a device that is no longer here, which
-   * `updateSubscriberLocation` has always done and this had not.
-   *
-   * The gap was not theoretical. A socket that dies with frames still queued
-   * gets its `DISTANCE` handled after its `close`, so `setEdge` ran after
-   * `removeNode` — and `setEdge` adds both endpoints as nodes, resurrecting the
-   * device that had just been cleaned up. Its edge hash came back with it and
-   * nothing ever removed it again: the device was gone, so no later departure
-   * would sweep it. What that leaves behind is a graph of edges between devices
-   * that no longer exist, and a panel loading it reads zero devices and a
-   * distance between two of them.
+   * Ignores a measurement from a device that is no longer here. A socket that
+   * dies with frames still queued gets them handled after its `close`, and an
+   * edge written after the departure is one nothing would ever remove.
    */
   setDistanceToDevice(from: string, to: string, distance: number | null) {
     if (!this.subscribers.has(from)) return
 
-    if (distance === null) {
-      this.enqueueStoreWrite(() => this.graphStore.removeEdge(from, to))
-    } else {
-      this.enqueueStoreWrite(() => this.graphStore.setEdge({ from, to, value: distance }))
-    }
+    this.writer.edgeChanged(from, to, distance)
+    this.scheduleWrites()
 
     this.digest.edgeChanged(from, to, distance)
 
@@ -261,7 +284,8 @@ export class LiveEvent {
     connection.location = location
 
     this.digest.locationChanged(deviceId, location)
-    this.enqueueStoreWrite(() => this.graphStore.setNodeLocation(deviceId, location))
+    this.writer.locationChanged(deviceId, location)
+    this.scheduleWrites()
 
     this.bus.publishIngest(this.id, { op: 'LOCATION_UPDATE', deviceId, location })
   }
@@ -270,7 +294,9 @@ export class LiveEvent {
     if (!this.subscribers.has(deviceId)) return
 
     this.subscribers.delete(deviceId)
-    this.enqueueStoreWrite(() => this.graphStore.removeNode(deviceId))
+
+    this.writer.departed(deviceId)
+    this.scheduleWrites()
 
     this.broadcastToDevices({ type: 'USER_LEFT', deviceId })
     this.digest.departed(deviceId)
