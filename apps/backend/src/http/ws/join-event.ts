@@ -65,7 +65,9 @@ export function handleJoinSocket(
         event.subscribe({
           deviceId,
           location: data.location,
-          sendMessage: message => sendMessage(socket, message),
+          sendMessage: (message, serialised) => {
+            if (!sendMessage(socket, message, serialised)) metrics?.count('out:dropped')
+          },
         })
         break
 
