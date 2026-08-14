@@ -1,6 +1,5 @@
 import {
   type Edge,
-  type Location,
   type Metadata,
   metadataSchema,
   type Node,
@@ -8,14 +7,17 @@ import {
   type NodesWithMetadata,
 } from '@pollo/contracts'
 import type { Redis } from 'ioredis'
+import type { GraphBatch } from '../batching/graph-writer.js'
 
 const TTL_SECONDS = 43_200 // 12 hours
 
 /**
  * Persists the distance graph of an event in Redis: a set of nodes, a hash of
- * edges per node and a metadata hash (location + last known position). Serves
- * REST reads and worker hydration; every key carries a TTL so abandoned
- * events evaporate on their own.
+ * edges per node, a reverse set of who measured each node, and one hash each for
+ * locations and worker positions. Serves REST reads and worker hydration; every
+ * key carries a TTL so abandoned events evaporate on their own.
+ *
+ * Writes arrive as batches rather than one call per change — see `GraphWriter`.
  */
 export class GraphStore {
   constructor(
@@ -23,121 +25,154 @@ export class GraphStore {
     private readonly graphId: string,
   ) {}
 
-  private keyForNode(node: Node) {
+  private keyForEdgesFrom(node: Node) {
     return `graph:${this.graphId}:edges:${node}`
+  }
+
+  /** Who has measured this node — the reverse of `edges:<node>`. */
+  private keyForEdgesTo(node: Node) {
+    return `graph:${this.graphId}:edges_in:${node}`
   }
 
   private keyForNodesSet() {
     return `graph:${this.graphId}:nodes`
   }
 
-  private keyForNodeMetadata() {
-    return `graph:${this.graphId}:node_metadata`
+  private keyForLocations() {
+    return `graph:${this.graphId}:locations`
   }
 
-  async addNode(node: Node) {
-    const key = this.keyForNodesSet()
-    await this.redis.sadd(key, node)
-    await this.redis.expire(key, TTL_SECONDS)
+  private keyForPositions() {
+    return `graph:${this.graphId}:positions`
   }
 
-  async setNodeLocation(node: Node, location: Location) {
-    const existing = await this.getNodeMetadata(node)
-    const updated: Metadata = { location, position: existing?.position }
-
-    const key = this.keyForNodeMetadata()
-    await this.redis.hset(key, node, JSON.stringify(updated))
-    await this.redis.expire(key, TTL_SECONDS)
-  }
-
-  async setNodePosition(node: Node, position: NodePosition) {
-    const existing = await this.getNodeMetadata(node)
-    if (!existing) return
-
-    const updated: Metadata = { location: existing.location, position }
-
-    const key = this.keyForNodeMetadata()
-    await this.redis.hset(key, node, JSON.stringify(updated))
-    await this.redis.expire(key, TTL_SECONDS)
-  }
-
-  async getNodeMetadata(node: Node): Promise<Metadata | null> {
-    const json = await this.redis.hget(this.keyForNodeMetadata(), node)
-    if (!json) return null
-
-    const parsed = metadataSchema.safeParse(JSON.parse(json))
-    return parsed.success ? parsed.data : null
-  }
-
-  async listNodesMetadata(): Promise<NodesWithMetadata> {
-    const nodes = await this.listNodes()
+  /**
+   * Applies a flush in one pipeline, plus one read pass when somebody left.
+   *
+   * A departure has to delete the edges that name the node, and only the reverse
+   * index knows who those are — that is a read, and a read cannot sit inside the
+   * pipeline that depends on it. It is safe to do first: the writer drops every
+   * queued edge touching a departing device, so nothing this batch is about to
+   * write could be missed by the sets read here.
+   */
+  async applyBatch(batch: GraphBatch) {
+    const orphaned = await this.readEdgesOf(batch.removed)
     const pipeline = this.redis.pipeline()
+    const touched = new Set<string>()
 
-    for (const node of nodes) {
-      pipeline.hget(this.keyForNodeMetadata(), node)
+    const touch = (key: string) => {
+      touched.add(key)
+      return key
     }
 
-    const results = await pipeline.exec()
+    for (const node of batch.removed) {
+      const { measuredBy, measured } = orphaned[node] ?? { measuredBy: [], measured: [] }
 
-    if (!results) {
-      throw new Error('Failed to execute Redis pipeline')
+      for (const from of measuredBy) pipeline.hdel(this.keyForEdgesFrom(from), node)
+      for (const to of measured) pipeline.srem(this.keyForEdgesTo(to), node)
+
+      pipeline.del(this.keyForEdgesFrom(node), this.keyForEdgesTo(node))
+      pipeline.srem(touch(this.keyForNodesSet()), node)
+      pipeline.hdel(touch(this.keyForLocations()), node)
+      pipeline.hdel(touch(this.keyForPositions()), node)
     }
 
-    const metadataMap: NodesWithMetadata = {}
+    for (const node of batch.added) {
+      pipeline.sadd(touch(this.keyForNodesSet()), node)
+    }
 
-    for (let i = 0; i < results.length; i++) {
-      const [error, json] = results[i] ?? []
-      const node = nodes[i]
-      if (error || typeof json !== 'string' || node === undefined) continue
+    for (const [node, location] of batch.locations) {
+      pipeline.hset(touch(this.keyForLocations()), node, JSON.stringify(location))
+    }
 
-      const parsed = metadataSchema.safeParse(JSON.parse(json))
-      if (parsed.success) {
-        metadataMap[node] = parsed.data
+    for (const { from, to, distance } of batch.edges) {
+      if (distance === null) {
+        pipeline.hdel(this.keyForEdgesFrom(from), to)
+        pipeline.srem(this.keyForEdgesTo(to), from)
+        continue
       }
+
+      pipeline.hset(touch(this.keyForEdgesFrom(from)), to, distance)
+      pipeline.sadd(touch(this.keyForEdgesTo(to)), from)
     }
 
-    return metadataMap
-  }
-
-  async setEdge({ from, to, value }: Edge) {
-    await this.addNode(from)
-    await this.addNode(to)
-
-    const key = this.keyForNode(from)
-    await this.redis.hset(key, to, value)
-    await this.redis.expire(key, TTL_SECONDS)
-  }
-
-  async removeEdge(from: Node, to: Node) {
-    await this.redis.hdel(this.keyForNode(from), to)
-  }
-
-  async listNodes() {
-    return await this.redis.smembers(this.keyForNodesSet())
-  }
-
-  async removeNode(node: Node) {
-    const allNodes = await this.listNodes()
-    const pipeline = this.redis.pipeline()
-
-    pipeline.srem(this.keyForNodesSet(), node)
-
-    for (const otherNode of allNodes) {
-      pipeline.hdel(this.keyForNode(otherNode), node)
-    }
-
-    pipeline.del(this.keyForNode(node))
-    pipeline.hdel(this.keyForNodeMetadata(), node)
+    // Once per key per flush rather than once per operation, which is where most
+    // of the old command count went.
+    for (const key of touched) pipeline.expire(key, TTL_SECONDS)
 
     await pipeline.exec()
   }
 
-  async deleteGraph() {
-    const nodes = await this.listNodes()
-    const keys = nodes.map(node => this.keyForNode(node))
-    keys.push(this.keyForNodesSet(), this.keyForNodeMetadata())
+  private async readEdgesOf(nodes: readonly Node[]) {
+    const found: Record<Node, { measuredBy: Node[]; measured: Node[] }> = {}
 
-    await this.redis.del(...keys)
+    if (nodes.length === 0) return found
+
+    const pipeline = this.redis.pipeline()
+
+    for (const node of nodes) {
+      pipeline.smembers(this.keyForEdgesTo(node))
+      pipeline.hkeys(this.keyForEdgesFrom(node))
+    }
+
+    const results = (await pipeline.exec()) ?? []
+
+    nodes.forEach((node, index) => {
+      found[node] = {
+        measuredBy: (results[index * 2]?.[1] as Node[]) ?? [],
+        measured: (results[index * 2 + 1]?.[1] as Node[]) ?? [],
+      }
+    })
+
+    return found
+  }
+
+  /**
+   * The worker's answer for one node. Written on its own path rather than
+   * through a batch: positions arrive from the worker, not from the crowd.
+   */
+  async setNodePosition(node: Node, position: NodePosition) {
+    const key = this.keyForPositions()
+
+    await this.redis.hset(key, node, JSON.stringify(position))
+    await this.redis.expire(key, TTL_SECONDS)
+  }
+
+  async getNodeMetadata(node: Node): Promise<Metadata | null> {
+    const [location, position] = await Promise.all([
+      this.redis.hget(this.keyForLocations(), node),
+      this.redis.hget(this.keyForPositions(), node),
+    ])
+
+    if (!location) return null
+
+    return parseMetadata(location, position)
+  }
+
+  /**
+   * Two `HGETALL`s rather than a pipeline of one `HGET` per node. Locations and
+   * positions are kept in separate hashes precisely so that writing one never
+   * has to read the other back.
+   */
+  async listNodesMetadata(): Promise<NodesWithMetadata> {
+    const [locations, positions] = await Promise.all([
+      this.redis.hgetall(this.keyForLocations()),
+      this.redis.hgetall(this.keyForPositions()),
+    ])
+
+    const metadata: NodesWithMetadata = {}
+
+    for (const [node, location] of Object.entries(locations)) {
+      const parsed = parseMetadata(location, positions[node])
+
+      if (parsed) metadata[node] = parsed
+    }
+
+    return metadata
+  }
+
+  async listNodes() {
+    return await this.redis.smembers(this.keyForNodesSet())
   }
 
   async listEdges(): Promise<Edge[]> {
@@ -145,15 +180,10 @@ export class GraphStore {
     const pipeline = this.redis.pipeline()
 
     for (const from of nodes) {
-      pipeline.hgetall(this.keyForNode(from))
+      pipeline.hgetall(this.keyForEdgesFrom(from))
     }
 
-    const results = await pipeline.exec()
-
-    if (!results) {
-      throw new Error('Failed to execute Redis pipeline')
-    }
-
+    const results = (await pipeline.exec()) ?? []
     const edges: Edge[] = []
 
     for (let i = 0; i < results.length; i++) {
@@ -161,13 +191,10 @@ export class GraphStore {
       const from = nodes[i]
       if (error || from === undefined) continue
 
-      const neighbors = rawNeighbors as Record<Node, string>
-
-      for (const [to, rawValue] of Object.entries(neighbors)) {
+      for (const [to, rawValue] of Object.entries(rawNeighbors as Record<Node, string>)) {
         const value = Number.parseFloat(rawValue)
-        if (!Number.isNaN(value)) {
-          edges.push({ from, to, value })
-        }
+
+        if (!Number.isNaN(value)) edges.push({ from, to, value })
       }
     }
 
@@ -179,4 +206,22 @@ export class GraphStore {
 
     return { nodes, edges }
   }
+
+  async deleteGraph() {
+    const nodes = await this.listNodes()
+    const keys = nodes.flatMap(node => [this.keyForEdgesFrom(node), this.keyForEdgesTo(node)])
+
+    keys.push(this.keyForNodesSet(), this.keyForLocations(), this.keyForPositions())
+
+    await this.redis.del(...keys)
+  }
+}
+
+function parseMetadata(location: string, position: string | undefined | null): Metadata | null {
+  const parsed = metadataSchema.safeParse({
+    location: JSON.parse(location),
+    position: position ? JSON.parse(position) : undefined,
+  })
+
+  return parsed.success ? parsed.data : null
 }
