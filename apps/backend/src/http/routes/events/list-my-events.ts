@@ -58,10 +58,7 @@ export async function listMyEvents(app: FastifyInstance) {
       async (request, reply) => {
         const userId = await request.getCurrentUserId()
 
-        const events = await app.prisma.event.findMany({
-          where: { userId },
-          orderBy: { createdAt: 'desc' },
-        })
+        const events = await app.eventRepository.listByAdmin(userId)
 
         return reply.send({ events })
       },

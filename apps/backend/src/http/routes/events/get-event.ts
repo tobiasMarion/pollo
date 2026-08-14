@@ -53,7 +53,7 @@ export async function getEvent(app: FastifyInstance) {
     async (request, reply) => {
       const { eventId } = request.params
 
-      const event = await app.prisma.event.findUnique({ where: { id: eventId } })
+      const event = await app.eventRepository.findById(eventId)
 
       if (!event) {
         throw new NotFoundError('Event not found')

@@ -160,12 +160,7 @@ export async function adminEvent(app: FastifyInstance) {
     (socket, request) => {
       handleAdminSocket(socket, request.params.eventId, {
         verifyToken: token => app.jwt.verify<{ sub: string }>(token),
-        findOpenEvent: async (eventId, userId) => {
-          const event = await app.prisma.event.findUnique({
-            where: { id: eventId, userId, status: 'OPEN' },
-          })
-          return event !== null
-        },
+        findOpenEvent: (eventId, userId) => app.eventRepository.isOpenAdmin(eventId, userId),
         getEvent: eventId => app.events.get(eventId),
         heartbeat: app.heartbeat,
       })
