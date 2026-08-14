@@ -11,22 +11,24 @@ import type { FastifyInstance } from 'fastify'
 import type { ZodTypeProvider } from 'fastify-type-provider-zod'
 import { z } from 'zod'
 import type { EventService } from '../../events/event-service.js'
-import { sendMessage, startHeartbeat } from './protocol.js'
+import type { Heartbeat } from './heartbeat.js'
+import { sendMessage } from './protocol.js'
 
 interface AdminSocketDeps {
   verifyToken: (token: string) => { sub: string }
   findOpenEvent: (eventId: string, userId: string) => Promise<boolean>
   getEvent: (eventId: string) => EventService | undefined
+  heartbeat: Heartbeat
 }
 
 export function handleAdminSocket(
   socket: WebSocket,
   eventId: string,
-  { verifyToken, findOpenEvent, getEvent }: AdminSocketDeps,
+  { verifyToken, findOpenEvent, getEvent, heartbeat }: AdminSocketDeps,
 ) {
   let event: EventService | null = null
 
-  startHeartbeat(socket)
+  heartbeat.watch(socket)
 
   socket.on('message', async rawMessage => {
     const { success, data } = safeParseJsonMessage(rawMessage.toString(), adminOutbound.schema)
@@ -165,6 +167,7 @@ export async function adminEvent(app: FastifyInstance) {
           return event !== null
         },
         getEvent: eventId => app.events.get(eventId),
+        heartbeat: app.heartbeat,
       })
     },
   )

@@ -5,6 +5,14 @@ const envSchema = z.object({
   HOST: z.string().default('0.0.0.0'),
   PORT: z.coerce.number().int().positive().default(3333),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+  /**
+   * Turn off before a load test: a line per join is a line per device. Not
+   * `z.coerce.boolean()`, which reads the string "false" as true.
+   */
+  LOG_REQUESTS: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform(value => value === 'true'),
   DATABASE_URL: z.string().min(1),
   REDIS_URL: z.string().min(1),
   JWT_SECRET: z.string().min(16),

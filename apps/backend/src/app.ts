@@ -1,9 +1,8 @@
 import fastifyCors from '@fastify/cors'
 import fastifyJwt from '@fastify/jwt'
 import fastifySwagger from '@fastify/swagger'
-import fastifyWebsocket from '@fastify/websocket'
 import scalarApiReference from '@scalar/fastify-api-reference'
-import { fastify } from 'fastify'
+import { fastify, LogController } from 'fastify'
 import {
   serializerCompiler,
   validatorCompiler,
@@ -21,6 +20,7 @@ import { eventsRuntimePlugin } from './plugins/events-runtime.js'
 import { metricsPlugin } from './plugins/metrics.js'
 import { prismaPlugin } from './plugins/prisma.js'
 import { redisPlugin } from './plugins/redis.js'
+import { websocketPlugin } from './plugins/websocket.js'
 
 export interface BuildAppOptions {
   env: Env
@@ -34,6 +34,7 @@ export interface BuildAppOptions {
 export async function buildApp({ env, logger, prisma, redis, bus }: BuildAppOptions) {
   const app = fastify({
     loggerInstance: logger ?? createLogger(env),
+    logController: new LogController({ disableRequestLogging: !env.LOG_REQUESTS }),
   }).withTypeProvider<ZodTypeProvider>()
 
   app.decorate('env', env)
@@ -129,9 +130,8 @@ export async function buildApp({ env, logger, prisma, redis, bus }: BuildAppOpti
       isEditable: false,
     },
   })
-  await app.register(fastifyWebsocket)
-
   await app.register(metricsPlugin)
+  await app.register(websocketPlugin)
   await app.register(prismaPlugin, { client: prisma })
   await app.register(redisPlugin, { client: redis })
   await app.register(eventsRuntimePlugin, { bus })
