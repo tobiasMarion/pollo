@@ -1,4 +1,4 @@
-import type { Location } from '@pollo/contracts'
+import type { IngestMessage, Location } from '@pollo/contracts'
 
 /** How often the accumulated changes are handed to the store. */
 export const WRITE_INTERVAL_MS = 250
@@ -96,4 +96,33 @@ export class GraphWriter {
     this.edges.clear()
     this.removed.clear()
   }
+}
+
+/**
+ * The same window, as the worker's stream sees it. Deriving it from the batch
+ * rather than recording it separately is what keeps the snapshot in Redis and
+ * the deltas on the stream from ever disagreeing.
+ */
+export function ingestOpsOf(batch: GraphBatch): IngestMessage[] {
+  const ops: IngestMessage[] = []
+  const arrived = new Set(batch.added)
+  const locations = new Map(batch.locations)
+
+  for (const deviceId of batch.removed) ops.push({ op: 'LEAVE', deviceId })
+
+  for (const deviceId of batch.added) {
+    const location = locations.get(deviceId)
+
+    if (location) ops.push({ op: 'JOIN', deviceId, location })
+  }
+
+  for (const [deviceId, location] of batch.locations) {
+    if (!arrived.has(deviceId)) ops.push({ op: 'LOCATION_UPDATE', deviceId, location })
+  }
+
+  for (const { from, to, distance } of batch.edges) {
+    ops.push({ op: 'DISTANCE', from, to, distance })
+  }
+
+  return ops
 }

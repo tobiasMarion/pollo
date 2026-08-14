@@ -10,7 +10,7 @@ import {
 import type { FastifyBaseLogger } from 'fastify'
 import type { Metrics } from '../observability/metrics.js'
 import { AdminDigest, DIGEST_INTERVAL_MS } from './batching/admin-digest.js'
-import { GraphWriter, WRITE_INTERVAL_MS } from './batching/graph-writer.js'
+import { GraphWriter, ingestOpsOf, WRITE_INTERVAL_MS } from './batching/graph-writer.js'
 import { ASSIGNMENT_INTERVAL_MS, Neighborhood } from './neighborhood/neighborhood.js'
 import type { Bus } from './redis/bus.js'
 import type { GraphStore } from './redis/graph-store.js'
@@ -128,6 +128,10 @@ export class LiveEvent {
 
     const batch = this.writer.take()
     const startedAt = Date.now()
+
+    // The stream carries the same window the store gets, one entry instead of
+    // one per mutation.
+    this.bus.publishIngest(this.id, { at: startedAt, ops: ingestOpsOf(batch) })
 
     this.flushing = this.graphStore
       .applyBatch(batch)
@@ -309,7 +313,6 @@ export class LiveEvent {
     // publish is what actually drives the simulation.
     this.writer.joined(deviceId, location)
     this.scheduleWrites()
-    this.bus.publishIngest(this.id, { op: 'JOIN', deviceId, location })
   }
 
   /**
@@ -323,7 +326,6 @@ export class LiveEvent {
     for (const { to, distance } of measurements) {
       this.writer.edgeChanged(from, to, distance)
       this.digest.edgeChanged(from, to, distance)
-      this.bus.publishIngest(this.id, { op: 'DISTANCE', from, to, distance })
     }
 
     this.scheduleWrites()
@@ -340,8 +342,6 @@ export class LiveEvent {
     this.scheduleWrites()
 
     this.neighborhood.place(deviceId, projectLocation(location, this.location))
-
-    this.bus.publishIngest(this.id, { op: 'LOCATION_UPDATE', deviceId, location })
   }
 
   unsubscribe(deviceId: string) {
@@ -354,8 +354,6 @@ export class LiveEvent {
 
     this.neighborhood.remove(deviceId)
     this.digest.departed(deviceId)
-
-    this.bus.publishIngest(this.id, { op: 'LEAVE', deviceId })
   }
 
   /**
