@@ -12,8 +12,12 @@ import { GraphWriter, WRITE_INTERVAL_MS } from './batching/graph-writer.js'
 import type { Bus } from './redis/bus.js'
 import type { GraphStore } from './redis/graph-store.js'
 
-/** How the socket handlers hand a frame back to one connection. */
-export type SendMessage = (message: Message) => void
+/**
+ * How the socket handlers hand a frame back to one connection. A fan-out passes
+ * the serialised form along so the crowd costs one `JSON.stringify`, not one
+ * per recipient.
+ */
+export type SendMessage = (message: Message, serialised?: string) => void
 
 export interface Subscriber {
   deviceId: string
@@ -243,8 +247,10 @@ export class LiveEvent {
     // Once for the whole fan-out; the size is known before the loop starts.
     this.metrics?.count('framesOut', this.subscribers.size)
 
+    const serialised = JSON.stringify(message)
+
     for (const { sendMessage } of this.subscribers.values()) {
-      sendMessage(message)
+      sendMessage(message, serialised)
     }
   }
 
