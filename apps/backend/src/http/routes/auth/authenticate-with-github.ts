@@ -1,8 +1,8 @@
 import type { FastifyInstance } from 'fastify'
 import type { ZodTypeProvider } from 'fastify-type-provider-zod'
 import { z } from 'zod'
-import { BadRequestError } from '../../errors.js'
-import { validationErrorResponseSchema } from '../../responses.js'
+import { validationErrorResponseSchema } from '../../errors/error-responses.js'
+import { BadRequestError } from '../../errors/http-error.js'
 
 const accessTokenResponseSchema = z.object({
   access_token: z.string(),

@@ -11,8 +11,8 @@ import type { FastifyInstance } from 'fastify'
 import type { ZodTypeProvider } from 'fastify-type-provider-zod'
 import { z } from 'zod'
 import type { LiveEvent } from '../../events/live-event.js'
-import type { Heartbeat } from './heartbeat.js'
-import { sendMessage } from './protocol.js'
+import type { Heartbeat } from './connection/heartbeat.js'
+import { sendMessage } from './connection/protocol.js'
 
 interface AdminSocketDeps {
   verifyToken: (token: string) => { sub: string }

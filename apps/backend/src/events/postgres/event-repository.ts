@@ -1,6 +1,6 @@
 import type { CreateEvent } from '@pollo/contracts'
 import { z } from 'zod'
-import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
+import { Prisma, type PrismaClient } from '../../generated/prisma/client.js'
 
 /**
  * Every question anyone asks the `events` table, in one place — the boundary

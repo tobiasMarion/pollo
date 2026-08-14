@@ -1,9 +1,9 @@
 import { type CreateEvent, type ExactLocation, exactLocationSchema } from '@pollo/contracts'
 import type { FastifyBaseLogger } from 'fastify'
 import type { Redis } from 'ioredis'
-import type { Metrics } from '../metrics.js'
-import type { EventRepository } from './event-repository.js'
+import type { Metrics } from '../observability/metrics.js'
 import { LiveEvent } from './live-event.js'
+import type { EventRepository } from './postgres/event-repository.js'
 import type { Bus, PositionsSubscription } from './redis/bus.js'
 import { GraphStore } from './redis/graph-store.js'
 

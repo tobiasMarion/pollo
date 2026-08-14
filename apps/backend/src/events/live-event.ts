@@ -6,7 +6,7 @@ import type {
   PositionsMessage,
 } from '@pollo/contracts'
 import type { FastifyBaseLogger } from 'fastify'
-import type { Metrics } from '../metrics.js'
+import type { Metrics } from '../observability/metrics.js'
 import { AdminDigest, DIGEST_INTERVAL_MS } from './batching/admin-digest.js'
 import type { Bus } from './redis/bus.js'
 import type { GraphStore } from './redis/graph-store.js'

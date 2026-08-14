@@ -2,8 +2,8 @@ import { eventSchema } from '@pollo/contracts'
 import type { FastifyInstance } from 'fastify'
 import type { ZodTypeProvider } from 'fastify-type-provider-zod'
 import { z } from 'zod'
+import { errorExamples, errorResponseSchema } from '../../errors/error-responses.js'
 import { auth } from '../../middlewares/auth.js'
-import { errorExamples, errorResponseSchema } from '../../responses.js'
 
 export async function listMyEvents(app: FastifyInstance) {
   app

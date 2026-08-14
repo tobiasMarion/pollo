@@ -1,6 +1,6 @@
 import fastifyWebsocket from '@fastify/websocket'
 import fastifyPlugin from 'fastify-plugin'
-import { Heartbeat } from '../http/ws/heartbeat.js'
+import { Heartbeat } from '../http/ws/connection/heartbeat.js'
 
 /** Well above the largest frame the protocol produces, and below interesting. */
 const MAX_PAYLOAD_BYTES = 16 * 1024
