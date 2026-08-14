@@ -1,10 +1,4 @@
-import {
-  type EventWire,
-  eventWireSchema,
-  type Participant,
-  participantSchema,
-  socketPaths,
-} from '@pollo/contracts'
+import { type EventWire, eventWireSchema, socketPaths } from '@pollo/contracts'
 import { z } from 'zod'
 
 /**
@@ -84,38 +78,6 @@ export async function fetchEvent(
   }
 
   return body.data.event
-}
-
-/**
- * Everybody already in the event, which is how a device learns about the people
- * who were there before it arrived.
- *
- * `USER_JOINED` only ever names arrivals, so without this a phone would know
- * nothing about the crowd it walked into. Read *after* the socket is up and its
- * frames are being buffered: the other order drops anybody who joins between the
- * response and the subscription, and nothing would ever mention them again.
- *
- * No retry loop, unlike `fetchEvent`: this runs per device, thousands of times,
- * against an API the run has already reached once. A miss costs one device a
- * stale roster until it reconnects, which is cheaper than thousands of clients
- * hammering an API that is having a bad second.
- */
-export async function fetchParticipants(apiUrl: string, eventId: string): Promise<Participant[]> {
-  const response = await fetch(new URL(`/events/${eventId}/participants`, apiUrl))
-
-  if (!response.ok) {
-    throw new Error(`The API answered ${response.status} for the participants of ${eventId}.`)
-  }
-
-  const body = z
-    .object({ participants: z.array(participantSchema) })
-    .safeParse(await response.json())
-
-  if (!body.success) {
-    throw new Error(`The API answered with a roster this simulator cannot read: ${body.error}`)
-  }
-
-  return body.data.participants
 }
 
 /**

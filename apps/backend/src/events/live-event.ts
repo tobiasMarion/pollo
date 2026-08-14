@@ -1,14 +1,16 @@
-import type {
-  ExactLocation,
-  Location,
-  Message,
-  Participant,
-  PositionsMessage,
+import {
+  type ExactLocation,
+  type Location,
+  type Message,
+  type Participant,
+  type PositionsMessage,
+  projectLocation,
 } from '@pollo/contracts'
 import type { FastifyBaseLogger } from 'fastify'
 import type { Metrics } from '../observability/metrics.js'
 import { AdminDigest, DIGEST_INTERVAL_MS } from './batching/admin-digest.js'
 import { GraphWriter, WRITE_INTERVAL_MS } from './batching/graph-writer.js'
+import { ASSIGNMENT_INTERVAL_MS, Neighborhood } from './neighborhood/neighborhood.js'
 import type { Bus } from './redis/bus.js'
 import type { GraphStore } from './redis/graph-store.js'
 
@@ -65,6 +67,9 @@ export class LiveEvent {
   private readonly writer = new GraphWriter()
   private writeTimer: ReturnType<typeof setInterval> | null = null
   private flushing: Promise<void> | null = null
+
+  private readonly neighborhood = new Neighborhood()
+  private assignmentTimer: ReturnType<typeof setInterval> | null = null
 
   private readonly digest = new AdminDigest()
   private digestTimer: ReturnType<typeof setInterval> | null = null
@@ -136,6 +141,46 @@ export class LiveEvent {
     await this.flushing
   }
 
+  /** Only runs while somebody is connected to be given a list. */
+  private scheduleAssignments() {
+    if (this.assignmentTimer) return
+
+    this.assignmentTimer = setInterval(() => this.flushAssignments(), ASSIGNMENT_INTERVAL_MS)
+    this.assignmentTimer.unref?.()
+  }
+
+  /**
+   * Hands out the lists that changed, and nothing else.
+   *
+   * This is what replaced announcing arrivals. A device that joins used to cost
+   * a frame to every device already here, and one to itself for every device
+   * that arrived after — quadratic in the crowd, and measured at 136,000 frames
+   * a second on a four-thousand-device ramp. What a device actually did with
+   * any of that was decide who to range against, which is the one thing sent
+   * now, to the few whose answer changed.
+   */
+  flushAssignments(now = Date.now()) {
+    if (this.subscribers.size === 0) {
+      this.stopAssigning()
+      return
+    }
+
+    const assignments = this.neighborhood.takeAssignments(now)
+
+    for (const { deviceId, peers } of assignments) {
+      this.subscribers.get(deviceId)?.sendMessage({ type: 'SET_NEIGHBORS', peers })
+    }
+
+    this.metrics?.count('framesOut', assignments.length)
+  }
+
+  private stopAssigning() {
+    if (!this.assignmentTimer) return
+
+    clearInterval(this.assignmentTimer)
+    this.assignmentTimer = null
+  }
+
   /** Resolves once everything written so far has reached the store. */
   async settled() {
     await this.flushing
@@ -183,14 +228,11 @@ export class LiveEvent {
   }
 
   /**
-   * Who is connected right now, straight from the connection map.
+   * Who is connected right now, straight from the connection map rather than
+   * from the store, whose writes are a flush behind on purpose.
    *
-   * Read from the graph store this would lag, because those writes are queued
-   * off the hot path — and a device joining reads the roster the moment it
-   * connects, so a stale answer is a device that never learns about a peer.
-   * Nothing else would tell it: `USER_JOINED` only covers arrivals *after* this
-   * point, which is precisely what makes this snapshot the thing they continue
-   * from. Missing somebody here means missing them for good.
+   * This is the panel's opening snapshot. Devices no longer read it — they are
+   * told which peers to measure instead of being handed the crowd.
    */
   getSubscribers(): Participant[] {
     return [...this.subscribers].map(([deviceId, { location }]) => ({ deviceId, location }))
@@ -255,10 +297,12 @@ export class LiveEvent {
   }
 
   subscribe({ deviceId, location, sendMessage }: Subscriber) {
-    this.broadcastToDevices({ type: 'USER_JOINED', deviceId, location })
     this.digest.locationChanged(deviceId, location)
 
     this.subscribers.set(deviceId, { sendMessage, location })
+
+    this.neighborhood.place(deviceId, projectLocation(location, this.location))
+    this.scheduleAssignments()
 
     // The store copy exists for REST reads and worker hydration; the stream
     // publish is what actually drives the simulation.
@@ -293,6 +337,8 @@ export class LiveEvent {
     this.writer.locationChanged(deviceId, location)
     this.scheduleWrites()
 
+    this.neighborhood.place(deviceId, projectLocation(location, this.location))
+
     this.bus.publishIngest(this.id, { op: 'LOCATION_UPDATE', deviceId, location })
   }
 
@@ -304,7 +350,7 @@ export class LiveEvent {
     this.writer.departed(deviceId)
     this.scheduleWrites()
 
-    this.broadcastToDevices({ type: 'USER_LEFT', deviceId })
+    this.neighborhood.remove(deviceId)
     this.digest.departed(deviceId)
 
     this.bus.publishIngest(this.id, { op: 'LEAVE', deviceId })

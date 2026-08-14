@@ -69,7 +69,7 @@ describe('LiveEvent', () => {
     return update
   }
 
-  it('subscribe fans out USER_JOINED and publishes a JOIN ingest', async () => {
+  it('tells nobody that somebody arrived, and publishes a JOIN ingest', async () => {
     const firstInbox: Message[] = []
     service.subscribe({ deviceId: 'd1', location, sendMessage: m => firstInbox.push(m) })
 
@@ -86,10 +86,34 @@ describe('LiveEvent', () => {
       { deviceId: 'd2', location },
     ])
 
-    expect(firstInbox).toContainEqual({ type: 'USER_JOINED', deviceId: 'd2', location })
+    // `d1` was not interrupted for `d2`. It hears about it only when the peers
+    // it should measure change, which is a frame per device rather than a frame
+    // per device per arrival.
+    expect(firstInbox).toEqual([])
     expect(bus.ingest.map(({ message }) => message.op)).toEqual(['JOIN', 'JOIN'])
 
     expect(service.getSubscribers()).toContainEqual({ deviceId: 'd1', location })
+  })
+
+  it('hands each device the peers it should measure', () => {
+    const inboxes = new Map<string, Message[]>()
+
+    for (const deviceId of ['d1', 'd2', 'd3']) {
+      const inbox: Message[] = []
+      inboxes.set(deviceId, inbox)
+      service.subscribe({ deviceId, location, sendMessage: m => inbox.push(m) })
+    }
+
+    service.flushAssignments()
+
+    for (const [deviceId, inbox] of inboxes) {
+      const assignment = inbox.find(message => message.type === 'SET_NEIGHBORS')
+
+      if (assignment?.type !== 'SET_NEIGHBORS') throw new Error(`${deviceId} got no list`)
+
+      expect(assignment.peers).not.toContain(deviceId)
+      expect(assignment.peers.length).toBeGreaterThan(0)
+    }
   })
 
   /**
