@@ -10,7 +10,7 @@ import {
 import type { FastifyBaseLogger, FastifyInstance } from 'fastify'
 import type { ZodTypeProvider } from 'fastify-type-provider-zod'
 import { z } from 'zod'
-import type { EventService } from '../../events/event-service.js'
+import type { LiveEvent } from '../../events/live-event.js'
 import type { Metrics } from '../../metrics.js'
 import type { Heartbeat } from './heartbeat.js'
 import { sendMessage } from './protocol.js'
@@ -23,7 +23,7 @@ const INBOUND_COUNTER: Record<DeviceOutboundMessage['type'], string> = {
 }
 
 interface JoinSocketDeps {
-  event: EventService
+  event: LiveEvent
   log: FastifyBaseLogger
   heartbeat: Heartbeat
   metrics?: Metrics

@@ -10,14 +10,14 @@ import {
 import type { FastifyInstance } from 'fastify'
 import type { ZodTypeProvider } from 'fastify-type-provider-zod'
 import { z } from 'zod'
-import type { EventService } from '../../events/event-service.js'
+import type { LiveEvent } from '../../events/live-event.js'
 import type { Heartbeat } from './heartbeat.js'
 import { sendMessage } from './protocol.js'
 
 interface AdminSocketDeps {
   verifyToken: (token: string) => { sub: string }
   findOpenEvent: (eventId: string, userId: string) => Promise<boolean>
-  getEvent: (eventId: string) => EventService | undefined
+  getEvent: (eventId: string) => LiveEvent | undefined
   heartbeat: Heartbeat
 }
 
@@ -26,7 +26,7 @@ export function handleAdminSocket(
   eventId: string,
   { verifyToken, findOpenEvent, getEvent, heartbeat }: AdminSocketDeps,
 ) {
-  let event: EventService | null = null
+  let event: LiveEvent | null = null
 
   heartbeat.watch(socket)
 
