@@ -2,9 +2,9 @@ import { userSchema } from '@pollo/contracts'
 import type { FastifyInstance } from 'fastify'
 import type { ZodTypeProvider } from 'fastify-type-provider-zod'
 import { z } from 'zod'
-import { BadRequestError } from '../../errors.js'
+import { errorExamples, errorResponseSchema } from '../../errors/error-responses.js'
+import { BadRequestError } from '../../errors/http-error.js'
 import { auth } from '../../middlewares/auth.js'
-import { errorExamples, errorResponseSchema } from '../../responses.js'
 
 export async function getProfile(app: FastifyInstance) {
   app

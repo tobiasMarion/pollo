@@ -1,5 +1,5 @@
 import fastifyPlugin from 'fastify-plugin'
-import { isQuiet, Metrics } from '../metrics.js'
+import { isQuiet, Metrics } from '../observability/metrics.js'
 
 /** How often a report is cut. One line a second is readable in a terminal. */
 export const REPORT_INTERVAL_MS = 1_000

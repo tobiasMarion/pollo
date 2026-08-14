@@ -2,12 +2,12 @@ import { createEventSchema } from '@pollo/contracts'
 import type { FastifyInstance } from 'fastify'
 import type { ZodTypeProvider } from 'fastify-type-provider-zod'
 import { z } from 'zod'
-import { auth } from '../../middlewares/auth.js'
 import {
   errorExamples,
   errorResponseSchema,
   validationErrorResponseSchema,
-} from '../../responses.js'
+} from '../../errors/error-responses.js'
+import { auth } from '../../middlewares/auth.js'
 
 export async function createEvent(app: FastifyInstance) {
   app

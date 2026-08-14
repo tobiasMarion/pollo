@@ -1,5 +1,5 @@
 import { buildApp } from '../src/app.js'
-import { loadEnv } from '../src/env.js'
+import { loadEnv } from '../src/config/env.js'
 
 export async function createTestApp() {
   const app = await buildApp({ env: loadEnv() })

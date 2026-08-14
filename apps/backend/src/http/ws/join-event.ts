@@ -11,9 +11,9 @@ import type { FastifyBaseLogger, FastifyInstance } from 'fastify'
 import type { ZodTypeProvider } from 'fastify-type-provider-zod'
 import { z } from 'zod'
 import type { LiveEvent } from '../../events/live-event.js'
-import type { Metrics } from '../../metrics.js'
-import type { Heartbeat } from './heartbeat.js'
-import { sendMessage } from './protocol.js'
+import type { Metrics } from '../../observability/metrics.js'
+import type { Heartbeat } from './connection/heartbeat.js'
+import { sendMessage } from './connection/protocol.js'
 
 /** Spelled out so counting a frame does not allocate a name for it. */
 const INBOUND_COUNTER: Record<DeviceOutboundMessage['type'], string> = {

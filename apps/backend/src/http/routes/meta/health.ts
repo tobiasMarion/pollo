@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import type { ZodTypeProvider } from 'fastify-type-provider-zod'
 import { z } from 'zod'
-import { errorResponseSchema } from '../responses.js'
+import { errorResponseSchema } from '../../errors/error-responses.js'
 
 export async function healthRoute(app: FastifyInstance) {
   app.withTypeProvider<ZodTypeProvider>().get(
