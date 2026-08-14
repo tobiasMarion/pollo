@@ -23,7 +23,21 @@ export class AdminDigest {
   private readonly locations = new Map<string, Location>()
   private readonly placed = new Map<string, NodePosition>()
   private readonly left = new Set<string>()
-  private readonly edges = new Map<string, { from: string; to: string; distance: number | null }>()
+
+  /**
+   * Distances by origin, `from` to `to` to metres.
+   *
+   * A flat map keyed `"from>to"` reads better and costs a string and an object
+   * on every measurement the crowd reports — forty thousand a second at ten
+   * thousand phones, all of it garbage within the second. Nested, the entry is
+   * two map writes and the wire objects are built once, in `take`.
+   */
+  private readonly edges = new Map<string, Map<string, number | null>>()
+
+  /** Who measured each device, so a departure does not scan every edge. */
+  private readonly measuredBy = new Map<string, Set<string>>()
+
+  private edgeCount = 0
 
   /**
    * A join and a move are the same entry: the panel keys devices by id and
@@ -58,9 +72,8 @@ export class AdminDigest {
     this.placed.delete(deviceId)
     this.left.add(deviceId)
 
-    for (const [key, edge] of this.edges) {
-      if (edge.from === deviceId || edge.to === deviceId) this.edges.delete(key)
-    }
+    this.dropOutgoing(deviceId)
+    this.dropIncoming(deviceId)
   }
 
   edgeChanged(from: string, to: string, distance: number | null) {
@@ -68,7 +81,54 @@ export class AdminDigest {
     // being told to forget both ends of it.
     if (this.left.has(from) || this.left.has(to)) return
 
-    this.edges.set(`${from}>${to}`, { from, to, distance })
+    let outgoing = this.edges.get(from)
+
+    if (!outgoing) {
+      outgoing = new Map()
+      this.edges.set(from, outgoing)
+    }
+
+    if (!outgoing.has(to)) this.edgeCount++
+
+    outgoing.set(to, distance)
+
+    let measurers = this.measuredBy.get(to)
+
+    if (!measurers) {
+      measurers = new Set()
+      this.measuredBy.set(to, measurers)
+    }
+
+    measurers.add(from)
+  }
+
+  /** Everything this device measured. */
+  private dropOutgoing(deviceId: string) {
+    const outgoing = this.edges.get(deviceId)
+    if (!outgoing) return
+
+    for (const to of outgoing.keys()) {
+      const measurers = this.measuredBy.get(to)
+
+      measurers?.delete(deviceId)
+
+      if (measurers?.size === 0) this.measuredBy.delete(to)
+    }
+
+    this.edgeCount -= outgoing.size
+    this.edges.delete(deviceId)
+  }
+
+  /** Everything that measured this device. */
+  private dropIncoming(deviceId: string) {
+    for (const from of this.measuredBy.get(deviceId) ?? []) {
+      const outgoing = this.edges.get(from)
+
+      if (outgoing?.delete(deviceId)) this.edgeCount--
+      if (outgoing?.size === 0) this.edges.delete(from)
+    }
+
+    this.measuredBy.delete(deviceId)
   }
 
   get empty() {
@@ -76,12 +136,18 @@ export class AdminDigest {
       this.locations.size === 0 &&
       this.placed.size === 0 &&
       this.left.size === 0 &&
-      this.edges.size === 0
+      this.edgeCount === 0
     )
   }
 
   /** Cuts a batch and starts a new one. */
   take(window = DIGEST_INTERVAL_MS): FieldUpdate {
+    const edges: FieldUpdate['edges'] = []
+
+    for (const [from, outgoing] of this.edges) {
+      for (const [to, distance] of outgoing) edges.push({ from, to, distance })
+    }
+
     const update: FieldUpdate = {
       type: 'FIELD_UPDATE',
       at: Date.now(),
@@ -89,14 +155,21 @@ export class AdminDigest {
       locations: [...this.locations].map(([deviceId, location]) => ({ deviceId, location })),
       placed: [...this.placed].map(([deviceId, position]) => ({ deviceId, position })),
       left: [...this.left],
-      edges: [...this.edges.values()],
+      edges,
     }
 
+    this.discard()
+
+    return update
+  }
+
+  /** Throws the window away, for a panel that is about to start from a snapshot. */
+  discard() {
     this.locations.clear()
     this.placed.clear()
     this.left.clear()
     this.edges.clear()
-
-    return update
+    this.measuredBy.clear()
+    this.edgeCount = 0
   }
 }

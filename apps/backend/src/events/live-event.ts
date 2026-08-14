@@ -205,7 +205,24 @@ export class LiveEvent {
     return this.location
   }
 
+  /**
+   * Whether anybody is watching the field.
+   *
+   * Nothing is kept for the panel while nobody is: the digest used to be fed on
+   * every message regardless, and the only thing that empties it is a flush that
+   * gives up when there is no admin — so a run with no panel open accumulated
+   * every location and every edge for the life of the event. At ten thousand
+   * phones that was 11% of the process and most of a gigabyte, kept for a reader
+   * that did not exist.
+   */
+  private get watched() {
+    return this.admin.sendMessage !== undefined
+  }
+
   setAdminConnection(send: SendMessage) {
+    // Whatever happened while nobody watched is not this panel's history: it
+    // opens from the REST snapshot and follows with batches from here.
+    this.digest.discard()
     this.admin.sendMessage = send
 
     if (this.digestTimer) return
@@ -306,7 +323,7 @@ export class LiveEvent {
   }
 
   subscribe({ deviceId, location, sendMessage }: Subscriber) {
-    this.digest.locationChanged(deviceId, location)
+    if (this.watched) this.digest.locationChanged(deviceId, location)
 
     this.subscribers.set(deviceId, { sendMessage, location })
 
@@ -329,7 +346,8 @@ export class LiveEvent {
 
     for (const { to, distance } of measurements) {
       this.writer.edgeChanged(from, to, distance)
-      this.digest.edgeChanged(from, to, distance)
+
+      if (this.watched) this.digest.edgeChanged(from, to, distance)
     }
 
     this.scheduleWrites()
@@ -341,7 +359,8 @@ export class LiveEvent {
 
     connection.location = location
 
-    this.digest.locationChanged(deviceId, location)
+    if (this.watched) this.digest.locationChanged(deviceId, location)
+
     this.writer.locationChanged(deviceId, location)
     this.scheduleWrites()
 
@@ -357,7 +376,8 @@ export class LiveEvent {
     this.scheduleWrites()
 
     this.neighborhood.remove(deviceId)
-    this.digest.departed(deviceId)
+
+    if (this.watched) this.digest.departed(deviceId)
   }
 
   /**
@@ -379,7 +399,8 @@ export class LiveEvent {
       if (!connection) continue
 
       connection.sendMessage({ type: 'SET_POINT', position })
-      this.digest.placedAt(deviceId, position)
+
+      if (this.watched) this.digest.placedAt(deviceId, position)
 
       this.metrics?.count('framesOut')
     }

@@ -181,6 +181,35 @@ describe('LiveEvent', () => {
     expect((await service.getEventGraph()).edges).toEqual([])
   })
 
+  it('keeps nothing for the panel while no panel is connected', () => {
+    service.clearAdminConnection()
+
+    service.subscribe({ deviceId: 'd1', location, sendMessage: () => {} })
+    service.setDistancesFromDevice('d1', [{ to: 'd2', distance: 4.2 }])
+    service.unsubscribe('d1')
+
+    // The only thing that empties the digest is a flush, and a flush gives up
+    // when there is no admin — so feeding it regardless meant a run with no
+    // panel open accumulated every edge for the life of the event.
+    const seen: Message[] = []
+    service.setAdminConnection(message => seen.push(message))
+    service.flushDigest()
+
+    expect(seen).toEqual([])
+  })
+
+  it('starts a newly connected panel from nothing, not from history', () => {
+    service.subscribe({ deviceId: 'd1', location, sendMessage: () => {} })
+
+    // The panel opens from the REST snapshot; a partial history of the window
+    // before it arrived would only be something to reconcile.
+    const seen: Message[] = []
+    service.setAdminConnection(message => seen.push(message))
+    service.flushDigest()
+
+    expect(seen).toEqual([])
+  })
+
   it('ignores location updates from unknown devices', () => {
     service.updateSubscriberLocation('ghost', location)
 
