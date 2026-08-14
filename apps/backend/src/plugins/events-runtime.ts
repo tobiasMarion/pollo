@@ -11,7 +11,7 @@ export const eventsRuntimePlugin = fastifyPlugin<EventsRuntimePluginOptions>(
     const bus = options.bus ?? new RedisStreamsBus(app.redis, app.log)
 
     const events = new EventRegistry({
-      prisma: app.prisma,
+      repository: app.eventRepository,
       redis: app.redis,
       bus,
       logger: app.log,
@@ -34,7 +34,7 @@ export const eventsRuntimePlugin = fastifyPlugin<EventsRuntimePluginOptions>(
       events.shutdown()
     })
   },
-  { name: 'events-runtime', dependencies: ['metrics', 'prisma', 'redis'] },
+  { name: 'events-runtime', dependencies: ['metrics', 'repositories', 'redis'] },
 )
 
 declare module 'fastify' {
