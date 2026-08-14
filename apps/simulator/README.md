@@ -66,11 +66,9 @@ seconds, and people leave and come back. `--churn`, `--blackout` and
 
 ## Who a phone is allowed to measure
 
-A device may only range against peers **the API has told it about**. On joining
-it reads `GET /events/:id/participants` for the crowd already present, and
-`USER_JOINED` and `USER_LEFT` on its socket are the continuation of that snapshot
-— which is read *after* the socket is up, or an arrival in between belongs to
-neither and would never be mentioned again.
+A device ranges against exactly the peers **the API assigned it**, and picks
+nobody itself. `SET_NEIGHBORS` carries that list and replaces the previous one
+outright; a device that has not been given one measures nothing at all.
 
 This is not bookkeeping. Two phones cannot range each other over UWB until each
 holds the other's discovery token, and that token only ever arrives out of band:
@@ -79,12 +77,14 @@ simulator that picks neighbours out of its own ground truth is measuring a world
 where discovery is free, and the worker gets tuned against a graph no crowd can
 produce.
 
-The spatial grid stays, with a narrower job: it is the **radio**, not the roster.
-It answers who is close enough to be heard, which is physics, and the candidates
-for a sweep are that answer intersected with what the phone knows. Knowledge
-survives a blackout — a phone has not forgotten the room it is standing in — so
-what a device loses while offline is only whoever arrived meanwhile, and the
-roster it reads on the way back repairs that.
+The server is also the only party with a global view, so it is the one that can
+choose well — peers spread around a device rather than clustered on one side of
+it, which is what a solve actually needs. It chooses from reported GPS, which is
+metres wrong, so some of what it suggests turns out to be beyond radio range.
+Those simply produce no edge: there is nothing to report and nothing to retract.
+
+A blackout costs the list. It belonged to a socket that is gone, and the server
+owes the device a new one on the socket that replaced it.
 
 ## Reading a run
 

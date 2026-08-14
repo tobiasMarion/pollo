@@ -14,6 +14,11 @@ import { unionFrom } from '../union.js'
  * panel is drawing a field rather than following an event log, so it is sent
  * `FIELD_UPDATE`: one coalesced batch on a fixed cadence, whatever the crowd
  * did in between.
+ *
+ * Neither end is told who joined or left. A device is handed `SET_NEIGHBORS`
+ * instead — the peers it should measure — which is the only thing it ever did
+ * with an arrival, and costs a frame per device rather than a frame per device
+ * per arrival.
  */
 export const messageSchemas = {
   AUTHENTICATION: z
@@ -76,14 +81,6 @@ export const messageSchemas = {
     })
     .describe('Everything that happened to the field since the last batch, coalesced.'),
 
-  USER_JOINED: z
-    .object({
-      type: z.literal('USER_JOINED'),
-      deviceId: z.string(),
-      location: locationSchema,
-    })
-    .describe('A device joined the event.'),
-
   DISTANCE: z
     .object({
       type: z.literal('DISTANCE'),
@@ -92,19 +89,21 @@ export const messageSchemas = {
     })
     .describe('A device reporting how far a peer is.'),
 
-  USER_LEFT: z
-    .object({
-      type: z.literal('USER_LEFT'),
-      deviceId: z.string(),
-    })
-    .describe('A device disconnected.'),
-
   SET_POINT: z
     .object({
       type: z.literal('SET_POINT'),
       position: positionSchema,
     })
     .describe('Where the worker placed this device — sent to that device alone.'),
+
+  SET_NEIGHBORS: z
+    .object({
+      type: z.literal('SET_NEIGHBORS'),
+      peers: z
+        .array(z.string())
+        .describe('Device ids to range against. Replaces the previous list outright.'),
+    })
+    .describe('Which peers this device should measure, decided by the server.'),
 
   EFFECT: z
     .object({
