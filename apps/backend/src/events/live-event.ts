@@ -1,6 +1,7 @@
 import {
   type ExactLocation,
   type Location,
+  type Measurement,
   type Message,
   type Participant,
   type PositionsMessage,
@@ -312,19 +313,20 @@ export class LiveEvent {
   }
 
   /**
-   * Ignores a measurement from a device that is no longer here. A socket that
-   * dies with frames still queued gets them handled after its `close`, and an
-   * edge written after the departure is one nothing would ever remove.
+   * One sweep from one device. Ignores a device that is no longer here: a socket
+   * that dies with frames still queued gets them handled after its `close`, and
+   * an edge written after the departure is one nothing would ever remove.
    */
-  setDistanceToDevice(from: string, to: string, distance: number | null) {
+  setDistancesFromDevice(from: string, measurements: readonly Measurement[]) {
     if (!this.subscribers.has(from)) return
 
-    this.writer.edgeChanged(from, to, distance)
+    for (const { to, distance } of measurements) {
+      this.writer.edgeChanged(from, to, distance)
+      this.digest.edgeChanged(from, to, distance)
+      this.bus.publishIngest(this.id, { op: 'DISTANCE', from, to, distance })
+    }
+
     this.scheduleWrites()
-
-    this.digest.edgeChanged(from, to, distance)
-
-    this.bus.publishIngest(this.id, { op: 'DISTANCE', from, to, distance })
   }
 
   updateSubscriberLocation(deviceId: string, location: Location) {

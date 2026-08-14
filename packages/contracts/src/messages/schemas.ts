@@ -81,13 +81,22 @@ export const messageSchemas = {
     })
     .describe('Everything that happened to the field since the last batch, coalesced.'),
 
-  DISTANCE: z
+  DISTANCES: z
     .object({
-      type: z.literal('DISTANCE'),
-      to: z.string().describe('The device that was measured.'),
-      distance: z.number().nullable().describe('Meters, or null when the peer went out of range.'),
+      type: z.literal('DISTANCES'),
+      measurements: z
+        .array(
+          z.object({
+            to: z.string().describe('The device that was measured.'),
+            distance: z
+              .number()
+              .nullable()
+              .describe('Meters, or null to retract an edge that no longer holds.'),
+          }),
+        )
+        .describe('One sweep. Peers that were not reached are simply absent.'),
     })
-    .describe('A device reporting how far a peer is.'),
+    .describe('A device reporting how far its assigned peers are — one frame per sweep.'),
 
   SET_POINT: z
     .object({
@@ -122,3 +131,6 @@ export type MessageType = Message['type']
 export type MessageOf<Type extends MessageType> = Extract<Message, { type: Type }>
 
 export const messageTypes = Object.keys(messageSchemas) as [MessageType, ...MessageType[]]
+
+/** One entry of a `DISTANCES` sweep. */
+export type Measurement = MessageOf<'DISTANCES'>['measurements'][number]

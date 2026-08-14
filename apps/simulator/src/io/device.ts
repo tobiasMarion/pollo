@@ -338,21 +338,20 @@ export class VirtualDevice {
   }
 
   /**
-   * Drops the peers this phone has never been told about, in place.
+   * Measures exactly what the server asked for, and reports the sweep as one
+   * frame. A frame per peer made the message rate a multiple of the assignment
+   * size, which is the server's dial and not the wire's business.
    *
-   * Measures exactly what the server asked for, and reports what came back.
-   *
-   * The device no longer picks. It used to scan a grid of everyone in earshot
-   * and sample from it, which meant the sweep cost tracked how dense the venue
-   * was; now the list is a dozen ids that arrived over the socket. A peer the
-   * radio cannot actually reach comes back as `null`, which is the server
-   * learning that its guess — made from GPS, which is metres wrong — was one of
-   * the ones that does not work out.
+   * The device no longer picks who: it used to scan a grid of everyone in
+   * earshot and sample from it, so the sweep cost tracked how dense the venue
+   * was. A peer the radio cannot reach yields no measurement and no retraction —
+   * there was never an edge to withdraw.
    */
   private sweepDistances(now: number) {
     const { config, shared } = this.context
     const here = this.truePosition(now)
     const noisy = this.noisy
+    const measurements: { to: string; distance: number | null }[] = []
 
     for (const peer of this.assigned) {
       const distance = Math.hypot(
@@ -371,10 +370,10 @@ export class VirtualDevice {
           : null
 
       if (measured !== null) {
-        this.send({ type: 'DISTANCE', to: deviceIdFor(peer), distance: measured })
+        measurements.push({ to: deviceIdFor(peer), distance: measured })
         this.reportedPeers.add(peer)
       } else if (this.reportedPeers.delete(peer)) {
-        this.send({ type: 'DISTANCE', to: deviceIdFor(peer), distance: null })
+        measurements.push({ to: deviceIdFor(peer), distance: null })
       }
     }
 
@@ -383,9 +382,11 @@ export class VirtualDevice {
     for (const peer of this.reportedPeers) {
       if (this.assigned.has(peer)) continue
 
-      this.send({ type: 'DISTANCE', to: deviceIdFor(peer), distance: null })
+      measurements.push({ to: deviceIdFor(peer), distance: null })
       this.reportedPeers.delete(peer)
     }
+
+    if (measurements.length > 0) this.send({ type: 'DISTANCES', measurements })
   }
 
   tick(now: number, field: SharedErrorField, perTickChance: PerTickChance) {
