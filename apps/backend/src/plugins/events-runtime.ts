@@ -1,6 +1,6 @@
 import fastifyPlugin from 'fastify-plugin'
-import { type Bus, RedisStreamsBus } from '../events/bus.js'
-import { EventRegistry } from '../events/registry.js'
+import { EventRegistry } from '../events/event-registry.js'
+import { type Bus, RedisStreamsBus } from '../events/redis/bus.js'
 
 export interface EventsRuntimePluginOptions {
   bus?: Bus

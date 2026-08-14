@@ -3,9 +3,9 @@ import type { ControlMessage, IngestMessage, Location, Message } from '@pollo/co
 import type { Redis } from 'ioredis'
 import RedisMock from 'ioredis-mock'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Bus } from './bus.js'
-import { EventService } from './event-service.js'
-import { GraphStore } from './graph-store.js'
+import { LiveEvent } from './live-event.js'
+import type { Bus } from './redis/bus.js'
+import { GraphStore } from './redis/graph-store.js'
 
 const location: Location = {
   latitude: -29.7,
@@ -37,9 +37,9 @@ class FakeBus implements Bus {
   }
 }
 
-describe('EventService', () => {
+describe('LiveEvent', () => {
   let bus: FakeBus
-  let service: EventService
+  let service: LiveEvent
   let adminInbox: Message[]
 
   beforeEach(() => {
@@ -47,7 +47,7 @@ describe('EventService', () => {
     adminInbox = []
     // ioredis-mock instances share one keyspace; a unique graph id isolates tests.
     const eventId = randomUUID()
-    service = new EventService({
+    service = new LiveEvent({
       id: eventId,
       location: { latitude: -29.7, longitude: -53.7 },
       adminId: 'admin-1',

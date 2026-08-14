@@ -7,9 +7,9 @@ import type {
 } from '@pollo/contracts'
 import type { FastifyBaseLogger } from 'fastify'
 import type { Metrics } from '../metrics.js'
-import { AdminDigest, DIGEST_INTERVAL_MS } from './admin-digest.js'
-import type { Bus } from './bus.js'
-import type { GraphStore } from './graph-store.js'
+import { AdminDigest, DIGEST_INTERVAL_MS } from './batching/admin-digest.js'
+import type { Bus } from './redis/bus.js'
+import type { GraphStore } from './redis/graph-store.js'
 
 /** How the socket handlers hand a frame back to one connection. */
 export type SendMessage = (message: Message) => void
@@ -31,7 +31,7 @@ interface Admin {
   sendMessage: SendMessage | undefined
 }
 
-export interface EventServiceOptions {
+export interface LiveEventOptions {
   id: string
   location: ExactLocation
   adminId: string
@@ -47,7 +47,7 @@ export interface EventServiceOptions {
  * publishes mutations to the ingest stream. ALL position math lives in the
  * worker — no simulation ever runs here, never on the event loop.
  */
-export class EventService {
+export class LiveEvent {
   private readonly id: string
   private readonly location: ExactLocation
   private readonly admin: Admin
@@ -63,7 +63,7 @@ export class EventService {
   private readonly digest = new AdminDigest()
   private digestTimer: ReturnType<typeof setInterval> | null = null
 
-  constructor({ id, location, adminId, graphStore, bus, logger, metrics }: EventServiceOptions) {
+  constructor({ id, location, adminId, graphStore, bus, logger, metrics }: LiveEventOptions) {
     this.id = id
     this.location = location
     this.graphStore = graphStore

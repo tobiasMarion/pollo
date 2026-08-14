@@ -2,10 +2,10 @@ import { type CreateEvent, type ExactLocation, exactLocationSchema } from '@poll
 import type { FastifyBaseLogger } from 'fastify'
 import type { Redis } from 'ioredis'
 import type { Metrics } from '../metrics.js'
-import type { Bus, PositionsSubscription } from './bus.js'
 import type { EventRepository } from './event-repository.js'
-import { EventService } from './event-service.js'
-import { GraphStore } from './graph-store.js'
+import { LiveEvent } from './live-event.js'
+import type { Bus, PositionsSubscription } from './redis/bus.js'
+import { GraphStore } from './redis/graph-store.js'
 
 export interface EventRegistryOptions {
   repository: EventRepository
@@ -32,7 +32,7 @@ export class EventRegistry {
   private readonly logger: FastifyBaseLogger
   private readonly metrics: Metrics | undefined
 
-  private readonly services = new Map<string, EventService>()
+  private readonly services = new Map<string, LiveEvent>()
   private readonly subscriptions = new Map<string, PositionsSubscription>()
 
   constructor({ repository, redis, bus, logger, metrics }: EventRegistryOptions) {
@@ -61,7 +61,7 @@ export class EventRegistry {
     return this.sum(service => service.pendingWrites)
   }
 
-  private sum(of: (service: EventService) => number) {
+  private sum(of: (service: LiveEvent) => number) {
     let total = 0
 
     for (const service of this.services.values()) total += of(service)
@@ -131,8 +131,8 @@ export class EventRegistry {
     this.services.clear()
   }
 
-  private register(id: string, adminId: string, location: ExactLocation): EventService {
-    const service = new EventService({
+  private register(id: string, adminId: string, location: ExactLocation): LiveEvent {
+    const service = new LiveEvent({
       id,
       location,
       adminId,

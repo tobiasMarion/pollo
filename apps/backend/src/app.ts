@@ -10,7 +10,7 @@ import {
 } from 'fastify-type-provider-zod'
 import type { Redis } from 'ioredis'
 import type { Env } from './env.js'
-import type { Bus } from './events/bus.js'
+import type { Bus } from './events/redis/bus.js'
 import type { PrismaClient } from './generated/prisma/client.js'
 import { errorHandler } from './http/error-handler.js'
 import { openapiTransform } from './http/openapi.js'
