@@ -1,5 +1,6 @@
 import type { WebSocket } from '@fastify/websocket'
 import {
+  type DeviceOutboundMessage,
   deviceInbound,
   deviceOutbound,
   messageTable,
@@ -10,9 +11,22 @@ import type { FastifyBaseLogger, FastifyInstance } from 'fastify'
 import type { ZodTypeProvider } from 'fastify-type-provider-zod'
 import { z } from 'zod'
 import type { EventService } from '../../events/event-service.js'
+import type { Metrics } from '../../metrics.js'
 import { sendMessage, startHeartbeat } from './protocol.js'
 
-export function handleJoinSocket(socket: WebSocket, event: EventService, log: FastifyBaseLogger) {
+/** Spelled out so counting a frame does not allocate a name for it. */
+const INBOUND_COUNTER: Record<DeviceOutboundMessage['type'], string> = {
+  JOIN: 'in:JOIN',
+  LOCATION_UPDATE: 'in:LOCATION_UPDATE',
+  DISTANCE: 'in:DISTANCE',
+}
+
+export function handleJoinSocket(
+  socket: WebSocket,
+  event: EventService,
+  log: FastifyBaseLogger,
+  metrics?: Metrics,
+) {
   let deviceId: string | null = null
 
   startHeartbeat(socket)
@@ -24,10 +38,13 @@ export function handleJoinSocket(socket: WebSocket, event: EventService, log: Fa
     )
 
     if (!success) {
+      metrics?.count('in:invalid')
       log.debug({ error }, 'invalid join-socket message')
       socket.close(WS_CLOSE.INVALID_MESSAGE, 'Invalid message')
       return
     }
+
+    metrics?.count(INBOUND_COUNTER[data.type])
 
     if (deviceId === null && data.type !== 'JOIN') {
       socket.close(WS_CLOSE.INVALID_MESSAGE, 'You must send a JOIN message first')
@@ -129,7 +146,7 @@ export async function joinEvent(app: FastifyInstance) {
         return
       }
 
-      handleJoinSocket(socket, event, request.log)
+      handleJoinSocket(socket, event, request.log, app.metrics)
     },
   )
 }

@@ -2,6 +2,7 @@ import { type CreateEvent, type ExactLocation, exactLocationSchema } from '@poll
 import type { FastifyBaseLogger } from 'fastify'
 import type { Redis } from 'ioredis'
 import type { PrismaClient } from '../generated/prisma/client.js'
+import type { Metrics } from '../metrics.js'
 import type { Bus, PositionsSubscription } from './bus.js'
 import { EventService } from './event-service.js'
 import { GraphStore } from './graph-store.js'
@@ -11,6 +12,7 @@ export interface EventRegistryOptions {
   redis: Redis
   bus: Bus
   logger: FastifyBaseLogger
+  metrics?: Metrics
 }
 
 interface CreateEventData extends CreateEvent {
@@ -28,19 +30,43 @@ export class EventRegistry {
   private readonly redis: Redis
   private readonly bus: Bus
   private readonly logger: FastifyBaseLogger
+  private readonly metrics: Metrics | undefined
 
   private readonly services = new Map<string, EventService>()
   private readonly subscriptions = new Map<string, PositionsSubscription>()
 
-  constructor({ prisma, redis, bus, logger }: EventRegistryOptions) {
+  constructor({ prisma, redis, bus, logger, metrics }: EventRegistryOptions) {
     this.prisma = prisma
     this.redis = redis
     this.bus = bus
     this.logger = logger
+    this.metrics = metrics
   }
 
   get(id: string) {
     return this.services.get(id)
+  }
+
+  get liveEvents() {
+    return this.services.size
+  }
+
+  /** Devices connected across every live event. */
+  get subscriberCount() {
+    return this.sum(service => service.subscriberCount)
+  }
+
+  /** Store writes dispatched and not yet applied, across every live event. */
+  get pendingWrites() {
+    return this.sum(service => service.pendingWrites)
+  }
+
+  private sum(of: (service: EventService) => number) {
+    let total = 0
+
+    for (const service of this.services.values()) total += of(service)
+
+    return total
   }
 
   async boot() {
@@ -119,6 +145,7 @@ export class EventRegistry {
       graphStore: new GraphStore(this.redis, id),
       bus: this.bus,
       logger: this.logger,
+      metrics: this.metrics,
     })
 
     this.services.set(id, service)

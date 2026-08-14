@@ -18,6 +18,7 @@ import { openapiTransform } from './http/openapi.js'
 import { routes } from './http/routes/index.js'
 import { createLogger, type Logger } from './logger.js'
 import { eventsRuntimePlugin } from './plugins/events-runtime.js'
+import { metricsPlugin } from './plugins/metrics.js'
 import { prismaPlugin } from './plugins/prisma.js'
 import { redisPlugin } from './plugins/redis.js'
 
@@ -130,6 +131,7 @@ export async function buildApp({ env, logger, prisma, redis, bus }: BuildAppOpti
   })
   await app.register(fastifyWebsocket)
 
+  await app.register(metricsPlugin)
   await app.register(prismaPlugin, { client: prisma })
   await app.register(redisPlugin, { client: redis })
   await app.register(eventsRuntimePlugin, { bus })
