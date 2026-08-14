@@ -15,10 +15,15 @@ export const eventsRuntimePlugin = fastifyPlugin<EventsRuntimePluginOptions>(
       redis: app.redis,
       bus,
       logger: app.log,
+      metrics: app.metrics,
     })
 
     app.decorate('bus', bus)
     app.decorate('events', events)
+
+    app.metrics.gauge('liveEvents', () => events.liveEvents)
+    app.metrics.gauge('connections', () => events.subscriberCount)
+    app.metrics.gauge('pendingWrites', () => events.pendingWrites)
 
     // Rehydrate OPEN events once the app is fully wired — no import-time IO.
     app.addHook('onReady', async () => {
@@ -29,7 +34,7 @@ export const eventsRuntimePlugin = fastifyPlugin<EventsRuntimePluginOptions>(
       events.shutdown()
     })
   },
-  { name: 'events-runtime', dependencies: ['prisma', 'redis'] },
+  { name: 'events-runtime', dependencies: ['metrics', 'prisma', 'redis'] },
 )
 
 declare module 'fastify' {

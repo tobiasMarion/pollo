@@ -6,6 +6,7 @@ import type {
   PositionsMessage,
 } from '@pollo/contracts'
 import type { FastifyBaseLogger } from 'fastify'
+import type { Metrics } from '../metrics.js'
 import { AdminDigest, DIGEST_INTERVAL_MS } from './admin-digest.js'
 import type { Bus } from './bus.js'
 import type { GraphStore } from './graph-store.js'
@@ -37,6 +38,7 @@ export interface EventServiceOptions {
   graphStore: GraphStore
   bus: Bus
   logger?: FastifyBaseLogger
+  metrics?: Metrics
 }
 
 /**
@@ -53,19 +55,34 @@ export class EventService {
   private readonly graphStore: GraphStore
   private readonly bus: Bus
   private readonly logger: FastifyBaseLogger | undefined
+  private readonly metrics: Metrics | undefined
 
   private pendingStoreWrites: Promise<unknown> = Promise.resolve()
+  private pending = 0
 
   private readonly digest = new AdminDigest()
   private digestTimer: ReturnType<typeof setInterval> | null = null
 
-  constructor({ id, location, adminId, graphStore, bus, logger }: EventServiceOptions) {
+  constructor({ id, location, adminId, graphStore, bus, logger, metrics }: EventServiceOptions) {
     this.id = id
     this.location = location
     this.graphStore = graphStore
     this.bus = bus
     this.logger = logger
+    this.metrics = metrics
     this.admin = { userId: adminId, sendMessage: undefined }
+  }
+
+  get subscriberCount() {
+    return this.subscribers.size
+  }
+
+  /**
+   * Writes dispatched and not yet applied. Nobody awaits them, so a store that
+   * cannot keep up neither fails nor blocks — it only falls further behind.
+   */
+  get pendingWrites() {
+    return this.pending
   }
 
   /**
@@ -74,9 +91,17 @@ export class EventService {
    * setEdge that preceded it and resurrect the edge.
    */
   private enqueueStoreWrite(write: () => Promise<unknown>) {
-    this.pendingStoreWrites = this.pendingStoreWrites
-      .then(write)
-      .catch(error => this.logger?.error({ err: error }, 'graph store write failed'))
+    this.pending++
+
+    this.pendingStoreWrites = this.pendingStoreWrites.then(write).then(
+      () => {
+        this.pending--
+      },
+      error => {
+        this.pending--
+        this.logger?.error({ err: error }, 'graph store write failed')
+      },
+    )
   }
 
   /** Resolves once every store write dispatched so far has been applied. */
@@ -181,6 +206,9 @@ export class EventService {
 
   /** Fans out to the devices; the admin hears about it in the next batch. */
   private broadcastToDevices(message: Message) {
+    // Once for the whole fan-out; the size is known before the loop starts.
+    this.metrics?.count('framesOut', this.subscribers.size)
+
     for (const { sendMessage } of this.subscribers.values()) {
       sendMessage(message)
     }
@@ -270,6 +298,8 @@ export class EventService {
 
       connection.sendMessage({ type: 'SET_POINT', position })
       this.digest.placedAt(deviceId, position)
+
+      this.metrics?.count('framesOut')
     }
   }
 }
