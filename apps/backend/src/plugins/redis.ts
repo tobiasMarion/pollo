@@ -8,7 +8,12 @@ export interface RedisPluginOptions {
 
 export const redisPlugin = fastifyPlugin<RedisPluginOptions>(
   async (app, options) => {
-    const redis = options.client ?? new Redis(options.url ?? app.env.REDIS_URL)
+    const redis =
+      options.client ??
+      new Redis(options.url ?? app.env.REDIS_URL, {
+        // Commands issued in the same tick leave as one write.
+        enableAutoPipelining: true,
+      })
 
     app.decorate('redis', redis)
 

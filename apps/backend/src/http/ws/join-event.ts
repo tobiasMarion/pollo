@@ -12,7 +12,8 @@ import type { ZodTypeProvider } from 'fastify-type-provider-zod'
 import { z } from 'zod'
 import type { EventService } from '../../events/event-service.js'
 import type { Metrics } from '../../metrics.js'
-import { sendMessage, startHeartbeat } from './protocol.js'
+import type { Heartbeat } from './heartbeat.js'
+import { sendMessage } from './protocol.js'
 
 /** Spelled out so counting a frame does not allocate a name for it. */
 const INBOUND_COUNTER: Record<DeviceOutboundMessage['type'], string> = {
@@ -21,15 +22,20 @@ const INBOUND_COUNTER: Record<DeviceOutboundMessage['type'], string> = {
   DISTANCE: 'in:DISTANCE',
 }
 
+interface JoinSocketDeps {
+  event: EventService
+  log: FastifyBaseLogger
+  heartbeat: Heartbeat
+  metrics?: Metrics
+}
+
 export function handleJoinSocket(
   socket: WebSocket,
-  event: EventService,
-  log: FastifyBaseLogger,
-  metrics?: Metrics,
+  { event, log, heartbeat, metrics }: JoinSocketDeps,
 ) {
   let deviceId: string | null = null
 
-  startHeartbeat(socket)
+  heartbeat.watch(socket)
 
   socket.on('message', rawMessage => {
     const { success, data, error } = safeParseJsonMessage(
@@ -146,7 +152,12 @@ export async function joinEvent(app: FastifyInstance) {
         return
       }
 
-      handleJoinSocket(socket, event, request.log, app.metrics)
+      handleJoinSocket(socket, {
+        event,
+        log: request.log,
+        heartbeat: app.heartbeat,
+        metrics: app.metrics,
+      })
     },
   )
 }
