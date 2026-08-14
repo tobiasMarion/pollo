@@ -82,6 +82,10 @@ The reasoning behind the pieces lives in [`docs/adr/`](docs/adr): the
 [contracts package](docs/adr/0005-shared-contracts.md). For the story around
 them rather than the decisions themselves, see [`docs/articles.md`](docs/articles.md).
 
+What it would take to hold fifty thousand phones on one machine — where the IO
+actually goes, which operations are quietly quadratic, and what each of them
+costs — is audited in [`docs/scaling-io.md`](docs/scaling-io.md).
+
 ---
 
 ## ✅ Requirements <a name="requirements"></a>
