@@ -1,16 +1,18 @@
 import { type CreateEvent, type ExactLocation, exactLocationSchema } from '@pollo/contracts'
 import type { FastifyBaseLogger } from 'fastify'
 import type { Redis } from 'ioredis'
-import type { PrismaClient } from '../generated/prisma/client.js'
-import type { Bus, PositionsSubscription } from './bus.js'
-import { EventService } from './event-service.js'
-import { GraphStore } from './graph-store.js'
+import type { Metrics } from '../observability/metrics.js'
+import { LiveEvent } from './live-event.js'
+import type { EventRepository } from './postgres/event-repository.js'
+import type { Bus, PositionsSubscription } from './redis/bus.js'
+import { GraphStore } from './redis/graph-store.js'
 
 export interface EventRegistryOptions {
-  prisma: PrismaClient
+  repository: EventRepository
   redis: Redis
   bus: Bus
   logger: FastifyBaseLogger
+  metrics?: Metrics
 }
 
 interface CreateEventData extends CreateEvent {
@@ -24,27 +26,51 @@ interface CreateEventData extends CreateEvent {
  * an API restart is not an event ending).
  */
 export class EventRegistry {
-  private readonly prisma: PrismaClient
+  private readonly repository: EventRepository
   private readonly redis: Redis
   private readonly bus: Bus
   private readonly logger: FastifyBaseLogger
+  private readonly metrics: Metrics | undefined
 
-  private readonly services = new Map<string, EventService>()
+  private readonly services = new Map<string, LiveEvent>()
   private readonly subscriptions = new Map<string, PositionsSubscription>()
 
-  constructor({ prisma, redis, bus, logger }: EventRegistryOptions) {
-    this.prisma = prisma
+  constructor({ repository, redis, bus, logger, metrics }: EventRegistryOptions) {
+    this.repository = repository
     this.redis = redis
     this.bus = bus
     this.logger = logger
+    this.metrics = metrics
   }
 
   get(id: string) {
     return this.services.get(id)
   }
 
+  get liveEvents() {
+    return this.services.size
+  }
+
+  /** Devices connected across every live event. */
+  get subscriberCount() {
+    return this.sum(service => service.subscriberCount)
+  }
+
+  /** Store writes dispatched and not yet applied, across every live event. */
+  get pendingWrites() {
+    return this.sum(service => service.pendingWrites)
+  }
+
+  private sum(of: (service: LiveEvent) => number) {
+    let total = 0
+
+    for (const service of this.services.values()) total += of(service)
+
+    return total
+  }
+
   async boot() {
-    const openEvents = await this.prisma.event.findMany({ where: { status: 'OPEN' } })
+    const openEvents = await this.repository.listOpen()
 
     for (const { id, latitude, longitude, userId } of openEvents) {
       const service = this.register(id, userId, exactLocationSchema.parse({ latitude, longitude }))
@@ -68,12 +94,10 @@ export class EventRegistry {
     this.logger.info({ count: openEvents.length }, 'event registry booted')
   }
 
-  async create({ name, latitude, longitude, type, adminId }: CreateEventData) {
-    const { id } = await this.prisma.event.create({
-      data: { name, latitude, longitude, type, userId: adminId },
-    })
+  async create({ adminId, ...event }: CreateEventData) {
+    const { id } = await this.repository.create(event, adminId)
 
-    this.register(id, adminId, { latitude, longitude })
+    this.register(id, adminId, { latitude: event.latitude, longitude: event.longitude })
 
     return id
   }
@@ -94,11 +118,7 @@ export class EventRegistry {
     // unguarded, because closing an event with a crowd still in it is the
     // normal way an event ends.
     await service.discardGraph()
-
-    await this.prisma.event.update({
-      where: { id },
-      data: { status: 'FINISHED' },
-    })
+    await this.repository.finish(id)
   }
 
   /** Stops subscriptions without closing events (used on API shutdown). */
@@ -111,14 +131,15 @@ export class EventRegistry {
     this.services.clear()
   }
 
-  private register(id: string, adminId: string, location: ExactLocation): EventService {
-    const service = new EventService({
+  private register(id: string, adminId: string, location: ExactLocation): LiveEvent {
+    const service = new LiveEvent({
       id,
       location,
       adminId,
       graphStore: new GraphStore(this.redis, id),
       bus: this.bus,
       logger: this.logger,
+      metrics: this.metrics,
     })
 
     this.services.set(id, service)

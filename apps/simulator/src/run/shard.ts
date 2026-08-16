@@ -1,21 +1,16 @@
 import { parentPort, workerData } from 'node:worker_threads'
 import type { Effect, Origin } from '@pollo/contracts'
-import { SpatialGrid } from '../crowd/grid.js'
 import { occupy } from '../crowd/occupancy.js'
 import { capacityFor, venues } from '../crowd/venue.js'
-import { fetchParticipants } from '../io/api.js'
 import type { SimulatorConfig } from '../io/config.js'
 import { type DeviceContext, perTickChance, VirtualDevice } from '../io/device.js'
 import { webSocketTransport } from '../io/transport.js'
 import { FIELD_TICK_SECONDS, SharedErrorField } from '../noise/gnss.js'
 import { deriveSeed, Random } from '../noise/random.js'
-import { attach, DEVICE, type SharedBuffers } from './shared.js'
+import { attach, type SharedBuffers } from './shared.js'
 
 /** How often the shard walks its devices. Fast enough for a 1 Hz report rate. */
 const TICK_MS = 50
-
-/** How often the neighbour index is rebuilt. Nobody moves far between rebuilds. */
-const GRID_REBUILD_MS = 8_000
 
 /** How long a cue stays the same cue, for the purpose of only reporting it once. */
 const CUE_COALESCE_MS = 250
@@ -60,14 +55,6 @@ function run(data: ShardData) {
   const occupied = occupy(seats.length, config.clients, new Random(config.seed))
 
   const field = new SharedErrorField(new Random(deriveSeed(config.seed, 0)))
-  const grid = new SpatialGrid(
-    shared.truth,
-    shared.flags,
-    config.clients,
-    config.range,
-    DEVICE.CONNECTED,
-  )
-
   /**
    * A cue reaches every device on this thread within a millisecond or two of
    * itself, and the terminal needs it once. Coalescing on the payload keeps the
@@ -106,9 +93,7 @@ function run(data: ShardData) {
     budget: venue.sigma,
     seats,
     spareSeats,
-    neighborsOf: (index, into) => grid.within(index, config.range, into),
     connect: webSocketTransport,
-    roster: () => fetchParticipants(config.api, config.event),
     onEffect: forwardCue,
   }
 
@@ -130,20 +115,12 @@ function run(data: ShardData) {
     )
   }
 
-  grid.rebuild()
-  let lastGridRebuild = Date.now()
-
   const chance = perTickChance(config, TICK_MS)
 
   const timer = setInterval(() => {
     const now = Date.now()
 
     field.advanceTo(Math.floor((now - epoch) / 1_000 / FIELD_TICK_SECONDS))
-
-    if (now - lastGridRebuild >= GRID_REBUILD_MS) {
-      grid.rebuild()
-      lastGridRebuild = now
-    }
 
     for (const device of devices) device.tick(now, field, chance)
   }, TICK_MS)

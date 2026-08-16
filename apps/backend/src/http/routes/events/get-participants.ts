@@ -2,12 +2,12 @@ import { participantSchema } from '@pollo/contracts'
 import type { FastifyInstance } from 'fastify'
 import type { ZodTypeProvider } from 'fastify-type-provider-zod'
 import { z } from 'zod'
-import { NotFoundError } from '../../errors.js'
 import {
   errorExamples,
   errorResponseSchema,
   validationErrorResponseSchema,
-} from '../../responses.js'
+} from '../../errors/error-responses.js'
+import { NotFoundError } from '../../errors/http-error.js'
 
 export async function getParticipants(app: FastifyInstance) {
   app.withTypeProvider<ZodTypeProvider>().get(
@@ -22,10 +22,10 @@ export async function getParticipants(app: FastifyInstance) {
           'Public.',
           '',
           'Served from the live connections, so a device appears the instant its `JOIN`',
-          'is handled. This is the snapshot a joining device starts from, and the',
-          '`USER_JOINED` and `USER_LEFT` frames on its socket are the continuation of',
-          'it — open the socket first, then read this, or an arrival in between is lost',
-          'to both.',
+          'is handled. This is the opening snapshot for the admin panel, which follows',
+          'it with `FIELD_UPDATE` batches. A device joining has no use for it: the',
+          'server tells each one which peers to measure, so nobody has to be handed the',
+          'crowd to work out who is nearby.',
         ].join('\n'),
         params: z.object({
           eventId: z.string().uuid().describe('Id of an open event.'),

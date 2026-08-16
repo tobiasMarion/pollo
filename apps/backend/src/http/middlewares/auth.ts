@@ -1,5 +1,5 @@
 import fastifyPlugin from 'fastify-plugin'
-import { UnauthorizedError } from '../errors.js'
+import { UnauthorizedError } from '../errors/http-error.js'
 
 export const auth = fastifyPlugin(
   async app => {

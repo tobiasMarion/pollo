@@ -14,6 +14,11 @@ import { unionFrom } from '../union.js'
  * panel is drawing a field rather than following an event log, so it is sent
  * `FIELD_UPDATE`: one coalesced batch on a fixed cadence, whatever the crowd
  * did in between.
+ *
+ * Neither end is told who joined or left. A device is handed `SET_NEIGHBORS`
+ * instead — the peers it should measure — which is the only thing it ever did
+ * with an arrival, and costs a frame per device rather than a frame per device
+ * per arrival.
  */
 export const messageSchemas = {
   AUTHENTICATION: z
@@ -76,28 +81,22 @@ export const messageSchemas = {
     })
     .describe('Everything that happened to the field since the last batch, coalesced.'),
 
-  USER_JOINED: z
+  DISTANCES: z
     .object({
-      type: z.literal('USER_JOINED'),
-      deviceId: z.string(),
-      location: locationSchema,
+      type: z.literal('DISTANCES'),
+      measurements: z
+        .array(
+          z.object({
+            to: z.string().describe('The device that was measured.'),
+            distance: z
+              .number()
+              .nullable()
+              .describe('Meters, or null to retract an edge that no longer holds.'),
+          }),
+        )
+        .describe('One sweep. Peers that were not reached are simply absent.'),
     })
-    .describe('A device joined the event.'),
-
-  DISTANCE: z
-    .object({
-      type: z.literal('DISTANCE'),
-      to: z.string().describe('The device that was measured.'),
-      distance: z.number().nullable().describe('Meters, or null when the peer went out of range.'),
-    })
-    .describe('A device reporting how far a peer is.'),
-
-  USER_LEFT: z
-    .object({
-      type: z.literal('USER_LEFT'),
-      deviceId: z.string(),
-    })
-    .describe('A device disconnected.'),
+    .describe('A device reporting how far its assigned peers are — one frame per sweep.'),
 
   SET_POINT: z
     .object({
@@ -105,6 +104,15 @@ export const messageSchemas = {
       position: positionSchema,
     })
     .describe('Where the worker placed this device — sent to that device alone.'),
+
+  SET_NEIGHBORS: z
+    .object({
+      type: z.literal('SET_NEIGHBORS'),
+      peers: z
+        .array(z.string())
+        .describe('Device ids to range against. Replaces the previous list outright.'),
+    })
+    .describe('Which peers this device should measure, decided by the server.'),
 
   EFFECT: z
     .object({
@@ -123,3 +131,6 @@ export type MessageType = Message['type']
 export type MessageOf<Type extends MessageType> = Extract<Message, { type: Type }>
 
 export const messageTypes = Object.keys(messageSchemas) as [MessageType, ...MessageType[]]
+
+/** One entry of a `DISTANCES` sweep. */
+export type Measurement = MessageOf<'DISTANCES'>['measurements'][number]

@@ -2,9 +2,9 @@ import { userSchema } from '@pollo/contracts'
 import type { FastifyInstance } from 'fastify'
 import type { ZodTypeProvider } from 'fastify-type-provider-zod'
 import { z } from 'zod'
-import { BadRequestError } from '../../errors.js'
+import { errorExamples, errorResponseSchema } from '../../errors/error-responses.js'
+import { BadRequestError } from '../../errors/http-error.js'
 import { auth } from '../../middlewares/auth.js'
-import { errorExamples, errorResponseSchema } from '../../responses.js'
 
 export async function getProfile(app: FastifyInstance) {
   app
@@ -47,10 +47,7 @@ export async function getProfile(app: FastifyInstance) {
       async (request, reply) => {
         const userId = await request.getCurrentUserId()
 
-        const user = await app.prisma.user.findUnique({
-          select: { id: true, name: true, email: true, avatarUrl: true },
-          where: { id: userId },
-        })
+        const user = await app.userRepository.findProfile(userId)
 
         if (!user) {
           throw new BadRequestError('User not found.')

@@ -1,25 +1,27 @@
 import fastifyCors from '@fastify/cors'
 import fastifyJwt from '@fastify/jwt'
 import fastifySwagger from '@fastify/swagger'
-import fastifyWebsocket from '@fastify/websocket'
 import scalarApiReference from '@scalar/fastify-api-reference'
-import { fastify } from 'fastify'
+import { fastify, LogController } from 'fastify'
 import {
   serializerCompiler,
   validatorCompiler,
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod'
 import type { Redis } from 'ioredis'
-import type { Env } from './env.js'
-import type { Bus } from './events/bus.js'
+import type { Env } from './config/env.js'
+import { createLogger, type Logger } from './config/logger.js'
+import type { Bus } from './events/redis/bus.js'
 import type { PrismaClient } from './generated/prisma/client.js'
-import { errorHandler } from './http/error-handler.js'
+import { errorHandler } from './http/errors/error-handler.js'
 import { openapiTransform } from './http/openapi.js'
 import { routes } from './http/routes/index.js'
-import { createLogger, type Logger } from './logger.js'
 import { eventsRuntimePlugin } from './plugins/events-runtime.js'
+import { metricsPlugin } from './plugins/metrics.js'
 import { prismaPlugin } from './plugins/prisma.js'
 import { redisPlugin } from './plugins/redis.js'
+import { repositoriesPlugin } from './plugins/repositories.js'
+import { websocketPlugin } from './plugins/websocket.js'
 
 export interface BuildAppOptions {
   env: Env
@@ -33,6 +35,7 @@ export interface BuildAppOptions {
 export async function buildApp({ env, logger, prisma, redis, bus }: BuildAppOptions) {
   const app = fastify({
     loggerInstance: logger ?? createLogger(env),
+    logController: new LogController({ disableRequestLogging: !env.LOG_REQUESTS }),
   }).withTypeProvider<ZodTypeProvider>()
 
   app.decorate('env', env)
@@ -128,9 +131,10 @@ export async function buildApp({ env, logger, prisma, redis, bus }: BuildAppOpti
       isEditable: false,
     },
   })
-  await app.register(fastifyWebsocket)
-
+  await app.register(metricsPlugin)
+  await app.register(websocketPlugin)
   await app.register(prismaPlugin, { client: prisma })
+  await app.register(repositoriesPlugin)
   await app.register(redisPlugin, { client: redis })
   await app.register(eventsRuntimePlugin, { bus })
 

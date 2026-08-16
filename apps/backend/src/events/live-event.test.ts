@@ -1,11 +1,11 @@
 import { randomUUID } from 'node:crypto'
-import type { ControlMessage, IngestMessage, Location, Message } from '@pollo/contracts'
+import type { ControlMessage, IngestBatch, Location, Message } from '@pollo/contracts'
 import type { Redis } from 'ioredis'
 import RedisMock from 'ioredis-mock'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Bus } from './bus.js'
-import { EventService } from './event-service.js'
-import { GraphStore } from './graph-store.js'
+import { LiveEvent } from './live-event.js'
+import type { Bus } from './redis/bus.js'
+import { GraphStore } from './redis/graph-store.js'
 
 const location: Location = {
   latitude: -29.7,
@@ -21,11 +21,16 @@ const position = {
 }
 
 class FakeBus implements Bus {
-  ingest: Array<{ eventId: string; message: IngestMessage }> = []
+  ingest: Array<{ eventId: string; batch: IngestBatch }> = []
   control: ControlMessage[] = []
 
-  publishIngest(eventId: string, message: IngestMessage) {
-    this.ingest.push({ eventId, message })
+  publishIngest(eventId: string, batch: IngestBatch) {
+    this.ingest.push({ eventId, batch })
+  }
+
+  /** Every op the stream carried, across every window. */
+  get ops() {
+    return this.ingest.flatMap(({ batch }) => batch.ops)
   }
 
   publishControl(message: ControlMessage) {
@@ -37,9 +42,9 @@ class FakeBus implements Bus {
   }
 }
 
-describe('EventService', () => {
+describe('LiveEvent', () => {
   let bus: FakeBus
-  let service: EventService
+  let service: LiveEvent
   let adminInbox: Message[]
 
   beforeEach(() => {
@@ -47,7 +52,7 @@ describe('EventService', () => {
     adminInbox = []
     // ioredis-mock instances share one keyspace; a unique graph id isolates tests.
     const eventId = randomUUID()
-    service = new EventService({
+    service = new LiveEvent({
       id: eventId,
       location: { latitude: -29.7, longitude: -53.7 },
       adminId: 'admin-1',
@@ -69,7 +74,7 @@ describe('EventService', () => {
     return update
   }
 
-  it('subscribe fans out USER_JOINED and publishes a JOIN ingest', async () => {
+  it('tells nobody that somebody arrived, and publishes a JOIN ingest', async () => {
     const firstInbox: Message[] = []
     service.subscribe({ deviceId: 'd1', location, sendMessage: m => firstInbox.push(m) })
 
@@ -86,17 +91,40 @@ describe('EventService', () => {
       { deviceId: 'd2', location },
     ])
 
-    expect(firstInbox).toContainEqual({ type: 'USER_JOINED', deviceId: 'd2', location })
-    expect(bus.ingest.map(({ message }) => message.op)).toEqual(['JOIN', 'JOIN'])
+    // `d1` was not interrupted for `d2`. It hears about it only when the peers
+    // it should measure change, which is a frame per device rather than a frame
+    // per device per arrival.
+    expect(firstInbox).toEqual([])
+    expect(bus.ops.map(op => op.op)).toEqual(['JOIN', 'JOIN'])
 
     expect(service.getSubscribers()).toContainEqual({ deviceId: 'd1', location })
   })
 
+  it('hands each device the peers it should measure', () => {
+    const inboxes = new Map<string, Message[]>()
+
+    for (const deviceId of ['d1', 'd2', 'd3']) {
+      const inbox: Message[] = []
+      inboxes.set(deviceId, inbox)
+      service.subscribe({ deviceId, location, sendMessage: m => inbox.push(m) })
+    }
+
+    service.flushAssignments()
+
+    for (const [deviceId, inbox] of inboxes) {
+      const assignment = inbox.find(message => message.type === 'SET_NEIGHBORS')
+
+      if (assignment?.type !== 'SET_NEIGHBORS') throw new Error(`${deviceId} got no list`)
+
+      expect(assignment.peers).not.toContain(deviceId)
+      expect(assignment.peers.length).toBeGreaterThan(0)
+    }
+  })
+
   /**
-   * The roster a joining device reads has to be current the moment it asks. Read
-   * from the graph store this would still be empty here, because those writes are
-   * queued off the hot path — and `USER_JOINED` only covers arrivals after this
-   * point, so anybody missing from the snapshot is missing for good.
+   * The panel's opening snapshot has to be current the moment it asks. Read from
+   * the graph store it would still be empty here, because those writes are a
+   * flush behind on purpose.
    */
   it('getSubscribers is current without waiting for the store', () => {
     service.subscribe({ deviceId: 'd1', location, sendMessage: () => {} })
@@ -133,33 +161,63 @@ describe('EventService', () => {
     expect(adminInbox).toEqual([])
   })
 
-  it('setDistanceToDevice reports to the admin and publishes DISTANCE', async () => {
+  it('takes a sweep, reports it to the admin and publishes one ingest per pair', async () => {
     service.subscribe({ deviceId: 'd1', location, sendMessage: () => {} })
 
-    service.setDistanceToDevice('d1', 'd2', 4.2)
-    service.setDistanceToDevice('d1', 'd2', null)
+    service.setDistancesFromDevice('d1', [{ to: 'd2', distance: 4.2 }])
+    service.setDistancesFromDevice('d1', [{ to: 'd2', distance: null }])
 
     await service.settled()
 
     // Two changes to one edge inside a window are one entry: the later value.
     service.flushDigest()
     expect(batch().edges).toEqual([{ from: 'd1', to: 'd2', distance: null }])
-    expect(bus.ingest.map(({ message }) => message).slice(1)).toEqual([
-      { op: 'DISTANCE', from: 'd1', to: 'd2', distance: 4.2 },
+    // Two readings of one pair inside a window reach the worker as the later
+    // one, the same way the store sees them.
+    expect(bus.ops.filter(op => op.op === 'DISTANCE')).toEqual([
       { op: 'DISTANCE', from: 'd1', to: 'd2', distance: null },
     ])
 
     expect((await service.getEventGraph()).edges).toEqual([])
   })
 
+  it('keeps nothing for the panel while no panel is connected', () => {
+    service.clearAdminConnection()
+
+    service.subscribe({ deviceId: 'd1', location, sendMessage: () => {} })
+    service.setDistancesFromDevice('d1', [{ to: 'd2', distance: 4.2 }])
+    service.unsubscribe('d1')
+
+    // The only thing that empties the digest is a flush, and a flush gives up
+    // when there is no admin — so feeding it regardless meant a run with no
+    // panel open accumulated every edge for the life of the event.
+    const seen: Message[] = []
+    service.setAdminConnection(message => seen.push(message))
+    service.flushDigest()
+
+    expect(seen).toEqual([])
+  })
+
+  it('starts a newly connected panel from nothing, not from history', () => {
+    service.subscribe({ deviceId: 'd1', location, sendMessage: () => {} })
+
+    // The panel opens from the REST snapshot; a partial history of the window
+    // before it arrived would only be something to reconcile.
+    const seen: Message[] = []
+    service.setAdminConnection(message => seen.push(message))
+    service.flushDigest()
+
+    expect(seen).toEqual([])
+  })
+
   it('ignores location updates from unknown devices', () => {
     service.updateSubscriberLocation('ghost', location)
 
     expect(adminInbox).toEqual([])
-    expect(bus.ingest).toEqual([])
+    expect(bus.ops).toEqual([])
   })
 
-  it('unsubscribe publishes USER_LEFT and LEAVE, and forgets the device', async () => {
+  it('unsubscribe publishes LEAVE and forgets the device, telling nobody else', async () => {
     const inbox: Message[] = []
     service.subscribe({ deviceId: 'd1', location, sendMessage: m => inbox.push(m) })
 
@@ -173,8 +231,21 @@ describe('EventService', () => {
     expect(update.left).toEqual(['d1'])
     // Joining and leaving inside one window leaves the panel nothing to undo.
     expect(update.locations).toEqual([])
-    expect(bus.ingest.map(({ message }) => message.op)).toEqual(['JOIN', 'LEAVE'])
+
+    // And the worker hears nothing at all. A device that arrived and left inside
+    // one window was never written, so there is nothing to tell it to undo.
+    expect(bus.ops).toEqual([])
     expect(service.getSubscribers()).toEqual([])
+  })
+
+  it('tells the worker about a departure it had already been told about', async () => {
+    service.subscribe({ deviceId: 'd1', location, sendMessage: () => {} })
+    await service.settled()
+
+    service.unsubscribe('d1')
+    await service.settled()
+
+    expect(bus.ops.map(op => op.op)).toEqual(['JOIN', 'LEAVE'])
   })
 
   it('broadcastPositions routes SET_POINT to the right device and reports to the admin', () => {
@@ -193,7 +264,7 @@ describe('EventService', () => {
 
   it('clearAdminConnection stops admin notifications', () => {
     service.clearAdminConnection()
-    service.setDistanceToDevice('d1', 'd2', 1)
+    service.setDistancesFromDevice('d1', [{ to: 'd2', distance: 1 }])
     service.flushDigest()
 
     expect(adminInbox).toEqual([])
@@ -210,7 +281,7 @@ describe('EventService', () => {
     service.subscribe({ deviceId: 'd1', location, sendMessage: () => {} })
     service.subscribe({ deviceId: 'd2', location, sendMessage: () => {} })
 
-    service.setDistanceToDevice('d1', 'd2', 4.2)
+    service.setDistancesFromDevice('d1', [{ to: 'd2', distance: 4.2 }])
     service.unsubscribe('d1')
 
     service.flushDigest()
@@ -230,7 +301,7 @@ describe('EventService', () => {
     // A socket that dies with frames still queued gets its DISTANCE handled
     // after its close. Writing the edge here resurrects the node that was just
     // removed, and nothing ever cleans it again.
-    service.setDistanceToDevice('d1', 'd2', 7)
+    service.setDistancesFromDevice('d1', [{ to: 'd2', distance: 7 }])
 
     await service.settled()
     service.flushDigest()
@@ -241,11 +312,11 @@ describe('EventService', () => {
   })
 
   it('ignores a distance from a device that never joined', () => {
-    service.setDistanceToDevice('ghost', 'd2', 3)
+    service.setDistancesFromDevice('ghost', [{ to: 'd2', distance: 3 }])
     service.flushDigest()
 
     expect(adminInbox).toEqual([])
-    expect(bus.ingest).toEqual([])
+    expect(bus.ops).toEqual([])
   })
 
   it('collapses a burst from one device into its latest reading', () => {
@@ -266,7 +337,7 @@ describe('EventService', () => {
     it('throws away a graph left behind by sockets this runtime never had', async () => {
       service.subscribe({ deviceId: 'd1', location, sendMessage: () => {} })
       service.subscribe({ deviceId: 'd2', location, sendMessage: () => {} })
-      service.setDistanceToDevice('d1', 'd2', 3)
+      service.setDistancesFromDevice('d1', [{ to: 'd2', distance: 3 }])
       await service.settled()
 
       expect((await service.getEventGraph()).nodes).not.toEqual({})

@@ -66,11 +66,6 @@ const flags = {
     placeholder: '<hz>',
     help: 'DISTANCE sweep rate per device.',
   },
-  neighbors: {
-    schema: z.coerce.number().int().nonnegative().default(8),
-    placeholder: '<k>',
-    help: 'Peers a device ranges against per sweep.',
-  },
   range: {
     schema: z.coerce.number().positive().default(6),
     placeholder: '<m>',

@@ -141,7 +141,7 @@ describe('event lifecycle end to end', () => {
     const subscriber = await new WsClient(`${wsUrl}/events/${eventId}/join`).ready()
     subscriber.send({ type: 'JOIN', deviceId: 'device-1', location })
 
-    subscriber.send({ type: 'DISTANCE', to: 'device-2', distance: 3.2 })
+    subscriber.send({ type: 'DISTANCES', measurements: [{ to: 'device-2', distance: 3.2 }] })
 
     const arrival = await admin.batchWith(
       update => update.locations.length > 0 && update.edges.length > 0,
@@ -150,15 +150,22 @@ describe('event lifecycle end to end', () => {
     expect(arrival.edges).toEqual([{ from: 'device-1', to: 'device-2', distance: 3.2 }])
     expect(arrival.window).toBeGreaterThan(0)
 
-    const ingestEntries = await waitFor(
-      () => redis.xrange(streamKeys.ingest(eventId), '-', '+'),
-      entries => entries.length >= 2,
+    // One entry per window, carrying the ops of that window — not one entry per
+    // mutation, which was an XADD for every message the crowd sent.
+    const ingestOps = await waitFor(
+      async () => {
+        const entries = await redis.xrange(streamKeys.ingest(eventId), '-', '+')
+
+        return entries.flatMap(([, fields]) => {
+          const data = fields[fields.indexOf(STREAM_FIELD) + 1]
+
+          return (JSON.parse(data ?? '{}').ops ?? []) as Array<{ op: string }>
+        })
+      },
+      ops => ops.length >= 2,
     )
-    const ingestOps = ingestEntries.map(([, fields]) => {
-      const data = fields[fields.indexOf(STREAM_FIELD) + 1]
-      return JSON.parse(data ?? '{}').op
-    })
-    expect(ingestOps).toEqual(['JOIN', 'DISTANCE'])
+
+    expect(ingestOps.map(({ op }) => op)).toEqual(['JOIN', 'DISTANCE'])
 
     // Simulated Rust worker: writes a positions delta for the subscriber.
     await redis.xadd(

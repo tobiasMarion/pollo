@@ -10,23 +10,25 @@ import {
 import type { FastifyInstance } from 'fastify'
 import type { ZodTypeProvider } from 'fastify-type-provider-zod'
 import { z } from 'zod'
-import type { EventService } from '../../events/event-service.js'
-import { sendMessage, startHeartbeat } from './protocol.js'
+import type { LiveEvent } from '../../events/live-event.js'
+import type { Heartbeat } from './connection/heartbeat.js'
+import { sendMessage } from './connection/protocol.js'
 
 interface AdminSocketDeps {
   verifyToken: (token: string) => { sub: string }
   findOpenEvent: (eventId: string, userId: string) => Promise<boolean>
-  getEvent: (eventId: string) => EventService | undefined
+  getEvent: (eventId: string) => LiveEvent | undefined
+  heartbeat: Heartbeat
 }
 
 export function handleAdminSocket(
   socket: WebSocket,
   eventId: string,
-  { verifyToken, findOpenEvent, getEvent }: AdminSocketDeps,
+  { verifyToken, findOpenEvent, getEvent, heartbeat }: AdminSocketDeps,
 ) {
-  let event: EventService | null = null
+  let event: LiveEvent | null = null
 
-  startHeartbeat(socket)
+  heartbeat.watch(socket)
 
   socket.on('message', async rawMessage => {
     const { success, data } = safeParseJsonMessage(rawMessage.toString(), adminOutbound.schema)
@@ -158,13 +160,9 @@ export async function adminEvent(app: FastifyInstance) {
     (socket, request) => {
       handleAdminSocket(socket, request.params.eventId, {
         verifyToken: token => app.jwt.verify<{ sub: string }>(token),
-        findOpenEvent: async (eventId, userId) => {
-          const event = await app.prisma.event.findUnique({
-            where: { id: eventId, userId, status: 'OPEN' },
-          })
-          return event !== null
-        },
+        findOpenEvent: (eventId, userId) => app.eventRepository.isOpenAdmin(eventId, userId),
         getEvent: eventId => app.events.get(eventId),
+        heartbeat: app.heartbeat,
       })
     },
   )

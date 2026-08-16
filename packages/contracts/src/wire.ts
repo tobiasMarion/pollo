@@ -39,6 +39,19 @@ export const ingestMessageSchemas = {
 export const ingestMessageSchema = unionFrom('op', ingestMessageSchemas)
 
 export type IngestMessage = z.infer<typeof ingestMessageSchema>
+
+/**
+ * One stream entry carries a window's worth of mutations rather than one each.
+ * An entry per mutation is an XADD per message the crowd sends, and the ops here
+ * are already coalesced by device and by pair — two readings from one phone in
+ * the same window have one useful outcome between them.
+ */
+export const ingestBatchSchema = z.object({
+  at: z.number().describe('Server clock when the window was cut, in milliseconds.'),
+  ops: z.array(ingestMessageSchema),
+})
+
+export type IngestBatch = z.infer<typeof ingestBatchSchema>
 export type IngestOp = IngestMessage['op']
 export const ingestOps = Object.keys(ingestMessageSchemas) as [IngestOp, ...IngestOp[]]
 

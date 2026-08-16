@@ -32,10 +32,10 @@ export const adminOutbound = direction(['AUTHENTICATION', 'EFFECT'])
 export const adminInbound = direction(['AUTHENTICATION_ACK', 'FIELD_UPDATE', 'EFFECT'])
 
 /** What a device sends: where it is, and how far its peers are. */
-export const deviceOutbound = direction(['JOIN', 'LOCATION_UPDATE', 'DISTANCE'])
+export const deviceOutbound = direction(['JOIN', 'LOCATION_UPDATE', 'DISTANCES'])
 
-/** What a device receives: its own position, its neighbours, and cues. */
-export const deviceInbound = direction(['SET_POINT', 'USER_JOINED', 'USER_LEFT', 'EFFECT'])
+/** What a device receives: its own position, who to measure, and cues. */
+export const deviceInbound = direction(['SET_POINT', 'SET_NEIGHBORS', 'EFFECT'])
 
 export type AdminOutboundMessage = z.infer<typeof adminOutbound.schema>
 export type AdminInboundMessage = z.infer<typeof adminInbound.schema>

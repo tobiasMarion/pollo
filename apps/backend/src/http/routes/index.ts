@@ -9,11 +9,13 @@ import { getEventByLocation } from './events/get-event-by-location.js'
 import { getEventGraph } from './events/get-event-graph.js'
 import { getParticipants } from './events/get-participants.js'
 import { listMyEvents } from './events/list-my-events.js'
-import { healthRoute } from './health.js'
+import { healthRoute } from './meta/health.js'
+import { metricsRoute } from './meta/metrics.js'
 
 export async function routes(app: FastifyInstance) {
   // Meta
   await app.register(healthRoute)
+  await app.register(metricsRoute)
 
   // Auth
   await app.register(authenticateWithGithub)
