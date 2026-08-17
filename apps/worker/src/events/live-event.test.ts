@@ -52,6 +52,19 @@ describe('LiveEvent', () => {
       publisher: recording.publisher,
       keyframeTicks: 3,
       epsilon: 0.05,
+      // Nothing in this suite measures anything, and the point here is the
+      // publishing rules rather than the reconstruction.
+      minDegree: 0,
+      solver: {
+        anchor: { scale: 1 },
+        huberKnee: 2,
+        sweepsPerTick: 8,
+        convergenceM: 0.002,
+        omega: 1.5,
+        alphaMin: 0.2,
+        scaleBlend: 0.2,
+        samplingStride: 7,
+      },
     })
   })
 
@@ -139,7 +152,7 @@ describe('LiveEvent', () => {
     expect(sent[1]?.points.map(point => point.deviceId)).toEqual(['b'])
   })
 
-  it('places a device where its own GPS says, until a solver says otherwise', () => {
+  it('places a device the graph says nothing about at its own GPS', () => {
     event.ingest({
       at: 0,
       ops: [

@@ -33,6 +33,41 @@ const envSchema = z.object({
 
   /** Meters a pixel must move before a delta is worth sending. */
   WORKER_PUBLISH_EPSILON_M: z.coerce.number().nonnegative().default(0.05),
+
+  /**
+   * Sweeps a tick may spend, and the movement below which it gives the rest of
+   * the tick back. A settled crowd costs one sweep; the budget is for a crowd
+   * that is still arriving.
+   */
+  WORKER_SWEEPS_PER_TICK: z.coerce.number().int().positive().default(8),
+  WORKER_CONVERGENCE_M: z.coerce.number().positive().default(0.002),
+
+  /** Over-relaxation of each update. Past 1.9 the sweep degrades. */
+  WORKER_OMEGA: z.coerce.number().min(1).max(1.95).default(1.5),
+
+  /**
+   * Floor under the running mean's step. It sets how much averaging there is
+   * (over `1 / this` windows) and how fast somebody who walks is followed, which
+   * are the same number because they are the same mechanism.
+   */
+  WORKER_ALPHA_MIN: z.coerce.number().positive().max(1).default(0.2),
+
+  /** Where the robust loss bends, in sigmas. */
+  WORKER_HUBER_KNEE: z.coerce.number().positive().default(2),
+
+  /**
+   * Global trust in GPS. Anchors assume independent error and GNSS error is
+   * shared across a crowd; this is the dial that answers for it.
+   */
+  WORKER_ANCHOR_SCALE: z.coerce.number().positive().default(1),
+
+  /**
+   * Measured distances a device needs before the worker will claim to have
+   * placed it. Below this its position is its own GPS reading wearing a
+   * reconstruction's clothes, and the panel is right to keep drawing it as an
+   * outline.
+   */
+  WORKER_MIN_DEGREE: z.coerce.number().int().nonnegative().default(2),
 })
 
 export type Env = z.infer<typeof envSchema>

@@ -2,6 +2,7 @@ import { controlMessageSchema, ingestBatchSchema, streamKeys } from '@pollo/cont
 import type { Logger } from '../config/logger.js'
 import type { PositionPublisher } from '../redis/publisher.js'
 import type { StreamEntry, StreamReader } from '../redis/reader.js'
+import type { SolverOptions } from '../solve/solver.js'
 import { LiveEvent } from './live-event.js'
 
 export interface EventRegistryOptions {
@@ -11,6 +12,8 @@ export interface EventRegistryOptions {
   tickMs: number
   keyframeTicks: number
   epsilon: number
+  minDegree: number
+  solver: SolverOptions
 }
 
 /**
@@ -116,6 +119,8 @@ export class EventRegistry {
         publisher: this.options.publisher,
         keyframeTicks: this.options.keyframeTicks,
         epsilon: this.options.epsilon,
+        minDegree: this.options.minDegree,
+        solver: this.options.solver,
       }),
     )
 
@@ -137,5 +142,10 @@ export class EventRegistry {
 
   private tick() {
     for (const event of this.events.values()) event.tick()
+  }
+
+  /** Development only — see `dev/toggle.ts`. */
+  setCorrecting(correcting: boolean) {
+    for (const event of this.events.values()) event.setCorrecting(correcting)
   }
 }

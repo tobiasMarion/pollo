@@ -11,21 +11,15 @@ import {
 import type { Redis } from 'ioredis'
 import RedisMock from 'ioredis-mock'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { loadEnv } from '../config/env.js'
 import { createLogger } from '../config/logger.js'
 import { PositionPublisher } from '../redis/publisher.js'
 import { StreamReader } from '../redis/reader.js'
 import { EventRegistry } from './registry.js'
 
-const logger = createLogger({
-  NODE_ENV: 'test',
-  LOG_LEVEL: 'silent',
-  REDIS_URL: 'redis://localhost:6379',
-  WORKER_TICK_MS: 33,
-  WORKER_POSITIONS_MAXLEN: 1_000,
-  WORKER_POINTS_PER_MESSAGE: 500,
-  WORKER_KEYFRAME_TICKS: 90,
-  WORKER_PUBLISH_EPSILON_M: 0.05,
-})
+const logger = createLogger(
+  loadEnv({ NODE_ENV: 'test', LOG_LEVEL: 'silent', REDIS_URL: 'redis://localhost:6379' }),
+)
 
 const origin = { latitude: -29.6842, longitude: -53.8069 }
 
@@ -67,6 +61,17 @@ describe('EventRegistry', () => {
       tickMs: 5,
       keyframeTicks: 90,
       epsilon: 0.05,
+      minDegree: 0,
+      solver: {
+        anchor: { scale: 1 },
+        huberKnee: 2,
+        sweepsPerTick: 8,
+        convergenceM: 0.002,
+        omega: 1.5,
+        alphaMin: 0.2,
+        scaleBlend: 0.2,
+        samplingStride: 7,
+      },
     })
 
     await registry.start()

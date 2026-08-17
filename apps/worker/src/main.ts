@@ -19,6 +19,17 @@ const registry = new EventRegistry({
   tickMs: env.WORKER_TICK_MS,
   keyframeTicks: env.WORKER_KEYFRAME_TICKS,
   epsilon: env.WORKER_PUBLISH_EPSILON_M,
+  minDegree: env.WORKER_MIN_DEGREE,
+  solver: {
+    anchor: { scale: env.WORKER_ANCHOR_SCALE },
+    huberKnee: env.WORKER_HUBER_KNEE,
+    sweepsPerTick: env.WORKER_SWEEPS_PER_TICK,
+    convergenceM: env.WORKER_CONVERGENCE_M,
+    omega: env.WORKER_OMEGA,
+    alphaMin: env.WORKER_ALPHA_MIN,
+    scaleBlend: 0.2,
+    samplingStride: 7,
+  },
 })
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {

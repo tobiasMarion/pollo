@@ -2,21 +2,15 @@ import { randomUUID } from 'node:crypto'
 import { STREAM_FIELD } from '@pollo/contracts'
 import { Redis } from 'ioredis'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { loadEnv } from '../../src/config/env.js'
 import { createLogger } from '../../src/config/logger.js'
 import { type StreamEntry, StreamReader } from '../../src/redis/reader.js'
 
 const REDIS_URL = process.env.WORKER_TEST_REDIS_URL ?? 'redis://localhost:6379/15'
 
-const logger = createLogger({
-  NODE_ENV: 'test',
-  LOG_LEVEL: 'silent',
-  REDIS_URL,
-  WORKER_TICK_MS: 33,
-  WORKER_POSITIONS_MAXLEN: 1_000,
-  WORKER_POINTS_PER_MESSAGE: 500,
-  WORKER_KEYFRAME_TICKS: 90,
-  WORKER_PUBLISH_EPSILON_M: 0.05,
-})
+const logger = createLogger(
+  loadEnv({ NODE_ENV: 'test', LOG_LEVEL: 'silent', REDIS_URL: 'redis://localhost:6379' }),
+)
 
 function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))

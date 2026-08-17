@@ -2,19 +2,13 @@ import { STREAM_FIELD } from '@pollo/contracts'
 import type { Redis } from 'ioredis'
 import RedisMock from 'ioredis-mock'
 import { afterEach, describe, expect, it } from 'vitest'
+import { loadEnv } from '../config/env.js'
 import { createLogger } from '../config/logger.js'
 import { type StreamEntry, StreamReader } from './reader.js'
 
-const logger = createLogger({
-  NODE_ENV: 'test',
-  LOG_LEVEL: 'silent',
-  REDIS_URL: 'redis://localhost:6379',
-  WORKER_TICK_MS: 33,
-  WORKER_POSITIONS_MAXLEN: 1_000,
-  WORKER_POINTS_PER_MESSAGE: 500,
-  WORKER_KEYFRAME_TICKS: 90,
-  WORKER_PUBLISH_EPSILON_M: 0.05,
-})
+const logger = createLogger(
+  loadEnv({ NODE_ENV: 'test', LOG_LEVEL: 'silent', REDIS_URL: 'redis://localhost:6379' }),
+)
 
 function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
