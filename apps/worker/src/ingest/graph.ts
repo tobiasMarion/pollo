@@ -35,11 +35,27 @@ export class EventGraph {
   private readonly incoming = new Map<number, Set<number>>()
 
   private liveCount = 0
+  private edges = 0
+  private shape = 0
+  private readonly touched = new Set<number>()
 
   constructor(readonly origin: Origin) {}
 
   get size() {
     return this.liveCount
+  }
+
+  /**
+   * Bumped whenever the set of edges changes, so a solver holding a compiled
+   * copy of the graph knows to rebuild it — and, far more often, knows not to.
+   */
+  get version() {
+    return this.shape
+  }
+
+  /** Directed edges held. Both directions of a pair count separately. */
+  get edgeCount() {
+    return this.edges
   }
 
   /** Slot count, live and free alike — the length every flat array is indexed by. */
@@ -96,6 +112,36 @@ export class EventGraph {
     return this.released.splice(0)
   }
 
+  /**
+   * Slots that learned something since the last call — a new fix, or an edge
+   * appearing or going away.
+   *
+   * This is what "evidence" means to the solver. A device that has stopped
+   * reporting stops appearing here and stops maturing, which is the difference
+   * between counting what a node has been told and counting how long it has
+   * been sitting there.
+   */
+  drainTouched() {
+    const touched = [...this.touched]
+
+    this.touched.clear()
+
+    return touched
+  }
+
+  /**
+   * Every directed edge, handed to a callback rather than yielded.
+   *
+   * A generator over a hundred and sixty thousand edges allocates a hundred and
+   * sixty thousand result objects, several times a second, for a loop that
+   * wants three numbers.
+   */
+  forEachEdge(visit: (from: number, to: number, distance: number) => void) {
+    for (const [from, neighbours] of this.outgoing) {
+      for (const [to, distance] of neighbours) visit(from, to, distance)
+    }
+  }
+
   apply(op: IngestMessage) {
     switch (op.op) {
       case 'JOIN':
@@ -128,6 +174,8 @@ export class EventGraph {
     this.anchorsBuffer[slot * 3] = anchor.x
     this.anchorsBuffer[slot * 3 + 1] = anchor.y
     this.anchorsBuffer[slot * 3 + 2] = anchor.z
+
+    this.touched.add(slot)
   }
 
   private claimSlot(deviceId: string) {
@@ -142,6 +190,11 @@ export class EventGraph {
     this.deviceIds[slot] = deviceId
     this.slots.set(deviceId, slot)
     this.liveCount++
+
+    // Membership counts as shape. One version covers "who is here" and "what is
+    // measured" together, so anything holding a compiled copy has one thing to
+    // compare rather than two that can disagree.
+    this.shape++
 
     return slot
   }
@@ -179,6 +232,12 @@ export class EventGraph {
       this.outgoing.set(fromSlot, neighbours)
     }
 
+    // The count only moves for a pair that was not there. The version moves for
+    // any write at all, because a compiled copy holds the distances as well as
+    // the shape, and a re-measured pair is a different constraint.
+    if (!neighbours.has(toSlot)) this.edges++
+
+    this.shape++
     neighbours.set(toSlot, distance)
 
     let measuredBy = this.incoming.get(toSlot)
@@ -189,11 +248,21 @@ export class EventGraph {
     }
 
     measuredBy.add(fromSlot)
+
+    this.touched.add(fromSlot)
+    this.touched.add(toSlot)
   }
 
   private dropEdge(fromSlot: number, toSlot: number) {
-    this.outgoing.get(fromSlot)?.delete(toSlot)
+    if (this.outgoing.get(fromSlot)?.delete(toSlot)) {
+      this.edges--
+      this.shape++
+    }
+
     this.incoming.get(toSlot)?.delete(fromSlot)
+
+    this.touched.add(fromSlot)
+    this.touched.add(toSlot)
   }
 
   private remove(deviceId: string) {
@@ -204,14 +273,19 @@ export class EventGraph {
     // finding who measured a departing device is a scan of the whole graph.
     for (const to of this.outgoing.get(slot)?.keys() ?? []) {
       this.incoming.get(to)?.delete(slot)
+      this.touched.add(to)
+      this.edges--
     }
 
     for (const from of this.incoming.get(slot) ?? []) {
-      this.outgoing.get(from)?.delete(slot)
+      if (this.outgoing.get(from)?.delete(slot)) this.edges--
+      this.touched.add(from)
     }
 
     this.outgoing.delete(slot)
     this.incoming.delete(slot)
+    this.shape++
+    this.touched.delete(slot)
 
     this.slots.delete(deviceId)
     this.deviceIds[slot] = null
