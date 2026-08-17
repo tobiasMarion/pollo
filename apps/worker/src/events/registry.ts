@@ -51,16 +51,16 @@ export class EventRegistry {
   }
 
   /** Routes one stream entry by the key it arrived on. */
-  readonly handle = (entry: StreamEntry) => {
+  readonly handle = async (entry: StreamEntry) => {
     if (entry.key === streamKeys.control()) {
-      this.handleControl(entry)
+      await this.handleControl(entry)
       return
     }
 
     this.handleIngest(entry)
   }
 
-  private handleControl(entry: StreamEntry) {
+  private async handleControl(entry: StreamEntry) {
     const parsed = controlMessageSchema.safeParse(entry.payload)
 
     if (!parsed.success) {
@@ -69,7 +69,7 @@ export class EventRegistry {
     }
 
     if (parsed.data.op === 'EVENT_OPENED') {
-      void this.open(parsed.data.eventId, {
+      await this.open(parsed.data.eventId, {
         latitude: parsed.data.latitude,
         longitude: parsed.data.longitude,
       })

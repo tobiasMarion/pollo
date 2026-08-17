@@ -78,6 +78,11 @@ jobs:
       - name: Integration tests
         run: npm run test:integration -w @pollo/backend
 
+      # The worker's own tier: what `ioredis-mock` gets wrong about XREAD, which
+      # happens to be exactly where a read starts.
+      - name: Worker integration tests
+        run: npm run test:integration -w @pollo/worker
+
       - name: E2E tests
         run: npm run test:e2e -w @pollo/backend
 

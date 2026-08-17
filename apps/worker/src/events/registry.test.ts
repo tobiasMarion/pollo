@@ -61,7 +61,7 @@ describe('EventRegistry', () => {
     redis = new RedisMock() as unknown as Redis
 
     registry = new EventRegistry({
-      reader: new StreamReader(redis, logger, 20),
+      reader: new StreamReader(redis, logger, { blockMs: 20, connection: redis }),
       publisher: new PositionPublisher(redis, logger, { maxlen: 1_000, pointsPerMessage: 500 }),
       logger,
       tickMs: 5,

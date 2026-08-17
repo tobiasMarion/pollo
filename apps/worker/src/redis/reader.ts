@@ -9,9 +9,27 @@ export interface StreamEntry {
   payload: unknown
 }
 
-export type EntryHandler = (entry: StreamEntry) => void
+/**
+ * Awaited, so entries are handled in the order they arrived even when handling
+ * one means going back to Redis. An entry that reconfigures the read — an event
+ * opening, and its stream joining the next pass — must finish before the entry
+ * after it is looked at, or an event that opens and closes in the same reply
+ * gets closed first and followed forever.
+ */
+export type EntryHandler = (entry: StreamEntry) => void | Promise<void>
 
 const RETRY_DELAY_MS = 500
+
+export interface StreamReaderOptions {
+  /** How long one read waits before coming back to check what it should follow. */
+  blockMs?: number
+  /**
+   * The socket the blocking read gets. It cannot be the shared client — `XREAD
+   * BLOCK` holds the connection for its whole wait — so this defaults to a
+   * duplicate, and exists so a test can hand in a client it can also write to.
+   */
+  connection?: Redis
+}
 
 /**
  * Follows every stream the worker cares about on **one** connection.
@@ -30,15 +48,19 @@ const RETRY_DELAY_MS = 500
 export class StreamReader {
   private readonly cursors = new Map<string, string>()
   private readonly connection: Redis
+  private readonly ownsConnection: boolean
+  private readonly blockMs: number
   private running = false
   private loop: Promise<void> | null = null
 
   constructor(
     private readonly redis: Redis,
     private readonly logger: Logger,
-    private readonly blockMs = 1_000,
+    options: StreamReaderOptions = {},
   ) {
-    this.connection = redis.duplicate()
+    this.blockMs = options.blockMs ?? 1_000
+    this.ownsConnection = options.connection === undefined
+    this.connection = options.connection ?? redis.duplicate()
   }
 
   /**
@@ -83,7 +105,10 @@ export class StreamReader {
 
   async stop() {
     this.running = false
-    this.connection.disconnect()
+
+    // Cuts the blocking read short. A borrowed connection is somebody else's to
+    // close — hanging up on it would take their writes down too.
+    if (this.ownsConnection) this.connection.disconnect()
 
     await this.loop
     this.loop = null
@@ -114,7 +139,19 @@ export class StreamReader {
         if (!response) continue
 
         for (const [key, entries] of response) {
+          // A read that was already blocked when `unfollow` was called comes
+          // back carrying the stream anyway — the key list it was given is
+          // fixed for the life of the call. Dropping the entries here is what
+          // makes unfollowing mean anything; putting the cursor back would
+          // quietly resume the stream instead.
+          if (!this.cursors.has(key)) continue
+
           for (const [id, fields] of entries) {
+            // Checked again per entry, because a handler is what unfollows: the
+            // entry that closes an event drops that event's ingest stream, and
+            // the windows behind it in the same reply are no longer wanted.
+            if (!this.cursors.has(key)) break
+
             // Advance before handling: a payload this worker cannot parse is
             // still a payload it has seen, and re-reading it forever would
             // stall the stream on one bad entry.
@@ -122,7 +159,7 @@ export class StreamReader {
 
             const payload = this.unwrap(key, id, fields)
 
-            if (payload !== undefined) onEntry({ key, id, payload })
+            if (payload !== undefined) await onEntry({ key, id, payload })
           }
         }
       } catch (error) {
