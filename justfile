@@ -6,9 +6,10 @@ default:
     @just --list
 
 # The whole dev environment in one terminal: datastores, migrations, the
-# contracts watch, the API and the panel. Logs interleave; Ctrl-C stops the
-# host processes and leaves the datastores running (`just down` stops those).
-[doc('Everything at once, with hot-reload — datastores, API and panel')]
+# contracts watch, the API, the panel and the worker. Logs interleave; Ctrl-C
+# stops the host processes and leaves the datastores running (`just down`
+# stops those).
+[doc('Everything at once, with hot-reload — datastores, API, panel and worker')]
 all:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -25,6 +26,7 @@ all:
     npx tsc -w -p packages/contracts/tsconfig.build.json --preserveWatchOutput &
     npm run dev --workspace=@pollo/backend &
     npm run dev --workspace=@pollo/web &
+    npm run dev --workspace=@pollo/worker &
     wait
 
 # Start the dev datastores (Postgres + Redis) in the background
@@ -57,6 +59,10 @@ dev: contracts
 # Run the admin panel on the host with hot-reload (needs the API up)
 web: contracts
     npm run dev --workspace=@pollo/web
+
+# Run the position worker on the host with hot-reload (needs Redis up)
+worker: contracts
+    npm run dev --workspace=@pollo/worker
 
 # Emulate an audience against a live event. Every flag is passed straight
 # through, so `just simulate --help` lists them.
