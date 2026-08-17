@@ -24,6 +24,46 @@ export function projectLocation(location: Location, origin: Origin): Vector3 {
   }
 }
 
+/** WGS 84, the ellipsoid every GPS receiver reports against. */
+const EARTH_SEMI_MAJOR_AXIS = 6_378_137
+const EARTH_FLATTENING = 1 / 298.257_223_563
+const EARTH_ECCENTRICITY_SQUARED = EARTH_FLATTENING * (2 - EARTH_FLATTENING)
+
+/**
+ * A geodetic reading as an Earth-centred, Earth-fixed coordinate — the
+ * `absolute` half of a `PositionPair`.
+ *
+ * The field frame is local and arbitrary: two events a kilometre apart both put
+ * their crowds around the origin, and nothing about those coordinates says where
+ * on the planet they were. ECEF is the frame that does, so a position stays
+ * meaningful once it leaves the event that produced it.
+ *
+ * `x` points at the prime meridian on the equator, `z` at the north pole, all in
+ * meters from the centre of the earth.
+ */
+export function toEcef(location: {
+  latitude: number
+  longitude: number
+  altitude: number
+}): Vector3 {
+  const latitude = (location.latitude * Math.PI) / 180
+  const longitude = (location.longitude * Math.PI) / 180
+
+  const sinLatitude = Math.sin(latitude)
+  const cosLatitude = Math.cos(latitude)
+
+  // Distance from the polar axis to the ellipsoid along the surface normal. On a
+  // sphere this would be the radius; the ellipsoid makes it depend on latitude.
+  const primeVertical =
+    EARTH_SEMI_MAJOR_AXIS / Math.sqrt(1 - EARTH_ECCENTRICITY_SQUARED * sinLatitude * sinLatitude)
+
+  return {
+    x: (primeVertical + location.altitude) * cosLatitude * Math.cos(longitude),
+    y: (primeVertical + location.altitude) * cosLatitude * Math.sin(longitude),
+    z: (primeVertical * (1 - EARTH_ECCENTRICITY_SQUARED) + location.altitude) * sinLatitude,
+  }
+}
+
 /**
  * The inverse: a point in the field frame back to the coordinates a device
  * would report. Accuracies are not derivable from a position, so the caller
