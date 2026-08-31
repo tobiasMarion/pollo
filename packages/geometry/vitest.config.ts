@@ -7,6 +7,9 @@ export default defineConfig({
     include: ['src/**/test.ts'],
     coverage: {
       provider: 'v8',
+      // Terminal only. The gate is a pass or a fail, and an html report written
+      // into the tree on every `npm test` is a directory nobody asked for.
+      reporter: ['text'],
       include: ['src/**/*.ts'],
       // The barrel re-exports and declares nothing; the fixtures are the tests.
       exclude: ['src/**/test.ts', 'src/**/fixtures/**', 'src/index.ts'],
