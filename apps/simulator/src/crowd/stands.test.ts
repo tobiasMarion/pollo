@@ -1,5 +1,5 @@
+import { Random } from '@pollo/geometry'
 import { describe, expect, it } from 'vitest'
-import { Random } from '../noise/random.js'
 import type { Seat } from './seat.js'
 import { PITCH, stands } from './stands.js'
 

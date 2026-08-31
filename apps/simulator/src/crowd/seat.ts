@@ -1,5 +1,4 @@
-import { type Vector3, vector } from '@pollo/contracts'
-import type { Random } from '../noise/random.js'
+import { type Random, type Vector3, vector } from '@pollo/geometry'
 
 /** Shoulder to shoulder: how far apart two people in the same row stand. */
 export const SEAT_PITCH = 0.55

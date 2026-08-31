@@ -1,5 +1,5 @@
+import { Random } from '@pollo/geometry'
 import { describe, expect, it } from 'vitest'
-import { Random } from './random.js'
 import { Ranging } from './ranging.js'
 
 const RANGE = 6

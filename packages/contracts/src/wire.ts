@@ -4,10 +4,10 @@ import { locationSchema } from './location.js'
 import { unionFrom } from './union.js'
 
 /**
- * Wire contracts carried over Redis Streams between the Node API (IO) and the
- * Rust worker (simulation). Each stream entry stores the whole message
- * serialized as JSON under the `data` field (see STREAM_FIELD), so the same
- * shape can be mirrored with serde on the Rust side.
+ * Wire contracts carried over Redis Streams between the API (IO) and the
+ * position worker (reconstruction). Each stream entry stores the whole message
+ * serialized as JSON under the `data` field (see STREAM_FIELD), so anything that
+ * can read JSON can sit on either end.
  *
  * Golden rule: NO brightness/effect data crosses this boundary — positions only.
  */
@@ -97,12 +97,12 @@ export const controlOps = Object.keys(controlMessageSchemas) as [ControlOp, ...C
 export const STREAM_FIELD = 'data'
 
 export const streamKeys = {
-  /** Graph mutations, Node -> Rust, per event. */
+  /** Graph mutations, API -> worker, per event. */
   ingest: (eventId: string) => `event:${eventId}:ingest`,
-  /** Position updates, Rust -> Node, per event. */
+  /** Position updates, worker -> API, per event. */
   positions: (eventId: string) => `event:${eventId}:positions`,
   /** Authoritative position snapshot, written by the worker. */
   snapshot: (eventId: string) => `event:${eventId}:snapshot`,
-  /** Global event lifecycle channel, Node -> Rust. */
+  /** Global event lifecycle channel, API -> worker. */
   control: () => 'events:control',
 } as const

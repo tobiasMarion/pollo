@@ -1,5 +1,5 @@
+import type { Random } from '@pollo/geometry'
 import type { ErrorBudget } from '../noise/gnss.js'
-import type { Random } from '../noise/random.js'
 import type { Seat } from './seat.js'
 import { square } from './square.js'
 import { stands } from './stands.js'

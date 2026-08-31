@@ -1,15 +1,16 @@
+import type { Vector3 } from '@pollo/geometry'
 import { z } from 'zod'
 import { locationSchema } from './location.js'
 
+// `satisfies` rather than an inferred type: the shape is owned by
+// `@pollo/geometry`, and this schema's job is to prove a payload matches it.
 export const vector3Schema = z
   .object({
     x: z.number(),
     y: z.number(),
     z: z.number(),
   })
-  .describe('A point in meters.')
-
-export type Vector3 = z.infer<typeof vector3Schema>
+  .describe('A point in meters.') satisfies z.ZodType<Vector3>
 
 export const nodeSchema = z.string().describe('A device id — one node of the distance graph.')
 
@@ -35,14 +36,14 @@ export const positionPairSchema = z
 export type PositionPair = z.infer<typeof positionPairSchema>
 
 /**
- * `uncorrected` comes straight from reported GPS locations; `simulated` is the
- * worker's force-directed refinement over the distance graph.
+ * `uncorrected` comes straight from reported GPS locations; `simulated` is what
+ * the worker's least-squares reconstruction made of the distance graph.
  */
 export const positionSchema = z
   .object({
     uncorrected: positionPairSchema.describe('Straight from the reported GPS location.'),
     simulated: positionPairSchema.describe(
-      'Force-directed refinement over the distance graph — this is what clients render.',
+      'Least-squares reconstruction from the distance graph — this is what clients render.',
     ),
   })
   .describe('Where a pixel sits, before and after the simulation.')

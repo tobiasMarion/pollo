@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Wire contracts shared by every Pollo client — Zod schemas, the types inferred from them and the documentation they carry",
+  "description": "Wire contracts shared by every Pollo client \u2014 Zod schemas, the types inferred from them and the documentation they carry",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -19,6 +19,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@pollo/geometry": "*",
     "zod": "^3.25.76"
   },
   "devDependencies": {

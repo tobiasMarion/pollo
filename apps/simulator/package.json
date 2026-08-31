@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Emulates an audience against a live event — noisy phones in, worker accuracy out",
+  "description": "Emulates an audience against a live event \u2014 noisy phones in, worker accuracy out",
   "scripts": {
     "start": "tsx src/io/cli.ts",
     "typecheck": "tsc --noEmit",
@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@pollo/contracts": "*",
+    "@pollo/geometry": "*",
     "ws": "^8.18.0",
     "zod": "^3.25.76"
   },

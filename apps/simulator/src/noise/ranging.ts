@@ -1,4 +1,4 @@
-import type { Random } from './random.js'
+import type { Random } from '@pollo/geometry'
 
 /** How much of a measurement is error, as a fraction of the distance measured. */
 const RELATIVE_SIGMA = 0.12

@@ -1,5 +1,4 @@
-import { vector } from '@pollo/contracts'
-import { alignClouds, applyAlignment } from './align.js'
+import { alignClouds, applyAlignment, vector } from '@pollo/geometry'
 
 export interface ErrorSummary {
   /** How many devices the summary is over. */

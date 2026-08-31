@@ -2,7 +2,7 @@
   "name": "pollo",
   "version": "0.0.0",
   "private": true,
-  "description": "Sync a million fireflies — monorepo (greenfield)",
+  "description": "Sync a million fireflies \u2014 monorepo (greenfield)",
   "workspaces": [
     "packages/*",
     "apps/*"
@@ -11,12 +11,12 @@
     "node": ">=20"
   },
   "scripts": {
-    "contracts": "npm run build --workspace=@pollo/contracts",
-    "dev": "npm run contracts && npm run dev --workspace=@pollo/backend",
-    "dev:web": "npm run contracts && npm run dev --workspace=@pollo/web",
-    "build": "npm run contracts && npm run build --workspaces --if-present",
-    "test": "npm run contracts && npm run test --workspaces --if-present",
-    "typecheck": "npm run contracts && npm run typecheck --workspaces --if-present",
+    "packages": "npm run build --workspace=@pollo/geometry && npm run build --workspace=@pollo/contracts",
+    "dev": "npm run packages && npm run dev --workspace=@pollo/backend",
+    "dev:web": "npm run packages && npm run dev --workspace=@pollo/web",
+    "build": "npm run packages && npm run build --workspaces --if-present",
+    "test": "npm run packages && npm run test --workspaces --if-present",
+    "typecheck": "npm run packages && npm run typecheck --workspaces --if-present",
     "format": "biome format --write .",
     "lint": "biome lint .",
     "check": "biome check --write .",

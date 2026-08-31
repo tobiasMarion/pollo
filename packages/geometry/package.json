@@ -1,0 +1,26 @@
+{
+  "name": "@pollo/geometry",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The maths Pollo is made of \u2014 vectors, geodesy and the multidimensional scaling the worker solves with. No wire, no IO, no opinions about devices",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^3.2.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0"
+  }
+}

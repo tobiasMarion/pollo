@@ -1,6 +1,6 @@
+import { Random } from '@pollo/geometry'
 import { describe, expect, it } from 'vitest'
 import { LayeredOu, OrnsteinUhlenbeck, stationarySigma, Vector3Ou } from './ou.js'
-import { Random } from './random.js'
 
 function run(step: (dt: number) => number, count: number, dt: number) {
   const values: number[] = []

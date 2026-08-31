@@ -2,9 +2,9 @@ import { randomUUID } from 'node:crypto'
 import { STREAM_FIELD } from '@pollo/contracts'
 import { Redis } from 'ioredis'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { loadEnv } from '../../src/config/env.js'
-import { createLogger } from '../../src/config/logger.js'
-import { type StreamEntry, StreamReader } from '../../src/redis/reader.js'
+import { loadEnv } from '../../src/config/env/index.js'
+import { createLogger } from '../../src/config/logger/index.js'
+import { type StreamEntry, StreamReader } from '../../src/redis/reader/index.js'
 
 const REDIS_URL = process.env.WORKER_TEST_REDIS_URL ?? 'redis://localhost:6379/15'
 

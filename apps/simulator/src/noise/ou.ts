@@ -1,4 +1,4 @@
-import type { Random } from './random.js'
+import type { Random } from '@pollo/geometry'
 
 export interface OuLayer {
   /** Correlation time in seconds — how long the error remembers where it was. */

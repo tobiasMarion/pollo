@@ -1,5 +1,5 @@
+import { Random } from '@pollo/geometry'
 import { describe, expect, it } from 'vitest'
-import { Random } from './random.js'
 import { Sway } from './sway.js'
 
 function walk(seconds: number, dt = 1, seed = 1) {
