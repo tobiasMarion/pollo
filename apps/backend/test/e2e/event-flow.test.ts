@@ -167,7 +167,7 @@ describe('event lifecycle end to end', () => {
 
     expect(ingestOps.map(({ op }) => op)).toEqual(['JOIN', 'DISTANCE'])
 
-    // Simulated Rust worker: writes a positions delta for the subscriber.
+    // Standing in for the worker: writes a positions delta for the subscriber.
     await redis.xadd(
       streamKeys.positions(eventId),
       '*',

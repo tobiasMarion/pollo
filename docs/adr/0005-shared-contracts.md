@@ -75,4 +75,6 @@ runtime which one was missed.
 - Zod is pinned to one range across all three workspaces. Two copies would break
   the `instanceof ZodError` branch in the API's error handler silently.
 - The Rust worker (ADR 0001, phase 3) gets a written boundary to mirror with
-  serde: `wire.ts` is now the only place that describes it.
+  serde: `wire.ts` is now the only place that describes it. _(Superseded by ADR
+  0006: the worker is TypeScript and reads the package directly. `wire.ts` is
+  still the one description of the boundary.)_

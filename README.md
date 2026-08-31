@@ -33,9 +33,9 @@ a map of coordinates — GPS is metres-accurate at best, which says nothing usef
 about a crowd where people stand centimetres apart. The distances are what make
 the arrangement recoverable.
 
-Turning that graph into positions is a simulation, and a simulation has no
-business on an event loop. A Rust worker refines the graph into coordinates and
-publishes them back; the API only does IO. Until the worker has placed a phone,
+Turning that graph into positions is a least-squares reconstruction, and that has
+no business on an event loop. A separate worker solves the graph into coordinates
+and publishes them back; the API only does IO. Until the worker has placed a phone,
 that phone is drawn from its own GPS — as an outline rather than a pixel,
 because the difference between a measurement and an estimate should stay visible.
 
@@ -59,10 +59,11 @@ apps/
   backend/     Fastify + TypeScript API (REST + WebSockets, Prisma/Postgres, Redis)
   web/         admin panel (SvelteKit + Tailwind)
   simulator/   emulates an audience against a live event
-  # worker/    position estimation (Rust)       — phase 3 (rewritten by hand)
+  worker/      turns the distance graph into coordinates
   # mobile/    sensor client (SwiftUI/iOS)
 packages/
   contracts/   the wire, as Zod schemas — every client validates against these
+  geometry/    the maths — vectors, geodesy and the multidimensional scaling
 infra/         Docker Compose (dev + prod) and Dockerfiles
 docs/adr/      architecture decision records
 ```
@@ -74,13 +75,21 @@ reference — and the lists are derived from records, so adding an effect or a
 message is a single entry rather than a hunt through every app that speaks the
 protocol.
 
+Everything that is purely mathematical is defined once too, in
+`packages/geometry`: vectors, the geodetic projection, and the multidimensional
+scaling the worker solves with. It holds functions; the applications hold the
+numbers. That is what lets the worker and the simulator share a random number
+generator and a matrix decomposition without ever sharing a noise model.
+
 The reasoning behind the pieces lives in [`docs/adr/`](docs/adr): the
 [monorepo](docs/adr/0001-greenfield-monorepo.md), the
 [API rebuild](docs/adr/0002-api-rebuild.md),
 [Prisma 7](docs/adr/0003-prisma-7.md), the
-[admin panel](docs/adr/0004-admin-panel.md) and the
-[contracts package](docs/adr/0005-shared-contracts.md). For the story around
-them rather than the decisions themselves, see [`docs/articles.md`](docs/articles.md).
+[admin panel](docs/adr/0004-admin-panel.md), the
+[contracts package](docs/adr/0005-shared-contracts.md) and the
+[position worker](docs/adr/0006-position-worker-typescript.md). For the story
+around them rather than the decisions themselves, see
+[`docs/articles.md`](docs/articles.md).
 
 What it would take to hold fifty thousand phones on one machine — where the IO
 actually goes, which operations are quietly quadratic, and what each of them
@@ -108,10 +117,10 @@ just all                      # everything, one terminal  ->  :3333/docs and :30
 ```
 
 `just all` waits for Postgres and Redis, applies the migrations, then runs the
-contracts watch, the API and the panel together. Logs interleave; Ctrl-C stops
-the three host processes and leaves the datastores up (`just down` stops those).
-Editing anything — `packages/contracts` included — reloads the side that needs
-it, with no restart.
+shared-package watch, the API, the panel and the worker together. Logs interleave;
+Ctrl-C stops the host processes and leaves the datastores up (`just down` stops
+those). Editing anything — `packages/` included — reloads the side that needs it,
+with no restart.
 
 One process per shell still works if you prefer the logs apart:
 
@@ -119,12 +128,13 @@ One process per shell still works if you prefer the logs apart:
 just up && just migrate
 just dev                      # API on the host with hot-reload  ->  http://localhost:3333/docs
 just web                      # admin panel, in another shell    ->  http://localhost:3000
-just contracts-watch          # only if you are editing packages/contracts
+just worker                   # position worker, in a third      -> needs Redis
+just packages-watch           # only if you are editing packages/
 ```
 
-Every app imports the contracts package's **build output**, so it compiles
-before they do — `just all`, `just dev`, `just web`, `just simulate` and
-`just test` each take care of that on their own.
+Every app imports the shared packages' **build output**, so they compile before
+it does, geometry first — `just all`, `just dev`, `just web`, `just worker`,
+`just simulate` and `just test` each take care of that on their own.
 
 The panel signs in with the same GitHub OAuth app as the API, so the app's
 **Authorization callback URL** must be exactly `GITHUB_OAUTH_CLIENT_REDIRECT_URI`

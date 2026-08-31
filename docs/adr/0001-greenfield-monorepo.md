@@ -29,6 +29,8 @@ migration; nothing deleted).
 
 - The **Rust worker is rewritten by hand by the owner** (it is the core; they want
   line-by-line mastery). Assistance = teaching/reviewing, not generating.
+  _(Superseded by ADR 0006 on 2026-08-31: the worker is TypeScript, and the
+  measurement that decided it is recorded there.)_
 - The **message transport sits behind a port** (`Bus`); the broker choice
   (NATS JetStream / RSMQ / RabbitMQ / hardened Redis Streams) is deferred to the
   simulation phase. Redis stays as state/cache regardless.
