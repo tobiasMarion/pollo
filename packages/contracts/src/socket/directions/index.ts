@@ -1,6 +1,6 @@
 import type { z } from 'zod'
-import { subsetOf, unionFrom } from '../union.js'
-import { type MessageType, messageSchemas } from './schemas.js'
+import { subsetOf, unionFrom } from '../../primitives/union/index.js'
+import { type MessageType, messageSchemas } from '../schemas/index.js'
 
 /**
  * A socket only ever carries a handful of the message types in either

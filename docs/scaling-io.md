@@ -231,7 +231,7 @@ is no JSON to parse and the field layout is the validation.
 ## 7. `DISTANCE` is one frame per peer
 
 *`VirtualDevice.sweepDistances`, `apps/simulator/src/io/device.ts:439`; the
-contract in `packages/contracts/src/messages`*
+contract in `packages/contracts/src/socket`*
 
 A sweep measures eight peers and sends eight separate WebSocket frames. Each one
 pays a frame header, a `send` call, a socket write, a parse and a validate on the

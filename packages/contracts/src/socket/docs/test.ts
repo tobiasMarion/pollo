@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { adminInbound, adminOutbound, deviceInbound, deviceOutbound } from './directions.js'
-import { messageTable } from './docs.js'
-import { messageSchemas, messageTypes } from './schemas.js'
+import { adminInbound, adminOutbound, deviceInbound, deviceOutbound } from '../directions/index.js'
+import { messageSchemas, messageTypes } from '../schemas/index.js'
+import { messageTable } from './index.js'
 
 const directions = [
   ['adminOutbound', adminOutbound],

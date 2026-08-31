@@ -15,7 +15,7 @@ Only positions. No brightness, no effects, no cues — a device works out its ow
 light from where it is standing, and none of that reasoning lives here.
 
 The whole boundary is written down once, in
-[`packages/contracts/src/wire.ts`](../../packages/contracts/src/wire.ts):
+[`packages/contracts/src/streams`](../../packages/contracts/src/streams):
 
 | stream | direction | what |
 |---|---|---|

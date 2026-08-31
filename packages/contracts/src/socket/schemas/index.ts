@@ -1,8 +1,8 @@
 import { z } from 'zod'
-import { effectSchema } from '../effects/schemas.js'
-import { positionSchema } from '../graph.js'
-import { locationSchema } from '../location.js'
-import { unionFrom } from '../union.js'
+import { effectSchema } from '../../effects/schemas/index.js'
+import { locationSchema } from '../../primitives/location/index.js'
+import { positionSchema } from '../../primitives/position/index.js'
+import { unionFrom } from '../../primitives/union/index.js'
 
 /**
  * Every frame that crosses a Pollo socket, keyed by its own `type` so the union

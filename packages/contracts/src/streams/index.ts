@@ -1,7 +1,7 @@
 import { z } from 'zod'
-import { positionSchema } from './graph.js'
-import { locationSchema } from './location.js'
-import { unionFrom } from './union.js'
+import { locationSchema } from '../primitives/location/index.js'
+import { positionSchema } from '../primitives/position/index.js'
+import { unionFrom } from '../primitives/union/index.js'
 
 /**
  * Wire contracts carried over Redis Streams between the API (IO) and the

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { unionFrom } from '../union.js'
+import { unionFrom } from '../../primitives/union/index.js'
 
 const coordTypesSchema = z
   .enum(['ABSOLUTE', 'RELATIVE'])

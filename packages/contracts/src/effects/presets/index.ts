@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { effectSchema } from './schemas.js'
+import { effectSchema } from '../schemas/index.js'
 
 export const effectPresetSchema = z
   .object({

@@ -1,5 +1,5 @@
 import { type Vector3, vector } from '@pollo/geometry'
-import type { Effect, EffectName, EffectOf } from './schemas.js'
+import type { Effect, EffectName, EffectOf } from '../schemas/index.js'
 
 /**
  * How long after a cue fires each pixel lights up, and how bright it is.

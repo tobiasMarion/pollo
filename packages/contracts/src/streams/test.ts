@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { controlMessageSchema, ingestMessageSchema, positionsMessageSchema } from './wire.js'
+import { controlMessageSchema, ingestMessageSchema, positionsMessageSchema } from './index.js'
 
 const location = {
   latitude: -29.7,

@@ -1,4 +1,4 @@
-import { type MessageType, messageSchemas } from './schemas.js'
+import { type MessageType, messageSchemas } from '../schemas/index.js'
 
 /**
  * The published documentation of a socket, rendered from the same record the

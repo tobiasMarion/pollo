@@ -1,16 +1,14 @@
-import type { Vector3 } from '@pollo/geometry'
 import { z } from 'zod'
-import { locationSchema } from './location.js'
+import { locationSchema } from '../../primitives/location/index.js'
+import { positionSchema } from '../../primitives/position/index.js'
 
-// `satisfies` rather than an inferred type: the shape is owned by
-// `@pollo/geometry`, and this schema's job is to prove a payload matches it.
-export const vector3Schema = z
-  .object({
-    x: z.number(),
-    y: z.number(),
-    z: z.number(),
-  })
-  .describe('A point in meters.') satisfies z.ZodType<Vector3>
+/**
+ * The distance graph as the panel fetches it — every device in an event, what is
+ * known about each, and every measurement between them.
+ *
+ * A REST resource rather than a wire primitive: nothing streams this. It is the
+ * snapshot a client asks for once, and then follows with deltas.
+ */
 
 export const nodeSchema = z.string().describe('A device id — one node of the distance graph.')
 
@@ -24,31 +22,6 @@ export const edgeSchema = z
 
 export type Node = z.infer<typeof nodeSchema>
 export type Edge = z.infer<typeof edgeSchema>
-
-/** A position in both frames: relative to the event origin and absolute (ECEF-like). */
-export const positionPairSchema = z
-  .object({
-    relative: vector3Schema.describe('Offset from the event origin, in meters.'),
-    absolute: vector3Schema.describe('Earth-centered coordinate, in meters.'),
-  })
-  .describe('The same point expressed in both frames.')
-
-export type PositionPair = z.infer<typeof positionPairSchema>
-
-/**
- * `uncorrected` comes straight from reported GPS locations; `simulated` is what
- * the worker's least-squares reconstruction made of the distance graph.
- */
-export const positionSchema = z
-  .object({
-    uncorrected: positionPairSchema.describe('Straight from the reported GPS location.'),
-    simulated: positionPairSchema.describe(
-      'Least-squares reconstruction from the distance graph — this is what clients render.',
-    ),
-  })
-  .describe('Where a pixel sits, before and after the simulation.')
-
-export type NodePosition = z.infer<typeof positionSchema>
 
 export const metadataSchema = z
   .object({

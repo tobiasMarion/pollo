@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
-import { subsetOf, unionFrom } from './union.js'
+import { subsetOf, unionFrom } from './index.js'
 
 const members = {
   A: z.object({ kind: z.literal('A'), a: z.number() }),
