@@ -75,4 +75,16 @@ runtime which one was missed.
 - Zod is pinned to one range across all three workspaces. Two copies would break
   the `instanceof ZodError` branch in the API's error handler silently.
 - The Rust worker (ADR 0001, phase 3) gets a written boundary to mirror with
-  serde: `wire.ts` is now the only place that describes it.
+  serde: `wire.ts` is now the only place that describes it. _(Superseded by ADR
+  0006: the worker is TypeScript and reads the package directly. The Redis
+  Streams boundary is still described in exactly one place, now
+  `src/streams/`.)_
+
+_Layout revised on 2026-08-31, decisions unchanged._ Modules became directories
+(`index.ts` beside `test.ts`) and were grouped by what they are for:
+`primitives/` for the vocabulary, `resources/` for what REST serves, `socket/`
+and `streams/` for the two live protocols, `effects/` across them. `graph.ts`
+split along a boundary that was already there — a position is a wire primitive,
+the graph is a resource fetched once and followed with deltas. The exported
+surface is unchanged and still flat: the grouping is how the package is written,
+not how it is imported.

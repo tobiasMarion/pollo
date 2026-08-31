@@ -1,9 +1,8 @@
-import type { Measurement as Edge, Effect } from '@pollo/contracts'
-import { projectLocation } from '@pollo/contracts'
+import type { Measurement as Edge, Effect, Location } from '@pollo/contracts'
+import { projectLocation, Random } from '@pollo/geometry'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Seat } from '../crowd/seat.js'
 import { type ErrorBudget, SharedErrorField } from '../noise/gnss.js'
-import { Random } from '../noise/random.js'
 import {
   attach,
   COUNTER,
@@ -213,7 +212,7 @@ describe('VirtualDevice', () => {
       .latest()
       .sentOfType('LOCATION_UPDATE')
       .map(message => {
-        const { location } = message as { location: Parameters<typeof projectLocation>[0] }
+        const { location } = message as { location: Location }
         const where = projectLocation(location, ORIGIN)
 
         return Math.hypot(where.x, where.y)
@@ -488,7 +487,7 @@ describe('VirtualDevice', () => {
     expect(clean.length).toBeGreaterThan(0)
 
     for (const message of clean) {
-      const { location } = message as { location: Parameters<typeof projectLocation>[0] }
+      const { location } = message as { location: Location }
       const where = projectLocation(location, ORIGIN)
 
       // The seat, plus the sway — which is where the device really is, and so
@@ -525,7 +524,7 @@ describe('VirtualDevice', () => {
       .latest()
       .sentOfType('LOCATION_UPDATE')
       .map(message => {
-        const { location } = message as { location: Parameters<typeof projectLocation>[0] }
+        const { location } = message as { location: Location }
         const where = projectLocation(location, ORIGIN)
 
         return Math.hypot(where.x, where.y)

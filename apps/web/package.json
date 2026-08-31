@@ -12,6 +12,7 @@
   },
   "devDependencies": {
     "@pollo/contracts": "*",
+    "@pollo/geometry": "*",
     "@sveltejs/adapter-node": "^5.5.7",
     "@sveltejs/kit": "^2.70.1",
     "@sveltejs/vite-plugin-svelte": "^7.2.0",

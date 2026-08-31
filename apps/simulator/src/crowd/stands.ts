@@ -1,4 +1,4 @@
-import type { Random } from '../noise/random.js'
+import type { Random } from '@pollo/geometry'
 import { PHONE_HEIGHT, SEAT_PITCH, type Seat, seatAt } from './seat.js'
 import type { Venue } from './venue.js'
 

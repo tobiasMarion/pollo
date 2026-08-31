@@ -1,15 +1,8 @@
-import {
-  deviceInbound,
-  type Effect,
-  type Origin,
-  safeParseJsonMessage,
-  unprojectLocation,
-  type Vector3,
-  vector,
-} from '@pollo/contracts'
+import { deviceInbound, type Effect, safeParseJsonMessage } from '@pollo/contracts'
+import type { Random } from '@pollo/geometry'
+import { type Origin, unprojectLocation, type Vector3, vector } from '@pollo/geometry'
 import type { Seat } from '../crowd/seat.js'
 import { DeviceGnss, type ErrorBudget, type SharedErrorField } from '../noise/gnss.js'
-import type { Random } from '../noise/random.js'
 import { Ranging } from '../noise/ranging.js'
 import { Sway } from '../noise/sway.js'
 import {

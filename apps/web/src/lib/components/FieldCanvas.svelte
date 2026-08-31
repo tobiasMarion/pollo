@@ -5,9 +5,8 @@ import {
   type EffectName,
   type EffectOf,
   effectBrightness,
-  type Vector3,
-  vector,
 } from '@pollo/contracts'
+import { type Vector3, vector } from '@pollo/geometry'
 import { onMount } from 'svelte'
 import type { FieldPixel } from '$lib/field'
 

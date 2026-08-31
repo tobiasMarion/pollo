@@ -1,4 +1,4 @@
-import { type Origin, projectLocation, type Vector3 } from '@pollo/contracts'
+import { type Origin, projectLocation, type Vector3 } from '@pollo/geometry'
 import type { DeviceState } from '$lib/event-console.svelte'
 
 export interface FieldPixel {

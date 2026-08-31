@@ -10,9 +10,9 @@ export default defineConfig({
   envDir: '../../',
   ssr: {
     // The panel's production image ships the adapter-node bundle and nothing
-    // else — no node_modules to resolve against — so the contracts have to be
-    // compiled in rather than left as an external import.
-    noExternal: ['@pollo/contracts'],
+    // else — no node_modules to resolve against — so the shared packages have to
+    // be compiled in rather than left as external imports.
+    noExternal: ['@pollo/contracts', '@pollo/geometry'],
   },
   server: {
     // The GitHub OAuth app redirects here; the port is part of that contract.

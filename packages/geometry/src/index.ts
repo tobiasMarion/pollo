@@ -1,0 +1,15 @@
+export * from './geodesy/index.js'
+export * from './kabsch/index.js'
+export * from './linalg/index.js'
+export * from './mds/csr/index.js'
+export * from './mds/guttman/index.js'
+export * from './mds/relaxation/index.js'
+export * from './mds/sigma/index.js'
+export * from './mds/stress/index.js'
+export * from './mds/weights/index.js'
+export * from './random/index.js'
+export * from './stats/index.js'
+export type { Vector3 } from './vector/index.js'
+// Namespaced rather than flattened: `add(a, b)` at a call site says nothing
+// about what is being added, and `length` is far too common a word to take.
+export * as vector from './vector/index.js'

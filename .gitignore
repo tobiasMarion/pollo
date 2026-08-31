@@ -6,12 +6,12 @@ dist/
 build/
 *.tsbuildinfo
 
+# coverage reports
+coverage/
+
 # generated code (recreated by `prisma generate` / `svelte-kit sync`)
 apps/backend/src/generated/
 apps/web/.svelte-kit/
-
-# rust
-target/
 
 # env & secrets — NEVER commit (only .env.example)
 .env

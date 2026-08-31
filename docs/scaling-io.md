@@ -231,7 +231,7 @@ is no JSON to parse and the field layout is the validation.
 ## 7. `DISTANCE` is one frame per peer
 
 *`VirtualDevice.sweepDistances`, `apps/simulator/src/io/device.ts:439`; the
-contract in `packages/contracts/src/messages`*
+contract in `packages/contracts/src/socket`*
 
 A sweep measures eight peers and sends eight separate WebSocket frames. Each one
 pays a frame header, a `send` call, a socket write, a parse and a validate on the
@@ -364,7 +364,7 @@ of about three people per square metre, a six-metre radio reaches roughly 340
 peers out of the 50,000 the device was told about.
 
 The server already has what it needs to do better. It knows every device's
-reported location, and `projectLocation` in contracts turns that into local
+reported location, and `projectLocation` in the geometry turns that into local
 metres against the event's origin. A uniform grid over those coordinates —
 `Map<cellKey, Set<deviceId>>`, updated in O(1) when a device changes cell — makes
 "who is near this device" a lookup over nine cells instead of a scan.

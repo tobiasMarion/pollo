@@ -57,7 +57,7 @@ export async function buildApp({ env, logger, prisma, redis, bus }: BuildAppOpti
         description: [
           'Sync a million fireflies. Each device is a pixel; REST opens and discovers',
           'events, the WebSockets carry them while they run. Positions come from the',
-          'Rust worker over Redis Streams — this API does no simulation of its own.',
+          'position worker over Redis Streams — this API does no reconstruction of its own.',
           '',
           '### Authentication',
           '',

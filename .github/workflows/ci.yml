@@ -52,10 +52,10 @@ jobs:
       - name: Lint and format (Biome)
         run: npm run ci
 
-      # Both apps import the built package, so nothing after this can run
-      # without it — typecheck included.
-      - name: Build the shared contracts
-        run: npm run contracts
+      # Every app imports the built packages, so nothing after this can run
+      # without them — typecheck included.
+      - name: Build the shared packages
+        run: npm run packages
 
       - name: Generate Prisma client
         run: npm run db:generate -w @pollo/backend
@@ -77,6 +77,11 @@ jobs:
 
       - name: Integration tests
         run: npm run test:integration -w @pollo/backend
+
+      # The worker's own tier: what `ioredis-mock` gets wrong about XREAD, which
+      # happens to be exactly where a read starts.
+      - name: Worker integration tests
+        run: npm run test:integration -w @pollo/worker
 
       - name: E2E tests
         run: npm run test:e2e -w @pollo/backend

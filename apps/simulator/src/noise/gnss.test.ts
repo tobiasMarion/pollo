@@ -1,6 +1,6 @@
+import { deriveSeed, Random } from '@pollo/geometry'
 import { describe, expect, it } from 'vitest'
 import { DeviceGnss, type ErrorBudget, FIELD_TICK_SECONDS, SharedErrorField } from './gnss.js'
-import { deriveSeed, Random } from './random.js'
 
 const BUDGET: ErrorBudget = { horizontal: 6, vertical: 12 }
 

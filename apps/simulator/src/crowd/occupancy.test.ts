@@ -1,5 +1,5 @@
+import { Random } from '@pollo/geometry'
 import { describe, expect, it } from 'vitest'
-import { Random } from '../noise/random.js'
 import { occupy } from './occupancy.js'
 
 describe('occupy', () => {

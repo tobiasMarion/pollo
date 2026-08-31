@@ -1,4 +1,5 @@
-import { effectBrightness, type Vector3 } from '@pollo/contracts'
+import { effectBrightness } from '@pollo/contracts'
+import type { Vector3 } from '@pollo/geometry'
 import type { FieldSource } from '../run/pool.js'
 import { DEVICE } from '../run/shared.js'
 

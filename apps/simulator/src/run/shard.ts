@@ -1,12 +1,12 @@
 import { parentPort, workerData } from 'node:worker_threads'
 import type { Effect, Origin } from '@pollo/contracts'
+import { deriveSeed, Random } from '@pollo/geometry'
 import { occupy } from '../crowd/occupancy.js'
 import { capacityFor, venues } from '../crowd/venue.js'
 import type { SimulatorConfig } from '../io/config.js'
 import { type DeviceContext, perTickChance, VirtualDevice } from '../io/device.js'
 import { webSocketTransport } from '../io/transport.js'
 import { FIELD_TICK_SECONDS, SharedErrorField } from '../noise/gnss.js'
-import { deriveSeed, Random } from '../noise/random.js'
 import { attach, type SharedBuffers } from './shared.js'
 
 /** How often the shard walks its devices. Fast enough for a 1 Hz report rate. */

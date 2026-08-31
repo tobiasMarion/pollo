@@ -1,4 +1,4 @@
-import type { Random } from '../noise/random.js'
+import type { Random } from '@pollo/geometry'
 
 /**
  * Which seats are taken, drawn without replacement.

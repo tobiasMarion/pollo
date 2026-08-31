@@ -1,12 +1,12 @@
-import {
-  type ExactLocation,
-  type Location,
-  type Measurement,
-  type Message,
-  type Participant,
-  type PositionsMessage,
-  projectLocation,
+import type {
+  ExactLocation,
+  Location,
+  Measurement,
+  Message,
+  Participant,
+  PositionsMessage,
 } from '@pollo/contracts'
+import { projectLocation } from '@pollo/geometry'
 import type { FastifyBaseLogger } from 'fastify'
 import type { Metrics } from '../observability/metrics.js'
 import { AdminDigest, DIGEST_INTERVAL_MS } from './batching/admin-digest.js'

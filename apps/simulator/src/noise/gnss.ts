@@ -1,6 +1,5 @@
-import type { Vector3 } from '@pollo/contracts'
+import type { Random, Vector3 } from '@pollo/geometry'
 import { type OuLayer, Vector3Ou } from './ou.js'
-import type { Random } from './random.js'
 
 /**
  * How wrong a fix is in a given kind of room, in meters. Declared by the venue,

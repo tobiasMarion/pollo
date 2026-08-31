@@ -1,5 +1,5 @@
+import { Random } from '@pollo/geometry'
 import { describe, expect, it } from 'vitest'
-import { Random } from '../noise/random.js'
 import { PHONE_HEIGHT, SEAT_PITCH } from './seat.js'
 import { square } from './square.js'
 
