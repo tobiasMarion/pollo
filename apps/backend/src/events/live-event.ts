@@ -353,6 +353,26 @@ export class LiveEvent {
     this.scheduleWrites()
   }
 
+  /**
+   * Hands one device's ranging credential to the peer it was minted for.
+   *
+   * The token is not parsed, stored, or written to the graph: it means nothing
+   * here and everything to those two phones, and the moment the server has an
+   * opinion about it there are two implementations of a handshake instead of
+   * one. A peer that has already left drops it — the next assignment pairs
+   * whoever is still here.
+   */
+  relayPeerToken(from: string, peer: string, token: string) {
+    if (!this.subscribers.has(from)) return
+
+    const connection = this.subscribers.get(peer)
+    if (!connection) return
+
+    connection.sendMessage({ type: 'PEER_TOKEN', peer: from, token })
+
+    this.metrics?.count('framesOut')
+  }
+
   updateSubscriberLocation(deviceId: string, location: Location) {
     const connection = this.subscribers.get(deviceId)
     if (!connection) return

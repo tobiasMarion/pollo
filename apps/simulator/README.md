@@ -71,11 +71,13 @@ nobody itself. `SET_NEIGHBORS` carries that list and replaces the previous one
 outright; a device that has not been given one measures nothing at all.
 
 This is not bookkeeping. Two phones cannot range each other over UWB until each
-holds the other's discovery token, and that token only ever arrives out of band:
-the message is the credential, and without it there is nothing to attempt. A
-simulator that picks neighbours out of its own ground truth is measuring a world
-where discovery is free, and the worker gets tuned against a graph no crowd can
-produce.
+holds a token the other minted, and a token covers one pairing — so being named
+on a list is the cue to send one, which each device does with a `PEER_TOKEN` the
+server relays without reading. Nothing here needs the credential, because these
+distances come from the ground truth, but the frames are sent: a name on a list
+costs one, and a simulator that leaves them out is measuring a world where
+discovery is free. That is a graph no crowd can produce, and a bad thing to tune
+a worker against.
 
 The server is also the only party with a global view, so it is the one that can
 choose well — peers spread around a device rather than clustered on one side of

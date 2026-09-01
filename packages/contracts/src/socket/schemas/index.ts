@@ -114,6 +114,28 @@ export const messageSchemas = {
     })
     .describe('Which peers this device should measure, decided by the server.'),
 
+  /**
+   * Two phones cannot range each other over UWB until each holds a token minted
+   * by the other, and a token belongs to one ranging session, which measures one
+   * peer — so a device on a list of eight needs eight of its own and eight of
+   * theirs. `SET_NEIGHBORS` names who to measure and cannot carry that: the
+   * server has no tokens, and would be wrong to invent any.
+   *
+   * So the pair introduces itself through the server, which relays the blob
+   * without reading it. Being told to measure someone is the cue to send one.
+   */
+  PEER_TOKEN: z
+    .object({
+      type: z.literal('PEER_TOKEN'),
+      peer: z
+        .string()
+        .describe('Sending, the device to hand this to; receiving, the device it came from.'),
+      token: z
+        .string()
+        .describe('Opaque credential for this one pair — relayed as it arrived, never parsed.'),
+    })
+    .describe('Half of a ranging handshake: what one device needs before it can measure another.'),
+
   EFFECT: z
     .object({
       type: z.literal('EFFECT'),

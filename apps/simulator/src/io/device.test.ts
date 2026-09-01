@@ -328,6 +328,26 @@ describe('VirtualDevice', () => {
     expect(retraction.length).toBeGreaterThan(0)
   })
 
+  it('introduces itself to each new name on the list, and only the new ones', () => {
+    const run = harness(['--distance-hz', '2', '--report-hz', '0.01'])
+
+    run.advance(0.1)
+    run.accept()
+    run.assign([1, 2])
+    run.advance(0.5)
+
+    const peersTold = () =>
+      (run.latest().sentOfType('PEER_TOKEN') as { peer: string }[]).map(frame => frame.peer).sort()
+
+    expect(peersTold()).toEqual(['sim-1', 'sim-2'])
+
+    // Staying on the list costs nothing: a pairing is introduced once.
+    run.assign([2, 3])
+    run.advance(0.5)
+
+    expect(peersTold()).toEqual(['sim-1', 'sim-2', 'sim-3'])
+  })
+
   it('says nothing about a peer the radio cannot reach', () => {
     const run = harness(['--distance-hz', '2', '--report-hz', '0.01', '--range', '2'])
 

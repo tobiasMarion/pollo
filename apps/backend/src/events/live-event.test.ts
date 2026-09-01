@@ -262,6 +262,41 @@ describe('LiveEvent', () => {
     expect(batch().placed).toEqual([{ deviceId: 'd1', position }])
   })
 
+  it('relays a peer token to its addressee alone, naming the sender', () => {
+    const first: Message[] = []
+    const second: Message[] = []
+    const third: Message[] = []
+    service.subscribe({ deviceId: 'd1', location, sendMessage: m => first.push(m) })
+    service.subscribe({ deviceId: 'd2', location, sendMessage: m => second.push(m) })
+    service.subscribe({ deviceId: 'd3', location, sendMessage: m => third.push(m) })
+
+    service.relayPeerToken('d1', 'd2', 'a-token')
+
+    // `peer` goes out as who it came from, which is the only edit the server makes.
+    expect(second).toContainEqual({ type: 'PEER_TOKEN', peer: 'd1', token: 'a-token' })
+    expect(first.filter(m => m.type === 'PEER_TOKEN')).toEqual([])
+    expect(third.filter(m => m.type === 'PEER_TOKEN')).toEqual([])
+  })
+
+  it('drops a peer token addressed to a device that has left', () => {
+    const inbox: Message[] = []
+    service.subscribe({ deviceId: 'd1', location, sendMessage: m => inbox.push(m) })
+    service.subscribe({ deviceId: 'd2', location, sendMessage: () => {} })
+    service.unsubscribe('d2')
+
+    expect(() => service.relayPeerToken('d1', 'd2', 'a-token')).not.toThrow()
+    expect(inbox.filter(m => m.type === 'PEER_TOKEN')).toEqual([])
+  })
+
+  it('ignores a peer token from a device that never joined', () => {
+    const inbox: Message[] = []
+    service.subscribe({ deviceId: 'd2', location, sendMessage: m => inbox.push(m) })
+
+    service.relayPeerToken('ghost', 'd2', 'a-token')
+
+    expect(inbox.filter(m => m.type === 'PEER_TOKEN')).toEqual([])
+  })
+
   it('clearAdminConnection stops admin notifications', () => {
     service.clearAdminConnection()
     service.setDistancesFromDevice('d1', [{ to: 'd2', distance: 1 }])

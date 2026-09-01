@@ -23,6 +23,15 @@ describe('directions', () => {
     }
   })
 
+  it('lets a peer token travel in both directions', () => {
+    const frame = { type: 'PEER_TOKEN', peer: 'device-2', token: 'a-token' }
+
+    // A relayed frame goes back out in the shape it came in — the server only
+    // swaps `peer` for the sender — so both device directions have to take it.
+    expect(deviceOutbound.schema.safeParse(frame).success).toBe(true)
+    expect(deviceInbound.schema.safeParse(frame).success).toBe(true)
+  })
+
   it('covers every message type across the four directions', () => {
     const covered = new Set([
       ...adminOutbound.types,

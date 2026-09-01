@@ -127,12 +127,24 @@ export class VirtualDevice {
 
   /** Replaces the list outright — the server sends what it wants measured now. */
   private assign(peers: readonly string[]) {
+    const previous = this.assigned
+
     this.assigned = new Set<number>()
 
     for (const deviceId of peers) {
       const peer = indexOfDeviceId(deviceId)
 
-      if (peer >= 0) this.assigned.add(peer)
+      if (peer < 0) continue
+
+      this.assigned.add(peer)
+
+      // A phone cannot range a stranger over UWB: it mints a token for that one
+      // pairing and sends it through the server. Nothing here needs the
+      // credential, but the frame is real, and it is a name on the list that
+      // costs one — which is what makes a crowd's worth of them worth counting.
+      if (!previous.has(peer)) {
+        this.send({ type: 'PEER_TOKEN', peer: deviceId, token: `token-${this.index}-${peer}` })
+      }
     }
   }
 
@@ -273,6 +285,12 @@ export class VirtualDevice {
 
       case 'EFFECT':
         this.context.onEffect(data.effect)
+        break
+
+      case 'PEER_TOKEN':
+        // Counted on the way in with every other frame, and then dropped: it
+        // unlocks a radio this device does not have. Distances here come from
+        // the truth array, so nothing waits on the handshake completing.
         break
     }
   }
