@@ -20,7 +20,7 @@ let package = Package(
     targets: [
         .target(name: "PolloWire"),
         .target(name: "PolloEffects", dependencies: ["PolloWire"]),
-        .target(name: "PolloSession", dependencies: ["PolloWire"]),
+        .target(name: "PolloSession", dependencies: ["PolloWire", "PolloEffects"]),
 
         // The fixtures are read straight off disk through `#filePath` rather than
         // bundled: they are one directory that two test targets and a Node script
