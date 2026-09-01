@@ -15,14 +15,17 @@ let package = Package(
     name: "PolloKit",
     platforms: [.iOS(.v26), .macOS(.v14)],
     products: [
-        .library(name: "PolloKit", targets: ["PolloWire"])
+        .library(name: "PolloKit", targets: ["PolloWire", "PolloEffects"])
     ],
     targets: [
         .target(name: "PolloWire"),
+        .target(name: "PolloEffects", dependencies: ["PolloWire"]),
+
         // The fixtures are read straight off disk through `#filePath` rather than
         // bundled: they are one directory that two test targets and a Node script
         // all have to agree on, and copying them would make that three.
         .testTarget(name: "PolloWireTests", dependencies: ["PolloWire"]),
+        .testTarget(name: "PolloEffectsTests", dependencies: ["PolloEffects", "PolloWire"]),
     ],
     swiftLanguageModes: [.v6]
 )

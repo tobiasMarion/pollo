@@ -13,10 +13,15 @@ import { writeFileSync } from 'node:fs'
 import {
   type DeviceInboundMessage,
   type DeviceOutboundMessage,
+  type Effect,
+  type EffectName,
+  effectBrightness,
+  effectDelaySeconds,
   type Location,
   type MessageOf,
   messageSchemas,
   type NodePosition,
+  type Vector3,
 } from '@pollo/contracts'
 
 const location: Location = {
@@ -66,6 +71,42 @@ const inbound: { [Type in DeviceInboundMessage['type']]: MessageOf<Type> } = {
   PEER_TOKEN: { type: 'PEER_TOKEN', peer: 'device-4', token: 'BGtleXMCAg==' },
 }
 
+const effects: { [Name in EffectName]: Extract<Effect, { name: Name }> } = {
+  PULSE: { name: 'PULSE', coordinateType: 'RELATIVE', activeTime: 1.2, spreadDelayPerUnit: 0.05 },
+  WAVE: { name: 'WAVE', direction: 'Y', activeTime: 0.8, spreadDelayPerUnit: 0.03 },
+  ROTATE: { name: 'ROTATE', activeTime: 1, spreadDelayPerRadian: 0.4 },
+  SPIRAL: { name: 'SPIRAL', activeTime: 0.6, radialSpeed: 8, angularSpeed: 2.5 },
+}
+
+/**
+ * Points chosen to reach the branches rather than to look like a crowd: dead on
+ * the centre, on each axis in both directions, off-axis, and above the field.
+ */
+const points: Vector3[] = [
+  { x: 0, y: 0, z: 0 },
+  { x: 12, y: 0, z: 0 },
+  { x: -12, y: 0, z: 0 },
+  { x: 0, y: 9.5, z: 0 },
+  { x: -7.5, y: -4.25, z: 0 },
+  { x: 3, y: 4, z: 6 },
+]
+
+const center: Vector3 = { x: 1, y: -1, z: 0 }
+const elapsedSeconds = [0, 0.25, 0.9, 2.5]
+
+const brightness = Object.values(effects).flatMap(effect =>
+  points.flatMap(point =>
+    elapsedSeconds.map(elapsed => ({
+      effect,
+      point,
+      center,
+      elapsed,
+      delay: effectDelaySeconds(effect, point, center),
+      brightness: effectBrightness(effect, point, center, elapsed),
+    })),
+  ),
+)
+
 /** A sample the API would refuse is a sample that teaches the client a lie. */
 function checked<Frame extends { type: keyof typeof messageSchemas }>(frame: Frame): Frame {
   const result = messageSchemas[frame.type].safeParse(frame)
@@ -87,3 +128,4 @@ function write(name: string, value: unknown) {
 }
 
 write('messages.json', { outbound, inbound })
+write('effects.json', { cases: brightness })
