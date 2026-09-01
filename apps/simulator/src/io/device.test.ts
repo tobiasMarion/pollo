@@ -1,4 +1,4 @@
-import type { Measurement as Edge, Effect, Location } from '@pollo/contracts'
+import type { Measurement as Edge, Effect, Location, Vector3 } from '@pollo/contracts'
 import { projectLocation, Random } from '@pollo/geometry'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Seat } from '../crowd/seat.js'
@@ -100,7 +100,7 @@ function harness(flags: string[] = [], budget: ErrorBudget = EXACT) {
   }
 
   const sockets: FakeSocket[] = []
-  const effects: Effect[] = []
+  const effects: { effect: Effect; center: Vector3 }[] = []
 
   const context: DeviceContext = {
     url: 'ws://localhost/join',
@@ -116,7 +116,7 @@ function harness(flags: string[] = [], budget: ErrorBudget = EXACT) {
 
       return socket
     },
-    onEffect: effect => effects.push(effect),
+    onEffect: (effect, center) => effects.push({ effect, center }),
   }
 
   const field = new SharedErrorField(new Random(1))
@@ -400,9 +400,13 @@ describe('VirtualDevice', () => {
       spreadDelayPerUnit: 0,
     }
 
-    run.latest().deliver({ type: 'EFFECT', effect })
+    // The centre rides along with the cue — a phone cannot work out where the
+    // middle of a crowd is from the one point it knows.
+    const center = { x: 3, y: -4, z: 0 }
 
-    expect(run.effects).toEqual([effect])
+    run.latest().deliver({ type: 'EFFECT', effect, center })
+
+    expect(run.effects).toEqual([{ effect, center }])
   })
 
   it('leaves the event, and stays away long enough for the API to notice', async () => {

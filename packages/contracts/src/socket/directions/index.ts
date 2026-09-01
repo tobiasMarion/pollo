@@ -18,7 +18,7 @@ function direction<const Types extends readonly MessageType[]>(types: Types) {
 }
 
 /** What the admin panel sends. */
-export const adminOutbound = direction(['AUTHENTICATION', 'EFFECT'])
+export const adminOutbound = direction(['AUTHENTICATION', 'FIRE_EFFECT'])
 
 /**
  * What the admin panel receives: the field in batches, plus the echo of its own

@@ -1,4 +1,5 @@
 import type {
+  Effect,
   ExactLocation,
   Location,
   Measurement,
@@ -308,6 +309,19 @@ export class LiveEvent {
   publish(message: Message) {
     this.notifyAdmin(message)
     this.broadcastToDevices(message)
+  }
+
+  /**
+   * Relays a cue, stamped with the middle of the field.
+   *
+   * The centre is worked out here because this is the only end that can see the
+   * whole crowd — a phone knows one point, its own — and it travels with the cue
+   * rather than being kept current on its own, so that one pass is rendered from
+   * one number. A panel drawing from one centre while the crowd lights from
+   * another is precisely how this falls out of step.
+   */
+  fireEffect(effect: Effect) {
+    this.publish({ type: 'EFFECT', effect, center: this.neighborhood.center })
   }
 
   /** Fans out to the devices; the admin hears about it in the next batch. */

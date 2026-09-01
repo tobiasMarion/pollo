@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { effectSchema } from '../../effects/schemas/index.js'
 import { locationSchema } from '../../primitives/location/index.js'
-import { positionSchema } from '../../primitives/position/index.js'
+import { positionSchema, vector3Schema } from '../../primitives/position/index.js'
 import { unionFrom } from '../../primitives/union/index.js'
 
 /**
@@ -136,12 +136,27 @@ export const messageSchemas = {
     })
     .describe('Half of a ranging handshake: what one device needs before it can measure another.'),
 
+  FIRE_EFFECT: z
+    .object({
+      type: z.literal('FIRE_EFFECT'),
+      effect: effectSchema,
+    })
+    .describe('The admin firing a cue.'),
+
+  /**
+   * Every effect is measured from the middle of the field, and a phone knows
+   * only where it is standing — so the one end that can see the whole crowd
+   * works the centre out and says it. Sent with the cue rather than kept
+   * current on its own: a client that renders a cue from a centre it learned
+   * separately is a client that can render it from a different one.
+   */
   EFFECT: z
     .object({
       type: z.literal('EFFECT'),
       effect: effectSchema,
+      center: vector3Schema.describe('Middle of the field, in the relative frame.'),
     })
-    .describe('A cue, fired by the admin and relayed untouched to every device.'),
+    .describe('A cue on its way to the crowd, carrying what nobody in it could work out alone.'),
 } as const
 
 export const messageSchema = unionFrom('type', messageSchemas)

@@ -104,7 +104,6 @@ export function createFieldView(): FieldView {
       const light = new Float32Array(width * rows)
 
       const cue = source.cue
-      const center = cue ? centroidOfPlaced(shared) : null
       const elapsed = cue ? (now - cue.firedAt) / 1_000 : 0
 
       const point: Vector3 = { x: 0, y: 0, z: 0 }
@@ -127,13 +126,13 @@ export function createFieldView(): FieldView {
 
         // Unplaced stays dark. This screen is a reading of the worker, and a
         // device the worker has not placed has nothing to say about it.
-        if (!cue || !center || (flag & DEVICE.PLACED) === 0) continue
+        if (!cue || (flag & DEVICE.PLACED) === 0) continue
 
         point.x = shared.estimate[index * 3] ?? 0
         point.y = shared.estimate[index * 3 + 1] ?? 0
         point.z = shared.estimate[index * 3 + 2] ?? 0
 
-        const glow = effectBrightness(cue.effect, point, center, elapsed)
+        const glow = effectBrightness(cue.effect, point, cue.center, elapsed)
 
         // The brightest of whoever is standing in this subpixel, not the sum: at
         // crowd density a sum saturates on the first frame and the screen goes
@@ -191,34 +190,6 @@ function ease(from: Bounds, to: Bounds): Bounds {
     reachX: step(from.reachX, to.reachX),
     reachY: step(from.reachY, to.reachY),
   }
-}
-
-/**
- * The middle of the cue, in the frame the brightness is computed in.
- *
- * Estimates rather than truth, and the placed ones only, because that is exactly
- * what the panel uses. Anything else and a skewed ring could be blamed on the two
- * screens having disagreed about where the centre was, which is the one
- * explanation this view exists to rule out.
- */
-function centroidOfPlaced(shared: FieldSource['shared']): Vector3 | null {
-  let x = 0
-  let y = 0
-  let z = 0
-  let placed = 0
-
-  for (let index = 0; index < shared.count; index++) {
-    if (((shared.flags[index] ?? 0) & DEVICE.PLACED) === 0) continue
-
-    x += shared.estimate[index * 3] ?? 0
-    y += shared.estimate[index * 3 + 1] ?? 0
-    z += shared.estimate[index * 3 + 2] ?? 0
-    placed++
-  }
-
-  if (placed === 0) return null
-
-  return { x: x / placed, y: y / placed, z: z / placed }
 }
 
 /** How full a subpixel is, 0 to 1. Logarithmic: the first few people say the most. */

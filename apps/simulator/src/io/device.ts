@@ -62,7 +62,7 @@ export interface DeviceContext {
   spareSeats: number[]
   connect: Connect
   /** A cue, on its way to the terminal. Fired once per device that hears it. */
-  onEffect: (effect: Effect) => void
+  onEffect: (effect: Effect, center: Vector3) => void
 }
 
 /**
@@ -284,7 +284,7 @@ export class VirtualDevice {
         break
 
       case 'EFFECT':
-        this.context.onEffect(data.effect)
+        this.context.onEffect(data.effect, data.center)
         break
 
       case 'PEER_TOKEN':

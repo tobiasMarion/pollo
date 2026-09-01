@@ -8,6 +8,7 @@ import {
   type NodePosition,
   safeParseJsonMessage,
   socketPaths,
+  type Vector3,
   WS_CLOSE,
 } from '@pollo/contracts'
 import { SvelteMap } from 'svelte/reactivity'
@@ -61,7 +62,7 @@ export class EventConsole {
   /** Set when the socket is closed for good — a reconnect would not help. */
   error = $state<string | null>(null)
   /** The last effect fired, and when, so views can echo the wavefront. */
-  lastEffect = $state<{ effect: Effect; firedAt: number } | null>(null)
+  lastEffect = $state<{ effect: Effect; firedAt: number; center: Vector3 } | null>(null)
 
   #eventId: string
   #token: string
@@ -135,7 +136,7 @@ export class EventConsole {
   fireEffect(effect: Effect) {
     if (this.status !== 'live') return
 
-    this.#send({ type: 'EFFECT', effect })
+    this.#send({ type: 'FIRE_EFFECT', effect })
   }
 
   destroy() {
@@ -185,7 +186,7 @@ export class EventConsole {
         break
 
       case 'EFFECT':
-        this.lastEffect = { effect: message.effect, firedAt: now }
+        this.lastEffect = { effect: message.effect, firedAt: now, center: message.center }
         break
     }
   }

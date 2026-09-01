@@ -297,6 +297,51 @@ describe('LiveEvent', () => {
     expect(inbox.filter(m => m.type === 'PEER_TOKEN')).toEqual([])
   })
 
+  it('stamps a cue with the middle of the field, for the crowd and the panel alike', () => {
+    const inbox: Message[] = []
+    const effect = {
+      name: 'PULSE',
+      coordinateType: 'RELATIVE',
+      activeTime: 1,
+      spreadDelayPerUnit: 0,
+    } as const
+
+    // One on the event's own coordinate and one about 110 m north of it, so the
+    // middle of them is a point neither is standing on.
+    service.subscribe({ deviceId: 'd1', location, sendMessage: m => inbox.push(m) })
+    service.subscribe({
+      deviceId: 'd2',
+      location: { ...location, latitude: location.latitude + 0.001 },
+      sendMessage: () => {},
+    })
+
+    service.fireEffect(effect)
+
+    const cue = inbox.find(message => message.type === 'EFFECT')
+    if (cue?.type !== 'EFFECT') throw new Error('no cue reached the device')
+
+    expect(cue.effect).toEqual(effect)
+    expect(cue.center.y).toBeGreaterThan(0)
+    expect(cue.center.y).toBeLessThan(110)
+
+    // The panel draws the pass the crowd is lighting, so it is told the same number.
+    expect(adminInbox).toContainEqual(cue)
+  })
+
+  it('centres a cue on the origin when nobody is here to have a middle', () => {
+    const inbox: Message[] = []
+    service.subscribe({ deviceId: 'd1', location, sendMessage: m => inbox.push(m) })
+    service.unsubscribe('d1')
+
+    service.fireEffect({ name: 'ROTATE', activeTime: 1, spreadDelayPerRadian: 0 })
+
+    const cue = adminInbox.find(message => message.type === 'EFFECT')
+    if (cue?.type !== 'EFFECT') throw new Error('the panel heard nothing')
+
+    expect(cue.center).toEqual({ x: 0, y: 0, z: 0 })
+    expect(inbox.filter(message => message.type === 'EFFECT')).toEqual([])
+  })
+
   it('clearAdminConnection stops admin notifications', () => {
     service.clearAdminConnection()
     service.setDistancesFromDevice('d1', [{ to: 'd2', distance: 1 }])

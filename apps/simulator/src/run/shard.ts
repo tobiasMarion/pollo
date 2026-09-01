@@ -1,5 +1,5 @@
 import { parentPort, workerData } from 'node:worker_threads'
-import type { Effect, Origin } from '@pollo/contracts'
+import type { Effect, Origin, Vector3 } from '@pollo/contracts'
 import { deriveSeed, Random } from '@pollo/geometry'
 import { occupy } from '../crowd/occupancy.js'
 import { capacityFor, venues } from '../crowd/venue.js'
@@ -21,6 +21,8 @@ export interface ShardEffect {
   effect: Effect
   /** When the device heard it — the clock the brightness is measured from. */
   at: number
+  /** Middle of the field, as the API measured it. */
+  center: Vector3
 }
 
 export interface ShardData {
@@ -64,14 +66,14 @@ function run(data: ShardData) {
    */
   let lastCue: { payload: string; at: number } | null = null
 
-  const forwardCue = (effect: Effect) => {
+  const forwardCue = (effect: Effect, center: Vector3) => {
     const payload = JSON.stringify(effect)
     const at = Date.now()
 
     if (lastCue && lastCue.payload === payload && at - lastCue.at < CUE_COALESCE_MS) return
 
     lastCue = { payload, at }
-    parentPort?.postMessage({ type: 'effect', effect, at } satisfies ShardEffect)
+    parentPort?.postMessage({ type: 'effect', effect, at, center } satisfies ShardEffect)
   }
 
   // Disjoint per shard, so two threads can never walk a device into the same

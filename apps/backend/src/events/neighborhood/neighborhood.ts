@@ -1,4 +1,5 @@
 import type { Vector3 } from '@pollo/contracts'
+import { vector } from '@pollo/geometry'
 import { FieldGrid } from './field-grid.js'
 import { chooseNeighbors } from './neighbor-choice.js'
 
@@ -115,6 +116,16 @@ export class Neighborhood {
 
   get size() {
     return this.devices.size
+  }
+
+  /**
+   * The middle of the crowd, in the event's frame — where an effect is measured
+   * from. Walked on demand rather than kept running: a cue is rare and a
+   * location reading is not, so the cost belongs on the cue. Empty is the
+   * origin, which is where nothing is.
+   */
+  get center(): Vector3 {
+    return vector.centroid([...this.devices.values()].map(({ point }) => point))
   }
 
   /** The list this device was last given, for anyone who missed the assignment. */
