@@ -60,7 +60,7 @@ apps/
   web/         admin panel (SvelteKit + Tailwind)
   simulator/   emulates an audience against a live event
   worker/      turns the distance graph into coordinates
-  # mobile/    sensor client (SwiftUI/iOS)
+  mobile/      sensor client (SwiftUI/iOS)
 packages/
   contracts/   the wire, as Zod schemas — every client validates against these
   geometry/    the maths — vectors, geodesy and the multidimensional scaling

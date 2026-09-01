@@ -5,6 +5,10 @@ node_modules/
 dist/
 build/
 *.tsbuildinfo
+apps/mobile/.build/
+
+# the Xcode project is generated from project.yml, never edited by hand
+apps/mobile/*.xcodeproj/
 
 # coverage reports
 coverage/

@@ -1,0 +1,20 @@
+{
+  "name": "@pollo/mobile",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The iOS sensor client. This package exists only to emit the wire fixtures its Swift tests read.",
+  "scripts": {
+    "fixtures": "tsx tools/emit-fixtures.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@pollo/contracts": "*",
+    "@pollo/geometry": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.7",
+    "tsx": "^4.19.0",
+    "typescript": "^5.9.0"
+  }
+}
