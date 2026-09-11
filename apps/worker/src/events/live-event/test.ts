@@ -2,7 +2,6 @@ import type { Location, PositionPoint, PositionsMessage } from '@pollo/contracts
 import { beforeEach, describe, expect, it } from 'vitest'
 import { EventGraph } from '../../ingest/graph/index.js'
 import { PublishLedger } from '../../publish/ledger/index.js'
-import type { PositionPublisher } from '../../redis/publisher/index.js'
 import { solverOf } from '../../solve/fixtures/index.js'
 import { LiveEvent } from './index.js'
 
@@ -25,7 +24,7 @@ function recorder() {
     publish(_eventId: string, kind: Published['kind'], points: readonly PositionPoint[]) {
       sent.push({ kind, points })
     },
-  } as unknown as PositionPublisher
+  }
 
   return { sent, publisher }
 }

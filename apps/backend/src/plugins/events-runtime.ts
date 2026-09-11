@@ -31,7 +31,7 @@ export const eventsRuntimePlugin = fastifyPlugin<EventsRuntimePluginOptions>(
     })
 
     app.addHook('onClose', async () => {
-      events.shutdown()
+      await events.shutdown()
     })
   },
   { name: 'events-runtime', dependencies: ['metrics', 'repositories', 'redis'] },

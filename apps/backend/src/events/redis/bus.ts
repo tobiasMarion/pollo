@@ -4,6 +4,7 @@ import {
   type PositionsMessage,
   positionsMessageSchema,
   STREAM_FIELD,
+  stateKeys,
   streamKeys,
 } from '@pollo/contracts'
 import type { FastifyBaseLogger } from 'fastify'
@@ -19,10 +20,10 @@ export interface PositionsSubscription {
  * interface). The Redis Streams implementation below is the current default.
  */
 export interface Bus {
-  /** A window of graph mutations, per event (Node -> worker). Fire-and-forget. */
-  publishIngest(eventId: string, batch: IngestBatch): void
-  /** Event lifecycle announcements (Node -> worker). Fire-and-forget. */
-  publishControl(message: ControlMessage): void
+  /** A window of graph mutations, per event (Node -> worker). */
+  publishIngest(eventId: string, batch: IngestBatch): Promise<void>
+  /** Event lifecycle announcement and its durable current-state mirror. */
+  publishControl(message: ControlMessage): Promise<void>
   /** Position updates computed by the worker (worker -> Node). */
   subscribePositions(
     eventId: string,
@@ -31,6 +32,8 @@ export interface Bus {
 }
 
 const RETRY_DELAY_MS = 500
+const STREAM_MAXLEN = 1_000
+const CONTROL_MAXLEN = 10_000
 
 export class RedisStreamsBus implements Bus {
   constructor(
@@ -38,25 +41,43 @@ export class RedisStreamsBus implements Bus {
     private readonly logger: FastifyBaseLogger,
   ) {}
 
-  /** The hot IO path must never block waiting on Redis. */
-  private fireAndForget(promise: Promise<unknown>, context: string) {
-    promise.catch(error => {
-      this.logger.error({ err: error, context }, 'failed to publish to stream')
-    })
-  }
-
-  publishIngest(eventId: string, batch: IngestBatch) {
-    this.fireAndForget(
-      this.redis.xadd(streamKeys.ingest(eventId), '*', STREAM_FIELD, JSON.stringify(batch)),
-      `ingest:${batch.ops.length} ops`,
+  async publishIngest(eventId: string, batch: IngestBatch) {
+    await this.redis.xadd(
+      streamKeys.ingest(eventId),
+      'MAXLEN',
+      '~',
+      STREAM_MAXLEN,
+      '*',
+      STREAM_FIELD,
+      JSON.stringify(batch),
     )
   }
 
-  publishControl(message: ControlMessage) {
-    this.fireAndForget(
-      this.redis.xadd(streamKeys.control(), '*', STREAM_FIELD, JSON.stringify(message)),
-      `control:${message.op}`,
+  async publishControl(message: ControlMessage) {
+    const state = stateKeys.openEvents()
+    const transaction = this.redis.multi()
+
+    if (message.op === 'EVENT_OPENED') {
+      transaction.hset(
+        state,
+        message.eventId,
+        JSON.stringify({ latitude: message.latitude, longitude: message.longitude }),
+      )
+    } else {
+      transaction.hdel(state, message.eventId)
+    }
+
+    transaction.xadd(
+      streamKeys.control(),
+      'MAXLEN',
+      '~',
+      CONTROL_MAXLEN,
+      '*',
+      STREAM_FIELD,
+      JSON.stringify(message),
     )
+
+    await transaction.exec()
   }
 
   /**

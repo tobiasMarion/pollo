@@ -11,10 +11,9 @@ import { projectLocation } from '@pollo/geometry'
 import type { FastifyBaseLogger } from 'fastify'
 import type { Metrics } from '../observability/metrics.js'
 import { AdminDigest, DIGEST_INTERVAL_MS } from './batching/admin-digest.js'
-import { GraphWriter, ingestOpsOf, WRITE_INTERVAL_MS } from './batching/graph-writer.js'
+import { GraphRuntime, type GraphStorage } from './batching/graph-runtime.js'
 import { ASSIGNMENT_INTERVAL_MS, Neighborhood } from './neighborhood/neighborhood.js'
 import type { Bus } from './redis/bus.js'
-import type { GraphStore } from './redis/graph-store.js'
 
 /**
  * How the socket handlers hand a frame back to one connection. A fan-out passes
@@ -27,24 +26,27 @@ export interface Subscriber {
   deviceId: string
   location: Location
   sendMessage: SendMessage
+  disconnect?: () => void
 }
 
 /** A live device: how to reach it, and the last thing it said about itself. */
 interface Connection {
   sendMessage: SendMessage
   location: Location
+  disconnect: (() => void) | undefined
 }
 
 interface Admin {
   userId: string
   sendMessage: SendMessage | undefined
+  disconnect: (() => void) | undefined
 }
 
 export interface LiveEventOptions {
   id: string
   location: ExactLocation
   adminId: string
-  graphStore: GraphStore
+  graphStore: GraphStorage
   bus: Bus
   logger?: FastifyBaseLogger
   metrics?: Metrics
@@ -61,14 +63,10 @@ export class LiveEvent {
   private readonly location: ExactLocation
   private readonly admin: Admin
   private readonly subscribers = new Map<string, Connection>()
-  private readonly graphStore: GraphStore
-  private readonly bus: Bus
-  private readonly logger: FastifyBaseLogger | undefined
   private readonly metrics: Metrics | undefined
+  private ended = false
 
-  private readonly writer = new GraphWriter()
-  private writeTimer: ReturnType<typeof setInterval> | null = null
-  private flushing: Promise<void> | null = null
+  private readonly graph: GraphRuntime
 
   private readonly neighborhood = new Neighborhood()
   private assignmentTimer: ReturnType<typeof setInterval> | null = null
@@ -79,11 +77,9 @@ export class LiveEvent {
   constructor({ id, location, adminId, graphStore, bus, logger, metrics }: LiveEventOptions) {
     this.id = id
     this.location = location
-    this.graphStore = graphStore
-    this.bus = bus
-    this.logger = logger
     this.metrics = metrics
-    this.admin = { userId: adminId, sendMessage: undefined }
+    this.admin = { userId: adminId, sendMessage: undefined, disconnect: undefined }
+    this.graph = new GraphRuntime(id, graphStore, bus, logger, metrics)
   }
 
   get subscriberCount() {
@@ -95,56 +91,7 @@ export class LiveEvent {
    * rather than by how much they said, which is the whole point of batching.
    */
   get pendingWrites() {
-    return this.writer.pending
-  }
-
-  /** Only runs while there is something to write. */
-  private scheduleWrites() {
-    if (this.writeTimer) return
-
-    this.writeTimer = setInterval(() => void this.flushWrites(), WRITE_INTERVAL_MS)
-    this.writeTimer.unref?.()
-  }
-
-  private stopWriting() {
-    if (!this.writeTimer) return
-
-    clearInterval(this.writeTimer)
-    this.writeTimer = null
-  }
-
-  /**
-   * One flush at a time. A batch still in flight while the next tick fires would
-   * race it — removals of one batch against the adds of the other — and skipping
-   * the tick costs nothing, because what accumulates meanwhile is coalesced into
-   * the batch after it.
-   */
-  private async flushWrites(): Promise<void> {
-    if (this.flushing) return await this.flushing
-
-    if (this.writer.empty) {
-      this.stopWriting()
-      return
-    }
-
-    const batch = this.writer.take()
-    const startedAt = Date.now()
-
-    // The stream carries the same window the store gets, one entry instead of
-    // one per mutation.
-    this.bus.publishIngest(this.id, { at: startedAt, ops: ingestOpsOf(batch) })
-
-    this.flushing = this.graphStore
-      .applyBatch(batch)
-      .then(() => {
-        this.metrics?.observe('storeFlushMs', Date.now() - startedAt)
-      })
-      .catch(error => this.logger?.error({ err: error }, 'graph store write failed'))
-      .finally(() => {
-        this.flushing = null
-      })
-
-    await this.flushing
+    return this.graph.pending
   }
 
   /** Only runs while somebody is connected to be given a list. */
@@ -193,9 +140,7 @@ export class LiveEvent {
 
   /** Resolves once everything written so far has reached the store. */
   async settled() {
-    await this.flushing
-
-    if (!this.writer.empty) await this.flushWrites()
+    await this.graph.settle()
   }
 
   getAdminId() {
@@ -220,23 +165,39 @@ export class LiveEvent {
     return this.admin.sendMessage !== undefined
   }
 
-  setAdminConnection(send: SendMessage) {
+  setAdminConnection(send: SendMessage, disconnect?: () => void) {
+    if (this.ended) {
+      disconnect?.()
+      return () => {}
+    }
+
+    const previousDisconnect = this.admin.disconnect
+
     // Whatever happened while nobody watched is not this panel's history: it
     // opens from the REST snapshot and follows with batches from here.
     this.digest.discard()
     this.admin.sendMessage = send
+    this.admin.disconnect = disconnect
+    previousDisconnect?.()
 
-    if (this.digestTimer) return
+    if (!this.digestTimer) {
+      // Only runs while somebody is watching. With no panel connected there is
+      // nothing to flush to, and an interval per open event would tick for the
+      // life of the process with no reader.
+      this.digestTimer = setInterval(() => this.flushDigest(), DIGEST_INTERVAL_MS)
+      this.digestTimer.unref?.()
+    }
 
-    // Only runs while somebody is watching. With no panel connected there is
-    // nothing to flush to, and an interval per open event would tick for the
-    // life of the process with no reader.
-    this.digestTimer = setInterval(() => this.flushDigest(), DIGEST_INTERVAL_MS)
-    this.digestTimer.unref?.()
+    // A superseded socket may close after its replacement is live. Its cleanup
+    // owns this exact function, not whichever admin happens to be current then.
+    return () => this.clearAdminConnection(send)
   }
 
-  clearAdminConnection() {
+  clearAdminConnection(expected?: SendMessage) {
+    if (expected && this.admin.sendMessage !== expected) return
+
     this.admin.sendMessage = undefined
+    this.admin.disconnect = undefined
 
     if (this.digestTimer) {
       clearInterval(this.digestTimer)
@@ -266,7 +227,7 @@ export class LiveEvent {
   }
 
   async getEventGraph() {
-    return await this.graphStore.getEventGraph()
+    return await this.graph.snapshot()
   }
 
   /**
@@ -274,11 +235,34 @@ export class LiveEvent {
    * is about to be disconnected by the closing itself, so their nodes go too.
    */
   async discardGraph() {
-    this.stopWriting()
-    this.writer.discard()
+    await this.graph.discard()
+  }
 
-    await this.flushing
-    await this.graphStore.deleteGraph()
+  /** Ends the runtime and the sockets that still point at it. */
+  async end() {
+    if (this.ended) return
+    this.ended = true
+
+    const disconnectAdmin = this.admin.disconnect
+    const disconnectDevices = [...this.subscribers.values()].flatMap(connection =>
+      connection.disconnect ? [connection.disconnect] : [],
+    )
+
+    this.clearAdminConnection()
+    this.stopAssigning()
+    this.subscribers.clear()
+
+    disconnectAdmin?.()
+    for (const disconnect of disconnectDevices) disconnect()
+
+    await this.discardGraph()
+  }
+
+  /** Stops process-owned clocks without declaring the persisted event finished. */
+  async shutdown() {
+    this.clearAdminConnection()
+    this.stopAssigning()
+    await this.graph.shutdown()
   }
 
   /**
@@ -336,18 +320,39 @@ export class LiveEvent {
     }
   }
 
-  subscribe({ deviceId, location, sendMessage }: Subscriber) {
+  subscribe({ deviceId, location, sendMessage, disconnect }: Subscriber) {
+    if (this.ended) {
+      disconnect?.()
+      return () => {}
+    }
+
+    const previous = this.subscribers.get(deviceId)
+    const connection = { sendMessage, location, disconnect }
+
     if (this.watched) this.digest.locationChanged(deviceId, location)
 
-    this.subscribers.set(deviceId, { sendMessage, location })
+    this.subscribers.set(deviceId, connection)
+    previous?.disconnect?.()
 
     this.neighborhood.place(deviceId, projectLocation(location, this.location))
     this.scheduleAssignments()
 
-    // The store copy exists for REST reads and worker hydration; the stream
-    // publish is what actually drives the simulation.
-    this.writer.joined(deviceId, location)
-    this.scheduleWrites()
+    if (previous) {
+      // The logical device never left, but the new socket starts knowing
+      // nothing. Re-send its current assignment and update the location without
+      // manufacturing a LEAVE/JOIN pair for the worker.
+      sendMessage({ type: 'SET_NEIGHBORS', peers: [...this.neighborhood.peersOf(deviceId)] })
+      this.graph.moved(deviceId, location)
+      this.metrics?.count('framesOut')
+    } else {
+      // The store copy exists for REST reads and worker recovery; the stream
+      // publish is what drives the live solve.
+      this.graph.joined(deviceId, location)
+    }
+
+    return () => {
+      if (this.subscribers.get(deviceId) === connection) this.unsubscribe(deviceId)
+    }
   }
 
   /**
@@ -356,15 +361,13 @@ export class LiveEvent {
    * an edge written after the departure is one nothing would ever remove.
    */
   setDistancesFromDevice(from: string, measurements: readonly Measurement[]) {
-    if (!this.subscribers.has(from)) return
+    if (this.ended || !this.subscribers.has(from)) return
 
     for (const { to, distance } of measurements) {
-      this.writer.edgeChanged(from, to, distance)
+      this.graph.measured(from, to, distance)
 
       if (this.watched) this.digest.edgeChanged(from, to, distance)
     }
-
-    this.scheduleWrites()
   }
 
   /**
@@ -377,7 +380,7 @@ export class LiveEvent {
    * whoever is still here.
    */
   relayPeerToken(from: string, peer: string, token: string) {
-    if (!this.subscribers.has(from)) return
+    if (this.ended || !this.subscribers.has(from)) return
 
     const connection = this.subscribers.get(peer)
     if (!connection) return
@@ -388,6 +391,8 @@ export class LiveEvent {
   }
 
   updateSubscriberLocation(deviceId: string, location: Location) {
+    if (this.ended) return
+
     const connection = this.subscribers.get(deviceId)
     if (!connection) return
 
@@ -395,19 +400,19 @@ export class LiveEvent {
 
     if (this.watched) this.digest.locationChanged(deviceId, location)
 
-    this.writer.locationChanged(deviceId, location)
-    this.scheduleWrites()
+    this.graph.moved(deviceId, location)
 
     this.neighborhood.place(deviceId, projectLocation(location, this.location))
   }
 
   unsubscribe(deviceId: string) {
+    if (this.ended) return
+
     if (!this.subscribers.has(deviceId)) return
 
     this.subscribers.delete(deviceId)
 
-    this.writer.departed(deviceId)
-    this.scheduleWrites()
+    this.graph.departed(deviceId)
 
     this.neighborhood.remove(deviceId)
 

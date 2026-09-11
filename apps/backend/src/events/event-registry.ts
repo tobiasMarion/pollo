@@ -73,22 +73,7 @@ export class EventRegistry {
     const openEvents = await this.repository.listOpen()
 
     for (const { id, latitude, longitude, userId } of openEvents) {
-      const service = this.register(id, userId, exactLocationSchema.parse({ latitude, longitude }))
-
-      // Whatever is in the store belongs to sockets this process never had.
-      //
-      // A device is in the graph because it is connected, and every connection
-      // died with the process that held it — so a runtime that has just been
-      // built, with no subscribers at all, cannot have a single live node. Left
-      // alone they are permanent: nothing ever disconnects them, because there
-      // is nothing to disconnect, and the panel goes on drawing a crowd that
-      // went home. In development, where the API reloads on every save, that is
-      // a fresh layer of ghosts per edit.
-      //
-      // This assumes one API against one Redis, which is the deployment Pollo
-      // has. A second instance booting would wipe the first one's live graph,
-      // so scaling out means expiring nodes instead of clearing them.
-      await service.clearStaleGraph()
+      await this.register(id, userId, exactLocationSchema.parse({ latitude, longitude }), true)
     }
 
     this.logger.info({ count: openEvents.length }, 'event registry booted')
@@ -97,7 +82,7 @@ export class EventRegistry {
   async create({ adminId, ...event }: CreateEventData) {
     const { id } = await this.repository.create(event, adminId)
 
-    this.register(id, adminId, { latitude: event.latitude, longitude: event.longitude })
+    await this.register(id, adminId, { latitude: event.latitude, longitude: event.longitude })
 
     return id
   }
@@ -107,7 +92,7 @@ export class EventRegistry {
     const service = this.services.get(id)
     if (!service) return
 
-    this.bus.publishControl({ op: 'EVENT_CLOSED', eventId: id })
+    await this.bus.publishControl({ op: 'EVENT_CLOSED', eventId: id })
 
     this.subscriptions.get(id)?.stop()
     this.subscriptions.delete(id)
@@ -117,21 +102,28 @@ export class EventRegistry {
     // never reopens, so its graph is unreachable the moment it closes — and
     // unguarded, because closing an event with a crowd still in it is the
     // normal way an event ends.
-    await service.discardGraph()
+    await service.end()
     await this.repository.finish(id)
   }
 
   /** Stops subscriptions without closing events (used on API shutdown). */
-  shutdown() {
+  async shutdown() {
     for (const subscription of this.subscriptions.values()) {
       subscription.stop()
     }
+
+    await Promise.all([...this.services.values()].map(service => service.shutdown()))
 
     this.subscriptions.clear()
     this.services.clear()
   }
 
-  private register(id: string, adminId: string, location: ExactLocation): LiveEvent {
+  private async register(
+    id: string,
+    adminId: string,
+    location: ExactLocation,
+    clearOrphanedGraph = false,
+  ): Promise<LiveEvent> {
     const service = new LiveEvent({
       id,
       location,
@@ -143,17 +135,32 @@ export class EventRegistry {
     })
 
     this.services.set(id, service)
-    this.subscriptions.set(
-      id,
-      this.bus.subscribePositions(id, message => service.broadcastPositions(message)),
+    const subscription = this.bus.subscribePositions(id, message =>
+      service.broadcastPositions(message),
     )
+    this.subscriptions.set(id, subscription)
 
-    this.bus.publishControl({
-      op: 'EVENT_OPENED',
-      eventId: id,
-      latitude: location.latitude,
-      longitude: location.longitude,
-    })
+    try {
+      // Every device in this graph belonged to a socket owned by the previous
+      // API process. Clear it before announcing the new runtime generation, so
+      // an already-running worker recovers the empty truth rather than ghosts.
+      // This assumes the documented single-API deployment; scaling out needs
+      // leases or explicit socket ownership instead.
+      if (clearOrphanedGraph) await service.clearStaleGraph()
+
+      await this.bus.publishControl({
+        op: 'EVENT_OPENED',
+        eventId: id,
+        latitude: location.latitude,
+        longitude: location.longitude,
+      })
+    } catch (error) {
+      subscription.stop()
+      this.subscriptions.delete(id)
+      this.services.delete(id)
+      await service.shutdown()
+      throw error
+    }
 
     return service
   }

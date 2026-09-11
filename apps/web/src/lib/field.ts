@@ -1,5 +1,5 @@
 import { type Origin, projectLocation, type Vector3 } from '@pollo/geometry'
-import type { DeviceState } from '$lib/event-console.svelte'
+import type { DeviceState } from '$lib/field-state.svelte'
 
 export interface FieldPixel {
   deviceId: string

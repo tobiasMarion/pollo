@@ -2,10 +2,12 @@ import { controlMessageSchema, ingestBatchSchema, streamKeys } from '@pollo/cont
 import type { Origin } from '@pollo/geometry'
 import type { Logger } from '../../config/logger/index.js'
 import type { StreamEntry, StreamReader } from '../../redis/reader/index.js'
+import type { RecoverySource } from '../../redis/recovery/index.js'
 import type { LiveEvent } from '../live-event/index.js'
 
 export interface EventRegistryOptions {
   reader: StreamReader
+  recovery: RecoverySource
   logger: Logger
   tickMs: number
   /**
@@ -20,12 +22,10 @@ export interface EventRegistryOptions {
 /**
  * Which events are live, and the clock that solves them.
  *
- * The control stream is read from the very beginning rather than from now.
- * `EVENT_OPENED` and `EVENT_CLOSED` are the only things on it — two entries per
- * event in the lifetime of the system — so replaying it is cheap, and folding
- * the pair tells a worker that has just started which events are open without
- * asking anybody. A worker that anchored at the end would learn nothing until
- * the next event opened.
+ * Startup takes a cursor before reading the authoritative open-event and graph
+ * snapshots. Any mutation racing that recovery is therefore present in the
+ * snapshot or waiting after the cursor. Streams describe change; state keys
+ * describe what survived before this process arrived.
  */
 export class EventRegistry {
   private readonly events = new Map<string, LiveEvent>()
@@ -38,7 +38,13 @@ export class EventRegistry {
   }
 
   async start() {
-    await this.options.reader.follow(streamKeys.control(), '0')
+    // Cursor first, snapshot second. Anything racing recovery is either in the
+    // snapshot or waiting after the cursor, never lost in the gap between them.
+    await this.options.reader.follow(streamKeys.control(), 'latest')
+
+    for (const { eventId, origin } of await this.options.recovery.openEvents()) {
+      await this.open(eventId, origin)
+    }
 
     this.options.reader.start(this.handle)
 
@@ -73,6 +79,12 @@ export class EventRegistry {
     }
 
     if (parsed.data.op === 'EVENT_OPENED') {
+      // The API emits OPENED again after a process restart. That is a new
+      // runtime generation: its old sockets are gone and its graph snapshot
+      // has already been cleared, so replace rather than ignore this event.
+      if (this.events.delete(parsed.data.eventId)) {
+        this.options.reader.unfollow(streamKeys.ingest(parsed.data.eventId))
+      }
       await this.open(parsed.data.eventId, {
         latitude: parsed.data.latitude,
         longitude: parsed.data.longitude,
@@ -120,7 +132,15 @@ export class EventRegistry {
     // paying for the past to describe the present.
     await this.options.reader.follow(streamKeys.ingest(eventId), 'latest')
 
-    this.options.logger.info({ eventId, live: this.events.size }, 'event opened')
+    const event = this.events.get(eventId)
+    const recovered = await this.options.recovery.graph(eventId)
+
+    if (event && recovered.length > 0) event.ingest({ at: Date.now(), ops: recovered })
+
+    this.options.logger.info(
+      { eventId, live: this.events.size, recovered: recovered.length },
+      'event opened',
+    )
   }
 
   private close(eventId: string) {

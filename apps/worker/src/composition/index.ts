@@ -8,6 +8,7 @@ import { EventGraph } from '../ingest/graph/index.js'
 import { PublishLedger } from '../publish/ledger/index.js'
 import { PositionPublisher } from '../redis/publisher/index.js'
 import { StreamReader } from '../redis/reader/index.js'
+import { RecoveryReader } from '../redis/recovery/index.js'
 import { Solver } from '../solve/solver/index.js'
 
 /**
@@ -36,6 +37,7 @@ export function createRegistry(env: Env, logger: Logger, redis: Redis) {
 
   return new EventRegistry({
     reader: new StreamReader(redis, logger),
+    recovery: new RecoveryReader(redis, logger),
     logger,
     tickMs: env.WORKER_TICK_MS,
     createEvent: (eventId, origin) => createEvent(env, publisher, eventId, origin),

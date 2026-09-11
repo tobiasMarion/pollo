@@ -3,34 +3,16 @@ import {
   adminInbound,
   type Effect,
   type EventGraph,
-  type Location,
   type MessageOf,
-  type NodePosition,
   safeParseJsonMessage,
   socketPaths,
   type Vector3,
   WS_CLOSE,
 } from '@pollo/contracts'
-import { SvelteMap } from 'svelte/reactivity'
-import { apiSocketUrl } from '$lib/api/client'
+import { apiSocketUrl, createApiClient } from '$lib/api/client'
+import { FieldState } from '$lib/field-state.svelte'
 
-export interface DeviceState {
-  deviceId: string
-  /** Null while the only thing seen about a device is a position. */
-  location: Location | null
-  /** Absent until the worker has published a position for this device. */
-  position: NodePosition | null
-  /**
-   * What the two above were before the last batch. Updates arrive once a
-   * second; without somewhere to move *from*, the field would tick rather than
-   * move, so the canvas glides between the two across `window`.
-   */
-  previousLocation: Location | null
-  previousPosition: NodePosition | null
-  /** When the current values landed, and how long the glide has to cover. */
-  changedAt: number
-  window: number
-}
+export type { DeviceState } from '$lib/field-state.svelte'
 
 export type ConnectionStatus =
   | 'connecting'
@@ -43,8 +25,9 @@ export type ConnectionStatus =
 const RECONNECT_BASE_MS = 1000
 const RECONNECT_MAX_MS = 15_000
 
-export function edgeKey(from: string, to: string): string {
-  return `${from}>${to}`
+export interface EventConsoleOptions {
+  loadGraph?: () => Promise<EventGraph>
+  openSocket?: (url: string) => WebSocket
 }
 
 /**
@@ -55,8 +38,9 @@ export function edgeKey(from: string, to: string): string {
  * reactivity handles. The canvas reads the same maps every frame.
  */
 export class EventConsole {
-  readonly devices = new SvelteMap<string, DeviceState>()
-  readonly edges = new SvelteMap<string, { from: string; to: string; value: number }>()
+  readonly field = new FieldState()
+  readonly devices = this.field.devices
+  readonly edges = this.field.edges
 
   status = $state<ConnectionStatus>('connecting')
   /** Set when the socket is closed for good — a reconnect would not help. */
@@ -70,51 +54,48 @@ export class EventConsole {
   #retries = 0
   #reconnectTimer: ReturnType<typeof setTimeout> | null = null
   #closedByUs = false
+  #loadGraph: () => Promise<EventGraph>
+  #openSocket: (url: string) => WebSocket
+  #synchronizing = false
+  #pendingUpdates: MessageOf<'FIELD_UPDATE'>[] = []
 
-  constructor(eventId: string, token: string) {
+  constructor(eventId: string, token: string, options: EventConsoleOptions = {}) {
     this.#eventId = eventId
     this.#token = token
+    this.#loadGraph =
+      options.loadGraph ??
+      (() => createApiClient({ token: this.#token }).getEventGraph(this.#eventId))
+    this.#openSocket = options.openSocket ?? (url => new WebSocket(url))
   }
 
   /** Seeds the maps from `GET /events/:id/graph` so the view starts populated. */
   hydrate(graph: EventGraph) {
-    const now = Date.now()
-
-    for (const [deviceId, metadata] of Object.entries(graph.nodes)) {
-      this.devices.set(deviceId, {
-        deviceId,
-        location: metadata.location,
-        position: metadata.position ?? null,
-        previousLocation: null,
-        previousPosition: null,
-        changedAt: now,
-        window: 0,
-      })
-    }
-
-    for (const edge of graph.edges) {
-      this.edges.set(edgeKey(edge.from, edge.to), edge)
-    }
+    this.field.replace(graph)
   }
 
   connect() {
     this.#closedByUs = false
 
-    const socket = new WebSocket(apiSocketUrl(socketPaths.admin(this.#eventId)))
+    const socket = this.#openSocket(apiSocketUrl(socketPaths.admin(this.#eventId)))
     this.#socket = socket
+    this.#pendingUpdates = []
     this.status = this.#retries === 0 ? 'connecting' : 'reconnecting'
 
     socket.addEventListener('open', () => {
+      if (this.#socket !== socket) return
       this.status = 'authenticating'
       this.#send({ type: 'AUTHENTICATION', token: this.#token })
     })
 
     socket.addEventListener('message', message => {
-      this.#receive(message.data)
+      if (this.#socket === socket) this.#receive(message.data, socket)
     })
 
     socket.addEventListener('close', event => {
+      if (this.#socket !== socket) return
       this.#socket = null
+      this.#synchronizing = false
+      this.#pendingUpdates = []
 
       if (this.#closedByUs) {
         this.status = 'closed'
@@ -162,7 +143,7 @@ export class EventConsole {
     this.#reconnectTimer = setTimeout(() => this.connect(), delay)
   }
 
-  #receive(raw: unknown) {
+  #receive(raw: unknown, socket: WebSocket) {
     if (typeof raw !== 'string') return
 
     // Validated rather than cast: the panel is a client of a contract it does
@@ -175,14 +156,15 @@ export class EventConsole {
 
     switch (message.type) {
       case 'AUTHENTICATION_ACK':
-        // Only now are reports guaranteed to flow.
-        this.status = 'live'
-        this.error = null
-        this.#retries = 0
+        void this.#reconcile(socket)
         break
 
       case 'FIELD_UPDATE':
-        this.#applyBatch(message, now)
+        if (this.#synchronizing) {
+          this.#pendingUpdates.push(message)
+        } else {
+          this.field.apply(message, now)
+        }
         break
 
       case 'EFFECT':
@@ -191,82 +173,32 @@ export class EventConsole {
     }
   }
 
-  /**
-   * The whole batch, applied in one pass.
-   *
-   * Departures go last on purpose. The server already keeps a batch consistent
-   * — nothing it sends references a device it is also reporting gone — but
-   * arrivals before departures is the only order that stays right if that ever
-   * slips, because a stale edge added after the sweep is one nothing later
-   * retracts: the server has said all it has to say about that pair.
-   */
-  #applyBatch(update: MessageOf<'FIELD_UPDATE'>, now: number) {
-    for (const { deviceId, location } of update.locations) {
-      this.#upsertDevice(deviceId, now, update.window, { location })
-    }
+  async #reconcile(socket: WebSocket) {
+    if (this.#socket !== socket || this.#synchronizing) return
 
-    for (const { deviceId, position } of update.placed) {
-      this.#upsertDevice(deviceId, now, update.window, { position })
-    }
+    this.#synchronizing = true
+    let refreshed = false
 
-    for (const edge of update.edges) {
-      const key = edgeKey(edge.from, edge.to)
+    try {
+      const graph = await this.#loadGraph()
+      if (this.#socket !== socket) return
 
-      // A null distance means the devices went out of range: the edge is
-      // dropped, not zeroed.
-      if (edge.distance === null) {
-        this.edges.delete(key)
-      } else {
-        this.edges.set(key, { from: edge.from, to: edge.to, value: edge.distance })
+      this.field.replace(graph)
+      refreshed = true
+    } catch {
+      // The socket is already live. Keep the last known field and apply the
+      // buffered deltas; the next reconnect gets another chance at a snapshot.
+      this.error = 'The live connection resumed, but its snapshot could not be refreshed.'
+    } finally {
+      if (this.#socket === socket) {
+        for (const update of this.#pendingUpdates) this.field.apply(update)
+
+        this.#pendingUpdates = []
+        this.#synchronizing = false
+        this.status = 'live'
+        this.#retries = 0
+        if (refreshed) this.error = null
       }
     }
-
-    if (update.left.length === 0) return
-
-    for (const deviceId of update.left) {
-      this.devices.delete(deviceId)
-    }
-
-    // One sweep for the whole batch rather than one per departure: the map
-    // holds an edge per pair, and walking it for each of a thousand leavers is
-    // the shape of stall this batching exists to avoid.
-    const gone = new Set(update.left)
-
-    for (const [key, edge] of this.edges) {
-      if (gone.has(edge.from) || gone.has(edge.to)) this.edges.delete(key)
-    }
   }
-
-  /**
-   * A batch can name a device the panel never saw arrive — it joined while the
-   * socket was down, and batches carry changes rather than replaying history.
-   * Whatever the entry carries is enough to start tracking it.
-   */
-  #upsertDevice(
-    deviceId: string,
-    now: number,
-    window: number,
-    patch: { location?: Location; position?: NodePosition },
-  ) {
-    const existing = this.devices.get(deviceId)
-
-    this.devices.set(deviceId, {
-      deviceId,
-      location: patch.location ?? existing?.location ?? null,
-      position: patch.position ?? existing?.position ?? null,
-      // A device seen for the first time has nowhere to glide from and should
-      // simply appear where it is.
-      previousLocation: existing?.location ?? null,
-      previousPosition: existing?.position ?? null,
-      changedAt: now,
-      window,
-    })
-  }
-}
-
-/** Positions the worker has published — the only devices worth drawing. */
-export function positionedDevices(devices: Iterable<DeviceState>): DeviceState[] {
-  return [...devices].filter((device): device is DeviceState & { position: NodePosition } =>
-    Boolean(device.position),
-  )
 }

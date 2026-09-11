@@ -27,6 +27,9 @@ export function handleAdminSocket(
   { verifyToken, findOpenEvent, getEvent, heartbeat }: AdminSocketDeps,
 ) {
   let event: LiveEvent | null = null
+  let releaseAdmin: (() => void) | null = null
+  let authenticationStarted = false
+  let closed = false
 
   heartbeat.watch(socket)
 
@@ -45,6 +48,12 @@ export function handleAdminSocket(
 
     switch (data.type) {
       case 'AUTHENTICATION': {
+        if (authenticationStarted) {
+          socket.close(WS_CLOSE.INVALID_MESSAGE, 'Authenticate only once')
+          return
+        }
+        authenticationStarted = true
+
         let userId: string
 
         try {
@@ -55,6 +64,8 @@ export function handleAdminSocket(
         }
 
         const isEventAdmin = await findOpenEvent(eventId, userId)
+        if (closed) return
+
         const service = getEvent(eventId)
 
         if (!isEventAdmin || !service) {
@@ -63,7 +74,10 @@ export function handleAdminSocket(
         }
 
         event = service
-        event.setAdminConnection(message => sendMessage(socket, message))
+        releaseAdmin = event.setAdminConnection(
+          message => sendMessage(socket, message),
+          () => socket.close(WS_CLOSE.NOT_FOUND, 'Event closed'),
+        )
         sendMessage(socket, { type: 'AUTHENTICATION_ACK' })
         break
       }
@@ -75,7 +89,8 @@ export function handleAdminSocket(
   })
 
   socket.on('close', () => {
-    event?.clearAdminConnection()
+    closed = true
+    releaseAdmin?.()
   })
 }
 
@@ -94,8 +109,8 @@ export async function adminEvent(app: FastifyInstance) {
           'Authentication is **in band** — a header is not an option on upgrade — so',
           'the first frame must be `{"type":"AUTHENTICATION","token":"<jwt>"}`. The',
           'server answers `AUTHENTICATION_ACK`; wait for it before trusting reports.',
-          'Only one admin connection is wired at a time: a second one replaces the',
-          'first, which stays open but goes quiet.',
+          'Only one admin connection is active at a time: a second one replaces and',
+          'closes the first.',
           '',
           '### Frames you send',
           '',

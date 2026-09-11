@@ -1,5 +1,15 @@
 # Where the IO goes
 
+> **Historical audit.** This document records the bottlenecks measured before
+> the crowd-scale rewrite, not the current implementation. The work order below
+> became the implementation: neighbourhood assignment replaced global rosters
+> and join broadcasts, graph writes and distance reports are coalesced, reverse
+> indexes make departure proportional to degree, panel updates are deltas, and
+> socket outboxes enforce backpressure. The later durability pass bounded the
+> streams and added snapshot recovery; see
+> [ADR 0007](adr/0007-recover-live-state-from-snapshots.md). The figures remain
+> here because they explain why those shapes exist.
+
 Nobody is going to lend this project a crowd. Three thousand people in a room is
 not a test anyone can arrange twice, let alone fifty thousand, so the simulator
 is the only audience Pollo will ever have — and the number it can reach is the
@@ -7,7 +17,7 @@ only honest statement the project can make about how far it scales.
 
 The target is 50,000 simulated phones against one API process on one machine.
 This document is the audit that came out of asking whether that is reachable.
-The short answer is that the current protocol tops out around two to five
+The short answer at the time was that the original protocol topped out around two to five
 thousand, and that the ceiling is not the event loop being slow: it is a handful
 of places where the cost of one device joining, leaving, or speaking is
 proportional to how many other devices exist. Fix those and the same machine has

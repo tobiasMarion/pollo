@@ -32,7 +32,7 @@ src/
     docs/          the published message table, rendered from the same record
     parse/         JSON plus validation, without throwing
     endpoints/     the two socket paths and the application close codes
-  streams/       the Redis Streams protocol, API <-> worker
+  streams/       Redis stream messages plus the keys for recoverable current state
 ```
 
 A module is a directory: `index.ts`, with `test.ts` beside it where there is

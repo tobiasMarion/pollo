@@ -35,6 +35,7 @@ export function handleJoinSocket(
   { event, log, heartbeat, metrics }: JoinSocketDeps,
 ) {
   let deviceId: string | null = null
+  let release: (() => void) | null = null
 
   heartbeat.watch(socket)
 
@@ -63,12 +64,13 @@ export function handleJoinSocket(
         if (deviceId !== null) break // ignore repeated JOINs
 
         deviceId = data.deviceId
-        event.subscribe({
+        release = event.subscribe({
           deviceId,
           location: data.location,
           sendMessage: (message, serialised) => {
             if (!sendMessage(socket, message, serialised)) metrics?.count('out:dropped')
           },
+          disconnect: () => socket.close(WS_CLOSE.NOT_FOUND, 'Event closed'),
         })
         break
 
@@ -93,9 +95,7 @@ export function handleJoinSocket(
   })
 
   socket.on('close', () => {
-    if (deviceId !== null) {
-      event.unsubscribe(deviceId)
-    }
+    release?.()
   })
 }
 

@@ -23,11 +23,13 @@ The whole boundary is written down once, in
 | `event:<id>:ingest` | API → worker | one entry per 250 ms window: arrivals, departures, GPS reports, measured distances |
 | `event:<id>:positions` | worker → API | `delta` for what moved, `keyframe` for everything, periodically |
 
-Control is read **from the beginning**. There are two entries per event in the
-lifetime of the system, so replaying is cheap, and folding opened-against-closed
-tells a worker that has just started which events are live without asking
-anybody. Ingest is read **from now**: whatever it still holds is a window that
-was already applied to a graph this process does not have.
+Both streams are read **from now**, after their cursors have been captured. The
+worker then hydrates open events and their current graphs from Redis hashes and
+starts consuming. A mutation racing startup is either in that snapshot or after
+the cursor, and every recovered operation is idempotent. Streams therefore stay
+bounded and describe change; state hashes describe what survived before this
+process arrived. The ordering is recorded in
+[`ADR 0007`](../../docs/adr/0007-recover-live-state-from-snapshots.md).
 
 ## What it does
 
@@ -89,7 +91,7 @@ src/
   main.ts        the entry point, and nothing else
   composition/   the one place anything is constructed
   config/        env and logger — the subset of the repo's .env this process uses
-  redis/         one blocking read across every stream, and the publisher
+  redis/         one blocking read, current-state recovery, and the publisher
   events/        which events are live, and the tick that solves each one
   ingest/        slots, edges, and the graph that applies ops to both
   publish/       what changed since last time, and the four coordinates the wire wants
@@ -122,8 +124,8 @@ npm test -w @pollo/worker              # the unit tier
 npm run test:integration -w @pollo/worker   # needs `just up`
 ```
 
-The unit tier covers what the worker decides: the graph as ops arrive, the
-publishing rules, the sweep budget and the per-window blend, and the
+The unit tier covers what the worker decides: startup recovery, the graph as ops
+arrive, the publishing rules, the sweep budget and the per-window blend, and the
 reconstruction itself against scenarios written here rather than drawn from the
 simulator. The integration tier covers what `ioredis-mock` gets wrong about
 `XREAD`, which happens to be exactly where a read starts.
