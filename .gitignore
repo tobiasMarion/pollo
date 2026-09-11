@@ -9,6 +9,9 @@ apps/mobile/.build/
 
 # the Xcode project is generated from project.yml, never edited by hand
 apps/mobile/*.xcodeproj/
+apps/mobile/Config/Local.xcconfig
+apps/mobile/.derivedData/
+apps/mobile/.swiftpm/
 
 # coverage reports
 coverage/

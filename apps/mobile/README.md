@@ -10,16 +10,82 @@ just mobile-test       # 35 tests, no Xcode needed
 just mobile-fixtures   # rewrite the Swift test fixtures from the contract
 ```
 
-## There is no app yet
+## iOS app
 
-What exists is `PolloKit`: three targets that import nothing from Apple, so all
-of it builds and is tested on any machine. The adapters and the screen sit above
-it and need the iOS SDK.
+The SwiftUI app lives in `Apple/PolloApp`; `Apple/PolloSensors` contains the GPS,
+WebSocket, HTTP, Nearby Interaction and light adapters. The layout follows the
+Sparkle reference at commit `849b326`: small brand above, central mark and event,
+and Debug diagnostics below. The new mark is a light dot, also used by the icon.
+
+Requires full Xcode 26 with iOS SDK and XcodeGen (`brew install xcodegen`). Select
+Xcode with `sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer`,
+review its license with `sudo xcodebuild -license`, then run
+`sudo xcodebuild -runFirstLaunch`.
+
+Copy `Config/Local.xcconfig.example` to `Config/Local.xcconfig` and set your team,
+unique bundle identifier and API URL. The local file is ignored by Git. The URL
+must be reachable from the iPhone: use your Mac's LAN address for local tests.
+The default `https://localhost:3333` is a placeholder, not a public deployment.
+Use HTTPS for non-local servers. No admin credentials belong in this client.
+
+```bash
+just mobile-project     # generate apps/mobile/Pollo.xcodeproj
+just mobile-ios-build   # compile for iOS Simulator without signing
+just mobile-ios-test    # iPhone 17 simulator, override destination if needed
+```
+
+Open the generated project, select scheme Pollo and your connected iPhone,
+configure signing and run. Enable Developer Mode on the iPhone if prompted.
+For UI-only simulation, add `--demo` under scheme Run > Arguments; `--empty`
+exercises missing events; `--live` supplies a position and a pulse after joining.
+These fake adapters exist only in Debug builds.
+The real simulator path cannot measure UWB; it explains the unsupported hardware
+and disables participation. Debug launch argument `-maxPeers 4` lowers the
+default cap of 16; that cap is experimental, not a measured radio guarantee.
+
+Discovery is automatic after a valid GPS fix, but light requires **Participar**.
+The app uses the server's event type (screen or torch). **Sair** releases all
+resources. Backgrounding stops the session and lights; returning revalidates the
+event and creates a new session if the user was participating. Permission prompts
+alone do not end participation. No background modes or Live Activities are used.
+
+The screen mode restores the previous display brightness when leaving. Both modes
+restore the idle timer and stop at the end of a cue. A transient connection loss
+finishes the current cue. Explicit exit discards it. UI motion respects Reduce
+Motion and is independent of effect brightness.
+
+### Hardware acceptance checklist
+
+Start `just all` on the Mac (including the worker), create an event in the panel
+near the phones' actual GPS location, and use the same reachable API URL on each.
+
+1. With two UWB-capable iPhones, allow location and Nearby Interaction, discover
+   the event and confirm participation. Check that peers and distance edges appear
+   in the panel. Deny permissions once and verify recovery via Settings.
+2. Add more phones to satisfy the worker's minimum degree. Two phones prove the
+   radio handshake, not reconstruction. Confirm `SET_POINT` arrival before lights.
+3. Fire PULSE, WAVE, ROTATE and SPIRAL from the panel. Repeat with SCREEN and TORCH
+   events; check local brightness, ending and immediate **Sair** shutdown.
+4. Disconnect Wi-Fi, restore it, walk out of radio range, lock the phone, switch
+   apps and return. Check no duplicate pairs, old cues or lingering torch output.
+5. Use Instruments Energy Log / Time Profiler for a ten-minute run at 1, 2, 4, 8
+   and (only if supported) 16 peers. Record actual active sessions, update rate,
+   missed measurements, thermal state and battery delta. Do not infer support for
+   16 simultaneous sessions from the simulator.
+
+Record date, iPhone models, OS versions, app/backend commits, peer cap, network,
+event mode and results. Device measurements and visual validation are pending
+until this checklist is executed; automated tests do not certify them.
+
+## Portable core
+
+`PolloKit` contains three targets independent of iOS frameworks. The adapters and
+screen sit above it and need the iOS SDK.
 
 ```mermaid
 flowchart TB
-    app[PolloApp]:::todo
-    sensors[PolloSensors]:::todo
+    app[PolloApp]
+    sensors[PolloSensors]
     session[PolloSession]
     effects[PolloEffects]
     wire[PolloWire]
@@ -138,5 +204,5 @@ deterministic, so CI fails on a dirty tree.
 
 ## Next
 
-`PolloSensors` and `PolloApp`, then the energy measurement that settles the
-ranging cap — the only number in here that is still a guess.
+Run the hardware acceptance checklist and measure the ranging cap before making
+crowd-scale claims. TestFlight and App Store distribution are outside this step.

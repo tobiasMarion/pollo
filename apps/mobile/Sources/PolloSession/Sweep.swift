@@ -27,6 +27,18 @@ struct Sweep {
     /// Consecutive sweeps a peer with an edge on record produced nothing in.
     private var silence: [String: Int] = [:]
 
+    var sentDistances: [String: Double] {
+        sent.reduce(into: [:]) { $0[$1.key] = $1.value }
+    }
+
+    var pendingDistances: [String: Double] {
+        fresh.reduce(into: [:]) { $0[$1.key] = $1.value }
+    }
+
+    var silentSweeps: [String: Int] {
+        silence.reduce(into: [:]) { $0[$1.key] = $1.value }
+    }
+
     init(noiseFloorMeters: Double, silentSweepsBeforeRetraction: Int) {
         self.noiseFloorMeters = noiseFloorMeters
         self.silentSweepsBeforeRetraction = silentSweepsBeforeRetraction

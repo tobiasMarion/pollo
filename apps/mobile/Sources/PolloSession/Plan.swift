@@ -32,6 +32,9 @@ struct RangingPlan {
         assigned.union(courting)
     }
 
+    var assignedPeers: [String] { assigned.sorted() }
+    var courtingPeers: [String] { courting }
+
     /**
      Replaces the assignment outright, and says what changed.
 

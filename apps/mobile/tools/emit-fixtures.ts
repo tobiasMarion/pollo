@@ -17,6 +17,7 @@ import {
   type EffectName,
   effectBrightness,
   effectDelaySeconds,
+  eventWireSchema,
   type Location,
   type MessageOf,
   messageSchemas,
@@ -129,3 +130,16 @@ function write(name: string, value: unknown) {
 
 write('messages.json', { outbound, inbound })
 write('effects.json', { cases: brightness })
+write('event.json', {
+  event: eventWireSchema.parse({
+    id: 'ef46c136-b874-4840-b229-c12e7b1bfa7a',
+    name: 'Uma noite de luz',
+    type: 'SCREEN',
+    status: 'OPEN',
+    latitude: -29.68,
+    longitude: -53.8,
+    userId: 'admin',
+    createdAt: '2026-09-09T00:00:00.000Z',
+    updatedAt: '2026-09-09T00:00:00.000Z',
+  }),
+})

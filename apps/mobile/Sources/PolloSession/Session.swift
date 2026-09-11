@@ -67,6 +67,23 @@ public struct Cue: Equatable, Sendable {
     public var arrivedAt: Double
 }
 
+/// A read-only snapshot for the developer panel. It deliberately contains
+/// client state only; the phone cannot infer graph edges or distances held by
+/// other devices.
+public struct SessionDiagnostics: Equatable, Sendable {
+    public let phase: SessionPhase
+    public let deviceId: String
+    public let maxPeers: Int
+    public let assignedPeers: [String]
+    public let courtingPeers: [String]
+    public let sentDistances: [String: Double]
+    public let pendingDistances: [String: Double]
+    public let silentSweeps: [String: Int]
+    public let rangingAvailable: Bool
+    public let point: Vector3?
+    public let cue: Cue?
+}
+
 /// Close codes that mean the socket was wrong rather than unlucky. Retrying
 /// them is how a client turns a rejection into a denial of service.
 private let terminalCloseCodes: Set<Int> = [4400, 4401, 4404]
@@ -146,6 +163,22 @@ public final class PolloSession {
         plan.peers.sorted()
     }
 
+    public var diagnostics: SessionDiagnostics {
+        SessionDiagnostics(
+            phase: phase,
+            deviceId: deviceId,
+            maxPeers: plan.maxPeers,
+            assignedPeers: plan.assignedPeers,
+            courtingPeers: plan.courtingPeers,
+            sentDistances: sweep.sentDistances,
+            pendingDistances: sweep.pendingDistances,
+            silentSweeps: sweep.silentSweeps,
+            rangingAvailable: rangingAvailable,
+            point: point,
+            cue: cue
+        )
+    }
+
     /// How brightly this device should be lit, right now. 0 whenever it has no
     /// point, no cue, or the cue's pass has already gone by.
     public func brightness(at now: Double) -> Double {
@@ -186,6 +219,8 @@ public final class PolloSession {
     }
 
     private func stop() -> [SessionCommand] {
+        point = nil
+        cue = nil
         guard phase != .stopped else { return [] }
 
         let commands = teardown() + [.disconnect]

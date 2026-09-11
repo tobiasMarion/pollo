@@ -106,6 +106,16 @@ mobile-fixtures:
 mobile-build:
     cd apps/mobile && swift build
 
+# XcodeGen generates the project; signing is supplied through Local.xcconfig.
+mobile-project:
+    cd apps/mobile && xcodegen generate
+
+mobile-ios-build: mobile-project
+    xcodebuild -project apps/mobile/Pollo.xcodeproj -scheme Pollo -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath apps/mobile/.derivedData CODE_SIGNING_ALLOWED=NO build
+
+mobile-ios-test destination='platform=iOS Simulator,name=iPhone 17': mobile-project
+    xcodebuild -project apps/mobile/Pollo.xcodeproj -scheme Pollo -destination '{{destination}}' -derivedDataPath apps/mobile/.derivedData CODE_SIGNING_ALLOWED=NO test
+
 # The client's tests. No Xcode needed: the command line tools do ship
 # swift-testing, they just leave it out of every search path the compiler and
 # the loader look in, so the flags below put it back. With full Xcode installed
