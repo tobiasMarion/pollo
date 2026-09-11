@@ -1,0 +1,25 @@
+name: iOS
+on:
+  pull_request:
+    paths: ['apps/mobile/**', 'packages/contracts/**', 'packages/geometry/**', '.github/workflows/ios.yml']
+  workflow_dispatch:
+jobs:
+  ios:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run packages
+      - run: npm run fixtures -w @pollo/mobile
+      - run: git diff --exit-code -- apps/mobile/Fixtures
+      - run: swift test --package-path apps/mobile
+      - run: brew install xcodegen
+      - run: xcodegen generate --spec apps/mobile/project.yml
+      - name: Compile and test iOS
+        run: |
+          device=$(xcrun simctl list devices available -j | ruby -rjson -e 'j=JSON.parse(STDIN.read); puts j["devices"].values.flatten.find { |d| d["name"].start_with?("iPhone") }.fetch("udid")')
+          xcodebuild -project apps/mobile/Pollo.xcodeproj -scheme Pollo -destination "platform=iOS Simulator,id=$device" CODE_SIGNING_ALLOWED=NO test

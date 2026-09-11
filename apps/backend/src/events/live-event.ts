@@ -1,4 +1,5 @@
 import type {
+  Effect,
   ExactLocation,
   Location,
   Measurement,
@@ -310,6 +311,19 @@ export class LiveEvent {
     this.broadcastToDevices(message)
   }
 
+  /**
+   * Relays a cue, stamped with the middle of the field.
+   *
+   * The centre is worked out here because this is the only end that can see the
+   * whole crowd — a phone knows one point, its own — and it travels with the cue
+   * rather than being kept current on its own, so that one pass is rendered from
+   * one number. A panel drawing from one centre while the crowd lights from
+   * another is precisely how this falls out of step.
+   */
+  fireEffect(effect: Effect) {
+    this.publish({ type: 'EFFECT', effect, center: this.neighborhood.center })
+  }
+
   /** Fans out to the devices; the admin hears about it in the next batch. */
   private broadcastToDevices(message: Message) {
     // Once for the whole fan-out; the size is known before the loop starts.
@@ -351,6 +365,26 @@ export class LiveEvent {
     }
 
     this.scheduleWrites()
+  }
+
+  /**
+   * Hands one device's ranging credential to the peer it was minted for.
+   *
+   * The token is not parsed, stored, or written to the graph: it means nothing
+   * here and everything to those two phones, and the moment the server has an
+   * opinion about it there are two implementations of a handshake instead of
+   * one. A peer that has already left drops it — the next assignment pairs
+   * whoever is still here.
+   */
+  relayPeerToken(from: string, peer: string, token: string) {
+    if (!this.subscribers.has(from)) return
+
+    const connection = this.subscribers.get(peer)
+    if (!connection) return
+
+    connection.sendMessage({ type: 'PEER_TOKEN', peer: from, token })
+
+    this.metrics?.count('framesOut')
   }
 
   updateSubscriberLocation(deviceId: string, location: Location) {

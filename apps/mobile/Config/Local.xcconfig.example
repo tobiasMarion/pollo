@@ -1,0 +1,4 @@
+// Copy to Local.xcconfig. Use your Mac's LAN address, not localhost, on an iPhone.
+POLLO_API_URL = http:/$()/192.168.1.10:3333
+DEVELOPMENT_TEAM = YOUR_TEAM_ID
+PRODUCT_BUNDLE_IDENTIFIER = com.yourname.pollo

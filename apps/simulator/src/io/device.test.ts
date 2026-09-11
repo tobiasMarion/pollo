@@ -1,4 +1,4 @@
-import type { Measurement as Edge, Effect, Location } from '@pollo/contracts'
+import type { Measurement as Edge, Effect, Location, Vector3 } from '@pollo/contracts'
 import { projectLocation, Random } from '@pollo/geometry'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Seat } from '../crowd/seat.js'
@@ -100,7 +100,7 @@ function harness(flags: string[] = [], budget: ErrorBudget = EXACT) {
   }
 
   const sockets: FakeSocket[] = []
-  const effects: Effect[] = []
+  const effects: { effect: Effect; center: Vector3 }[] = []
 
   const context: DeviceContext = {
     url: 'ws://localhost/join',
@@ -116,7 +116,7 @@ function harness(flags: string[] = [], budget: ErrorBudget = EXACT) {
 
       return socket
     },
-    onEffect: effect => effects.push(effect),
+    onEffect: (effect, center) => effects.push({ effect, center }),
   }
 
   const field = new SharedErrorField(new Random(1))
@@ -328,6 +328,26 @@ describe('VirtualDevice', () => {
     expect(retraction.length).toBeGreaterThan(0)
   })
 
+  it('introduces itself to each new name on the list, and only the new ones', () => {
+    const run = harness(['--distance-hz', '2', '--report-hz', '0.01'])
+
+    run.advance(0.1)
+    run.accept()
+    run.assign([1, 2])
+    run.advance(0.5)
+
+    const peersTold = () =>
+      (run.latest().sentOfType('PEER_TOKEN') as { peer: string }[]).map(frame => frame.peer).sort()
+
+    expect(peersTold()).toEqual(['sim-1', 'sim-2'])
+
+    // Staying on the list costs nothing: a pairing is introduced once.
+    run.assign([2, 3])
+    run.advance(0.5)
+
+    expect(peersTold()).toEqual(['sim-1', 'sim-2', 'sim-3'])
+  })
+
   it('says nothing about a peer the radio cannot reach', () => {
     const run = harness(['--distance-hz', '2', '--report-hz', '0.01', '--range', '2'])
 
@@ -380,9 +400,13 @@ describe('VirtualDevice', () => {
       spreadDelayPerUnit: 0,
     }
 
-    run.latest().deliver({ type: 'EFFECT', effect })
+    // The centre rides along with the cue — a phone cannot work out where the
+    // middle of a crowd is from the one point it knows.
+    const center = { x: 3, y: -4, z: 0 }
 
-    expect(run.effects).toEqual([effect])
+    run.latest().deliver({ type: 'EFFECT', effect, center })
+
+    expect(run.effects).toEqual([{ effect, center }])
   })
 
   it('leaves the event, and stays away long enough for the API to notice', async () => {

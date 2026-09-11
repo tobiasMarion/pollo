@@ -1,5 +1,5 @@
 import { Worker } from 'node:worker_threads'
-import type { Effect, Origin } from '@pollo/contracts'
+import type { Effect, Origin, Vector3 } from '@pollo/contracts'
 import type { SimulatorConfig } from '../io/config.js'
 import { type CloudComparison, compareClouds, EMPTY_COMPARISON } from '../metrics/error.js'
 import type { ShardData, ShardEffect } from './shard.js'
@@ -18,7 +18,7 @@ import {
 /** What the field view reads: the live clouds, and the cue they are answering. */
 export interface FieldSource {
   readonly shared: SharedState
-  readonly cue: { effect: Effect; firedAt: number } | null
+  readonly cue: { effect: Effect; firedAt: number; center: Vector3 } | null
 }
 
 export interface Snapshot {
@@ -76,7 +76,7 @@ export class SimulationPool {
    * again. Which device heard it first is not interesting — what the field view
    * needs is one clock to measure brightness from.
    */
-  private cue: { effect: Effect; firedAt: number } | null = null
+  private cue: { effect: Effect; firedAt: number; center: Vector3 } | null = null
 
   /** Compacted copies of the crowd, reused so a 2 Hz scan allocates nothing. */
   private readonly truthOf: Float32Array
@@ -132,7 +132,7 @@ export class SimulationPool {
     }
   }
 
-  private rememberCue({ effect, at }: ShardEffect) {
+  private rememberCue({ effect, at, center }: ShardEffect) {
     const payload = JSON.stringify(effect)
 
     // Same cue, other shard. Keeping the earliest arrival means the animation is
@@ -142,7 +142,7 @@ export class SimulationPool {
       return
     }
 
-    this.cue = { effect, firedAt: at }
+    this.cue = { effect, firedAt: at, center }
   }
 
   /**

@@ -18,7 +18,7 @@ function direction<const Types extends readonly MessageType[]>(types: Types) {
 }
 
 /** What the admin panel sends. */
-export const adminOutbound = direction(['AUTHENTICATION', 'EFFECT'])
+export const adminOutbound = direction(['AUTHENTICATION', 'FIRE_EFFECT'])
 
 /**
  * What the admin panel receives: the field in batches, plus the echo of its own
@@ -31,11 +31,11 @@ export const adminOutbound = direction(['AUTHENTICATION', 'EFFECT'])
  */
 export const adminInbound = direction(['AUTHENTICATION_ACK', 'FIELD_UPDATE', 'EFFECT'])
 
-/** What a device sends: where it is, and how far its peers are. */
-export const deviceOutbound = direction(['JOIN', 'LOCATION_UPDATE', 'DISTANCES'])
+/** What a device sends: where it is, how far its peers are, and how to measure it. */
+export const deviceOutbound = direction(['JOIN', 'LOCATION_UPDATE', 'DISTANCES', 'PEER_TOKEN'])
 
-/** What a device receives: its own position, who to measure, and cues. */
-export const deviceInbound = direction(['SET_POINT', 'SET_NEIGHBORS', 'EFFECT'])
+/** What a device receives: its own position, who to measure, how, and cues. */
+export const deviceInbound = direction(['SET_POINT', 'SET_NEIGHBORS', 'EFFECT', 'PEER_TOKEN'])
 
 export type AdminOutboundMessage = z.infer<typeof adminOutbound.schema>
 export type AdminInboundMessage = z.infer<typeof adminInbound.schema>

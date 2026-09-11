@@ -6,7 +6,7 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!apps/backend/src/generated"]
+    "includes": ["**", "!apps/backend/src/generated", "!apps/mobile/Fixtures"]
   },
   "formatter": {
     "enabled": true,

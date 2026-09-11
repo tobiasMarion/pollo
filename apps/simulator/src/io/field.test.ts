@@ -1,4 +1,5 @@
-import type { Effect } from '@pollo/contracts'
+import type { Effect, Vector3 } from '@pollo/contracts'
+import { vector } from '@pollo/geometry'
 import { describe, expect, it } from 'vitest'
 import type { FieldSource } from '../run/pool.js'
 import { attach, createSharedBuffers, DEVICE, writeVector } from '../run/shared.js'
@@ -14,7 +15,10 @@ interface Person {
   estimate?: [number, number]
 }
 
-function fieldOf(crowd: Person[], cue: { effect: Effect; firedAt: number } | null = null) {
+function fieldOf(
+  crowd: Person[],
+  cue: { effect: Effect; firedAt: number; center?: Vector3 } | null = null,
+) {
   const shared = attach(createSharedBuffers(crowd.length), crowd.length)
 
   crowd.forEach((person, index) => {
@@ -27,7 +31,12 @@ function fieldOf(crowd: Person[], cue: { effect: Effect; firedAt: number } | nul
     shared.flags[index] = DEVICE.CONNECTED | DEVICE.PLACED
   })
 
-  return { shared, cue } satisfies FieldSource
+  // These crowds are built around the origin, which is where the API would put
+  // the centre of them.
+  return {
+    shared,
+    cue: cue && { ...cue, center: cue.center ?? vector.ZERO },
+  } satisfies FieldSource
 }
 
 interface Mark {
@@ -151,8 +160,8 @@ describe('field view', () => {
       options,
     )
 
-    // The worker swapped the west end with the middle. The centroid, and so the
-    // cue itself, is unmoved — only who is standing where.
+    // The worker swapped the west end with the middle. The cue is measured from a
+    // centre the API hands down, so it does not move — only who is standing where.
     const swapped = createFieldView().render(
       fieldOf(
         [

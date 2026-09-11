@@ -20,6 +20,7 @@ const INBOUND_COUNTER: Record<DeviceOutboundMessage['type'], string> = {
   JOIN: 'in:JOIN',
   LOCATION_UPDATE: 'in:LOCATION_UPDATE',
   DISTANCES: 'in:DISTANCES',
+  PEER_TOKEN: 'in:PEER_TOKEN',
 }
 
 interface JoinSocketDeps {
@@ -82,6 +83,12 @@ export function handleJoinSocket(
           event.setDistancesFromDevice(deviceId, data.measurements)
         }
         break
+
+      case 'PEER_TOKEN':
+        if (deviceId !== null) {
+          event.relayPeerToken(deviceId, data.peer, data.token)
+        }
+        break
     }
   })
 
@@ -129,6 +136,12 @@ export async function joinEvent(app: FastifyInstance) {
           'device per arrival, and deciding who to measure was the only thing a device',
           'ever did with one. Expect a list within a second of joining, and again',
           'whenever the crowd around you changes enough to matter.',
+          '',
+          'A list is not enough to measure anybody over UWB: each phone of a pair needs',
+          'a token the other one minted, and a token covers one pairing. So answer a',
+          'new name on the list with a `PEER_TOKEN` addressed to it, and expect theirs.',
+          'The server swaps `peer` for the sender and passes the string on untouched —',
+          'it is a credential between the two of you, and means nothing here.',
           '',
           '```json',
           '{ "type": "SET_POINT", "position": {',

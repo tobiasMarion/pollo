@@ -1,0 +1,100 @@
+{
+  "outbound": {
+    "JOIN": {
+      "type": "JOIN",
+      "deviceId": "device-1",
+      "location": {
+        "latitude": -29.6842,
+        "longitude": -53.8069,
+        "horizontalAccuracy": 4.5,
+        "altitude": 113.25,
+        "verticalAccuracy": 8
+      }
+    },
+    "LOCATION_UPDATE": {
+      "type": "LOCATION_UPDATE",
+      "location": {
+        "latitude": -29.6842,
+        "longitude": -53.8069,
+        "horizontalAccuracy": 4.5,
+        "altitude": 113.25,
+        "verticalAccuracy": 8
+      }
+    },
+    "DISTANCES": {
+      "type": "DISTANCES",
+      "measurements": [
+        {
+          "to": "device-2",
+          "distance": 3.25
+        },
+        {
+          "to": "device-3",
+          "distance": null
+        }
+      ]
+    },
+    "PEER_TOKEN": {
+      "type": "PEER_TOKEN",
+      "peer": "device-2",
+      "token": "BGtleXMBAQ=="
+    }
+  },
+  "inbound": {
+    "SET_POINT": {
+      "type": "SET_POINT",
+      "position": {
+        "uncorrected": {
+          "relative": {
+            "x": 1.5,
+            "y": -2.25,
+            "z": 0
+          },
+          "absolute": {
+            "x": 4510123.5,
+            "y": -3605987.25,
+            "z": -3140456.75
+          }
+        },
+        "simulated": {
+          "relative": {
+            "x": 1.75,
+            "y": -2,
+            "z": 0.5
+          },
+          "absolute": {
+            "x": 4510123.75,
+            "y": -3605987,
+            "z": -3140456.25
+          }
+        }
+      }
+    },
+    "SET_NEIGHBORS": {
+      "type": "SET_NEIGHBORS",
+      "peers": [
+        "device-2",
+        "device-3"
+      ]
+    },
+    "EFFECT": {
+      "type": "EFFECT",
+      "effect": {
+        "name": "WAVE",
+        "direction": "X",
+        "activeTime": 1.5,
+        "spreadDelayPerUnit": 0.02
+      },
+      "center": {
+        "x": 0.5,
+        "y": -1.25,
+        "z": 0
+      }
+    },
+    "PEER_TOKEN": {
+      "type": "PEER_TOKEN",
+      "peer": "device-4",
+      "token": "BGtleXMCAg=="
+    }
+  }
+}

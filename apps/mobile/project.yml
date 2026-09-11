@@ -1,0 +1,71 @@
+name: Pollo
+options:
+  deploymentTarget:
+    iOS: '26.0'
+packages:
+  PolloKit:
+    path: .
+configs:
+  Debug: debug
+  Release: release
+settings:
+  base:
+    SWIFT_VERSION: '6.0'
+    TARGETED_DEVICE_FAMILY: '1'
+    CODE_SIGN_STYLE: Automatic
+    POLLO_API_URL: https://localhost:3333
+    GENERATE_INFOPLIST_FILE: YES
+    INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: Sua localização permite encontrar o evento e posicionar sua luz na plateia.
+    INFOPLIST_KEY_NSNearbyInteractionUsageDescription: Medimos a distância entre celulares para sincronizar os desenhos de luz.
+    INFOPLIST_KEY_NSLocalNetworkUsageDescription: Conecte ao servidor Pollo na rede local durante os testes.
+    INFOPLIST_KEY_POLLO_API_URL: $(POLLO_API_URL)
+    INFOPLIST_KEY_UILaunchScreen_Generation: YES
+    INFOPLIST_KEY_CFBundleDisplayName: Pollo
+targets:
+  PolloSensors:
+    type: framework
+    platform: iOS
+    sources: [Apple/PolloSensors]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.pollo.sensors
+    dependencies:
+      - package: PolloKit
+  Pollo:
+    type: application
+    platform: iOS
+    sources: [Apple/PolloApp]
+    configFiles:
+      Debug: Config/Debug.xcconfig
+      Release: Config/Release.xcconfig
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.pollo.mobile
+        MARKETING_VERSION: '0.1.0'
+        CURRENT_PROJECT_VERSION: '1'
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        INFOPLIST_FILE: Config/App-Info.plist
+    dependencies:
+      - target: PolloSensors
+      - package: PolloKit
+  PolloTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [Apple/PolloTests]
+    dependencies:
+      - target: Pollo
+      - target: PolloSensors
+      - package: PolloKit
+  PolloUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [Apple/PolloUITests]
+    dependencies:
+      - target: Pollo
+schemes:
+  Pollo:
+    build:
+      targets:
+        Pollo: all
+    test:
+      targets: [PolloTests, PolloUITests]

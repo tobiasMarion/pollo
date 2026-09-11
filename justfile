@@ -93,6 +93,52 @@ format:
 check:
     npm run check
 
+# Rewrite the iOS client's wire fixtures from the contracts. CI runs this and
+# fails on a dirty tree: the Swift types are hand-written, and these are what
+# stop them drifting away from the Zod schemas they mirror.
+[doc('Rewrite the iOS wire fixtures from the contracts')]
+mobile-fixtures:
+    npm run fixtures --workspace=@pollo/mobile
+
+# Build the parts of the client that no Apple framework touches. Works with the
+# command line tools alone — no Xcode, no iOS SDK.
+[doc('Build the iOS client parts that need no Apple framework')]
+mobile-build:
+    cd apps/mobile && swift build
+
+# XcodeGen generates the project; signing is supplied through Local.xcconfig.
+mobile-project:
+    cd apps/mobile && xcodegen generate
+
+mobile-ios-build: mobile-project
+    xcodebuild -project apps/mobile/Pollo.xcodeproj -scheme Pollo -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath apps/mobile/.derivedData CODE_SIGNING_ALLOWED=NO build
+
+mobile-ios-test destination='platform=iOS Simulator,name=iPhone 17': mobile-project
+    xcodebuild -project apps/mobile/Pollo.xcodeproj -scheme Pollo -destination '{{destination}}' -derivedDataPath apps/mobile/.derivedData CODE_SIGNING_ALLOWED=NO test
+
+# The client's tests. No Xcode needed: the command line tools do ship
+# swift-testing, they just leave it out of every search path the compiler and
+# the loader look in, so the flags below put it back. With full Xcode installed
+# those directories are somewhere else and the flags are skipped.
+[doc('The iOS client tests')]
+mobile-test:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    developer="$(xcode-select -p)"
+    frameworks="$developer/Library/Developer/Frameworks"
+    libraries="$developer/Library/Developer/usr/lib"
+    flags=()
+    if [ -d "$frameworks" ]; then
+        flags+=(-Xswiftc -F -Xswiftc "$frameworks")
+        flags+=(-Xlinker -F -Xlinker "$frameworks" -Xlinker -rpath -Xlinker "$frameworks")
+    fi
+    # Testing.framework loads this alongside itself, from a directory of its own.
+    if [ -d "$libraries" ]; then
+        flags+=(-Xlinker -rpath -Xlinker "$libraries")
+    fi
+    cd apps/mobile
+    swift test ${flags[@]+"${flags[@]}"}
+
 # Full dev environment reset (deletes volumes!)
 reset:
     docker compose -f infra/compose.dev.yaml down -v

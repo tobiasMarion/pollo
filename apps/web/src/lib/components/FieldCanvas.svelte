@@ -31,7 +31,7 @@ let {
 }: {
   pixels: FieldPixel[]
   edges: Edge[]
-  lastEffect: { effect: Effect; firedAt: number } | null
+  lastEffect: { effect: Effect; firedAt: number; center: Vector3 } | null
   showEdges?: boolean
   showGrid?: boolean
   /**
@@ -850,8 +850,10 @@ onMount(() => {
 
     if (showEdges) drawEdges(edges, positionsAt(now))
 
-    const placed = pixels.filter(pixel => pixel.placed)
-    const center = centroid(placed.length > 0 ? placed : pixels)
+    // The centre rides along with the cue rather than being worked out here: the
+    // API measures it across the whole field, and a panel drawing a pass from a
+    // centre of its own is a panel showing something the crowd is not doing.
+    const center = lastEffect?.center ?? vector.ZERO
     const elapsed = lastEffect ? (now - lastEffect.firedAt) / 1000 : 0
 
     // Far side of the bowl first, so the near stand is not drawn behind the one

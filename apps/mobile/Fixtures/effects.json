@@ -1,0 +1,1996 @@
+{
+  "cases": [
+    {
+      "effect": {
+        "name": "PULSE",
+        "coordinateType": "RELATIVE",
+        "activeTime": 1.2,
+        "spreadDelayPerUnit": 0.05
+      },
+      "point": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0,
+      "delay": 0.07071067811865477,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "PULSE",
+        "coordinateType": "RELATIVE",
+        "activeTime": 1.2,
+        "spreadDelayPerUnit": 0.05
+      },
+      "point": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.25,
+      "delay": 0.07071067811865477,
+      "brightness": 0.5738786745804998
+    },
+    {
+      "effect": {
+        "name": "PULSE",
+        "coordinateType": "RELATIVE",
+        "activeTime": 1.2,
+        "spreadDelayPerUnit": 0.05
+      },
+      "point": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.9,
+      "delay": 0.07071067811865477,
+      "brightness": 0.8741451767798173
+    },
+    {
+      "effect": {
+        "name": "PULSE",
+        "coordinateType": "RELATIVE",
+        "activeTime": 1.2,
+        "spreadDelayPerUnit": 0.05
+      },
+      "point": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 2.5,
+      "delay": 0.07071067811865477,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "PULSE",
+        "coordinateType": "RELATIVE",
+        "activeTime": 1.2,
+        "spreadDelayPerUnit": 0.05
+      },
+      "point": {
+        "x": 12,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0,
+      "delay": 0.552268050859363,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "PULSE",
+        "coordinateType": "RELATIVE",
+        "activeTime": 1.2,
+        "spreadDelayPerUnit": 0.05
+      },
+      "point": {
+        "x": 12,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.25,
+      "delay": 0.552268050859363,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "PULSE",
+        "coordinateType": "RELATIVE",
+        "activeTime": 1.2,
+        "spreadDelayPerUnit": 0.05
+      },
+      "point": {
+        "x": 12,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.9,
+      "delay": 0.552268050859363,
+      "brightness": 0.8476820906961597
+    },
+    {
+      "effect": {
+        "name": "PULSE",
+        "coordinateType": "RELATIVE",
+        "activeTime": 1.2,
+        "spreadDelayPerUnit": 0.05
+      },
+      "point": {
+        "x": 12,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 2.5,
+      "delay": 0.552268050859363,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "PULSE",
+        "coordinateType": "RELATIVE",
+        "activeTime": 1.2,
+        "spreadDelayPerUnit": 0.05
+      },
+      "point": {
+        "x": -12,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0,
+      "delay": 0.651920240520265,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "PULSE",
+        "coordinateType": "RELATIVE",
+        "activeTime": 1.2,
+        "spreadDelayPerUnit": 0.05
+      },
+      "point": {
+        "x": -12,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.25,
+      "delay": 0.651920240520265,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "PULSE",
+        "coordinateType": "RELATIVE",
+        "activeTime": 1.2,
+        "spreadDelayPerUnit": 0.05
+      },
+      "point": {
+        "x": -12,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.9,
+      "delay": 0.651920240520265,
+      "brightness": 0.7032518250595771
+    },
+    {
+      "effect": {
+        "name": "PULSE",
+        "coordinateType": "RELATIVE",
+        "activeTime": 1.2,
+        "spreadDelayPerUnit": 0.05
+      },
+      "point": {
+        "x": -12,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 2.5,
+      "delay": 0.651920240520265,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "PULSE",
+        "coordinateType": "RELATIVE",
+        "activeTime": 1.2,
+        "spreadDelayPerUnit": 0.05
+      },
+      "point": {
+        "x": 0,
+        "y": 9.5,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0,
+      "delay": 0.5273755777432249,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "PULSE",
+        "coordinateType": "RELATIVE",
+        "activeTime": 1.2,
+        "spreadDelayPerUnit": 0.05
+      },
+      "point": {
+        "x": 0,
+        "y": 9.5,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.25,
+      "delay": 0.5273755777432249,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "PULSE",
+        "coordinateType": "RELATIVE",
+        "activeTime": 1.2,
+        "spreadDelayPerUnit": 0.05
+      },
+      "point": {
+        "x": 0,
+        "y": 9.5,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.9,
+      "delay": 0.5273755777432249,
+      "brightness": 0.8762350492400326
+    },
+    {
+      "effect": {
+        "name": "PULSE",
+        "coordinateType": "RELATIVE",
+        "activeTime": 1.2,
+        "spreadDelayPerUnit": 0.05
+      },
+      "point": {
+        "x": 0,
+        "y": 9.5,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 2.5,
+      "delay": 0.5273755777432249,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "PULSE",
+        "coordinateType": "RELATIVE",
+        "activeTime": 1.2,
+        "spreadDelayPerUnit": 0.05
+      },
+      "point": {
+        "x": -7.5,
+        "y": -4.25,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0,
+      "delay": 0.45500686808003243,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "PULSE",
+        "coordinateType": "RELATIVE",
+        "activeTime": 1.2,
+        "spreadDelayPerUnit": 0.05
+      },
+      "point": {
+        "x": -7.5,
+        "y": -4.25,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.25,
+      "delay": 0.45500686808003243,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "PULSE",
+        "coordinateType": "RELATIVE",
+        "activeTime": 1.2,
+        "spreadDelayPerUnit": 0.05
+      },
+      "point": {
+        "x": -7.5,
+        "y": -4.25,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.9,
+      "delay": 0.45500686808003243,
+      "brightness": 0.9424307189583445
+    },
+    {
+      "effect": {
+        "name": "PULSE",
+        "coordinateType": "RELATIVE",
+        "activeTime": 1.2,
+        "spreadDelayPerUnit": 0.05
+      },
+      "point": {
+        "x": -7.5,
+        "y": -4.25,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 2.5,
+      "delay": 0.45500686808003243,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "PULSE",
+        "coordinateType": "RELATIVE",
+        "activeTime": 1.2,
+        "spreadDelayPerUnit": 0.05
+      },
+      "point": {
+        "x": 3,
+        "y": 4,
+        "z": 6
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0,
+      "delay": 0.40311288741492746,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "PULSE",
+        "coordinateType": "RELATIVE",
+        "activeTime": 1.2,
+        "spreadDelayPerUnit": 0.05
+      },
+      "point": {
+        "x": 3,
+        "y": 4,
+        "z": 6
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.25,
+      "delay": 0.40311288741492746,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "PULSE",
+        "coordinateType": "RELATIVE",
+        "activeTime": 1.2,
+        "spreadDelayPerUnit": 0.05
+      },
+      "point": {
+        "x": 3,
+        "y": 4,
+        "z": 6
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.9,
+      "delay": 0.40311288741492746,
+      "brightness": 0.974509244880474
+    },
+    {
+      "effect": {
+        "name": "PULSE",
+        "coordinateType": "RELATIVE",
+        "activeTime": 1.2,
+        "spreadDelayPerUnit": 0.05
+      },
+      "point": {
+        "x": 3,
+        "y": 4,
+        "z": 6
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 2.5,
+      "delay": 0.40311288741492746,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "WAVE",
+        "direction": "Y",
+        "activeTime": 0.8,
+        "spreadDelayPerUnit": 0.03
+      },
+      "point": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0,
+      "delay": 0.03,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "WAVE",
+        "direction": "Y",
+        "activeTime": 0.8,
+        "spreadDelayPerUnit": 0.03
+      },
+      "point": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.25,
+      "delay": 0.03,
+      "brightness": 0.8255281000723987
+    },
+    {
+      "effect": {
+        "name": "WAVE",
+        "direction": "Y",
+        "activeTime": 0.8,
+        "spreadDelayPerUnit": 0.03
+      },
+      "point": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.9,
+      "delay": 0.03,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "WAVE",
+        "direction": "Y",
+        "activeTime": 0.8,
+        "spreadDelayPerUnit": 0.03
+      },
+      "point": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 2.5,
+      "delay": 0.03,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "WAVE",
+        "direction": "Y",
+        "activeTime": 0.8,
+        "spreadDelayPerUnit": 0.03
+      },
+      "point": {
+        "x": 12,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0,
+      "delay": 0.03,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "WAVE",
+        "direction": "Y",
+        "activeTime": 0.8,
+        "spreadDelayPerUnit": 0.03
+      },
+      "point": {
+        "x": 12,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.25,
+      "delay": 0.03,
+      "brightness": 0.8255281000723987
+    },
+    {
+      "effect": {
+        "name": "WAVE",
+        "direction": "Y",
+        "activeTime": 0.8,
+        "spreadDelayPerUnit": 0.03
+      },
+      "point": {
+        "x": 12,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.9,
+      "delay": 0.03,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "WAVE",
+        "direction": "Y",
+        "activeTime": 0.8,
+        "spreadDelayPerUnit": 0.03
+      },
+      "point": {
+        "x": 12,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 2.5,
+      "delay": 0.03,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "WAVE",
+        "direction": "Y",
+        "activeTime": 0.8,
+        "spreadDelayPerUnit": 0.03
+      },
+      "point": {
+        "x": -12,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0,
+      "delay": 0.03,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "WAVE",
+        "direction": "Y",
+        "activeTime": 0.8,
+        "spreadDelayPerUnit": 0.03
+      },
+      "point": {
+        "x": -12,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.25,
+      "delay": 0.03,
+      "brightness": 0.8255281000723987
+    },
+    {
+      "effect": {
+        "name": "WAVE",
+        "direction": "Y",
+        "activeTime": 0.8,
+        "spreadDelayPerUnit": 0.03
+      },
+      "point": {
+        "x": -12,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.9,
+      "delay": 0.03,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "WAVE",
+        "direction": "Y",
+        "activeTime": 0.8,
+        "spreadDelayPerUnit": 0.03
+      },
+      "point": {
+        "x": -12,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 2.5,
+      "delay": 0.03,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "WAVE",
+        "direction": "Y",
+        "activeTime": 0.8,
+        "spreadDelayPerUnit": 0.03
+      },
+      "point": {
+        "x": 0,
+        "y": 9.5,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0,
+      "delay": 0.315,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "WAVE",
+        "direction": "Y",
+        "activeTime": 0.8,
+        "spreadDelayPerUnit": 0.03
+      },
+      "point": {
+        "x": 0,
+        "y": 9.5,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.25,
+      "delay": 0.315,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "WAVE",
+        "direction": "Y",
+        "activeTime": 0.8,
+        "spreadDelayPerUnit": 0.03
+      },
+      "point": {
+        "x": 0,
+        "y": 9.5,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.9,
+      "delay": 0.315,
+      "brightness": 0.8157014313597416
+    },
+    {
+      "effect": {
+        "name": "WAVE",
+        "direction": "Y",
+        "activeTime": 0.8,
+        "spreadDelayPerUnit": 0.03
+      },
+      "point": {
+        "x": 0,
+        "y": 9.5,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 2.5,
+      "delay": 0.315,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "WAVE",
+        "direction": "Y",
+        "activeTime": 0.8,
+        "spreadDelayPerUnit": 0.03
+      },
+      "point": {
+        "x": -7.5,
+        "y": -4.25,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0,
+      "delay": 0.0975,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "WAVE",
+        "direction": "Y",
+        "activeTime": 0.8,
+        "spreadDelayPerUnit": 0.03
+      },
+      "point": {
+        "x": -7.5,
+        "y": -4.25,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.25,
+      "delay": 0.0975,
+      "brightness": 0.6694790660468204
+    },
+    {
+      "effect": {
+        "name": "WAVE",
+        "direction": "Y",
+        "activeTime": 0.8,
+        "spreadDelayPerUnit": 0.03
+      },
+      "point": {
+        "x": -7.5,
+        "y": -4.25,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.9,
+      "delay": 0.0975,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "WAVE",
+        "direction": "Y",
+        "activeTime": 0.8,
+        "spreadDelayPerUnit": 0.03
+      },
+      "point": {
+        "x": -7.5,
+        "y": -4.25,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 2.5,
+      "delay": 0.0975,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "WAVE",
+        "direction": "Y",
+        "activeTime": 0.8,
+        "spreadDelayPerUnit": 0.03
+      },
+      "point": {
+        "x": 3,
+        "y": 4,
+        "z": 6
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0,
+      "delay": 0.15,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "WAVE",
+        "direction": "Y",
+        "activeTime": 0.8,
+        "spreadDelayPerUnit": 0.03
+      },
+      "point": {
+        "x": 3,
+        "y": 4,
+        "z": 6
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.25,
+      "delay": 0.15,
+      "brightness": 0.5104906151188976
+    },
+    {
+      "effect": {
+        "name": "WAVE",
+        "direction": "Y",
+        "activeTime": 0.8,
+        "spreadDelayPerUnit": 0.03
+      },
+      "point": {
+        "x": 3,
+        "y": 4,
+        "z": 6
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.9,
+      "delay": 0.15,
+      "brightness": 0.31854075706744256
+    },
+    {
+      "effect": {
+        "name": "WAVE",
+        "direction": "Y",
+        "activeTime": 0.8,
+        "spreadDelayPerUnit": 0.03
+      },
+      "point": {
+        "x": 3,
+        "y": 4,
+        "z": 6
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 2.5,
+      "delay": 0.15,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "ROTATE",
+        "activeTime": 1,
+        "spreadDelayPerRadian": 0.4
+      },
+      "point": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0,
+      "delay": 2.199114857512855,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "ROTATE",
+        "activeTime": 1,
+        "spreadDelayPerRadian": 0.4
+      },
+      "point": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.25,
+      "delay": 2.199114857512855,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "ROTATE",
+        "activeTime": 1,
+        "spreadDelayPerRadian": 0.4
+      },
+      "point": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.9,
+      "delay": 2.199114857512855,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "ROTATE",
+        "activeTime": 1,
+        "spreadDelayPerRadian": 0.4
+      },
+      "point": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 2.5,
+      "delay": 2.199114857512855,
+      "brightness": 0.8633417693957781
+    },
+    {
+      "effect": {
+        "name": "ROTATE",
+        "activeTime": 1,
+        "spreadDelayPerRadian": 0.4
+      },
+      "point": {
+        "x": 12,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0,
+      "delay": 1.2929010163162153,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "ROTATE",
+        "activeTime": 1,
+        "spreadDelayPerRadian": 0.4
+      },
+      "point": {
+        "x": 12,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.25,
+      "delay": 1.2929010163162153,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "ROTATE",
+        "activeTime": 1,
+        "spreadDelayPerRadian": 0.4
+      },
+      "point": {
+        "x": 12,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.9,
+      "delay": 1.2929010163162153,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "ROTATE",
+        "activeTime": 1,
+        "spreadDelayPerRadian": 0.4
+      },
+      "point": {
+        "x": 12,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 2.5,
+      "delay": 1.2929010163162153,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "ROTATE",
+        "activeTime": 1,
+        "spreadDelayPerRadian": 0.4
+      },
+      "point": {
+        "x": -12,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0,
+      "delay": 2.4825653663639233,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "ROTATE",
+        "activeTime": 1,
+        "spreadDelayPerRadian": 0.4
+      },
+      "point": {
+        "x": -12,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.25,
+      "delay": 2.4825653663639233,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "ROTATE",
+        "activeTime": 1,
+        "spreadDelayPerRadian": 0.4
+      },
+      "point": {
+        "x": -12,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.9,
+      "delay": 2.4825653663639233,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "ROTATE",
+        "activeTime": 1,
+        "spreadDelayPerRadian": 0.4
+      },
+      "point": {
+        "x": -12,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 2.5,
+      "delay": 2.4825653663639233,
+      "brightness": 0.13087053239595162
+    },
+    {
+      "effect": {
+        "name": "ROTATE",
+        "activeTime": 1,
+        "spreadDelayPerRadian": 0.4
+      },
+      "point": {
+        "x": 0,
+        "y": 9.5,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0,
+      "delay": 1.9229362746909786,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "ROTATE",
+        "activeTime": 1,
+        "spreadDelayPerRadian": 0.4
+      },
+      "point": {
+        "x": 0,
+        "y": 9.5,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.25,
+      "delay": 1.9229362746909786,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "ROTATE",
+        "activeTime": 1,
+        "spreadDelayPerRadian": 0.4
+      },
+      "point": {
+        "x": 0,
+        "y": 9.5,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.9,
+      "delay": 1.9229362746909786,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "ROTATE",
+        "activeTime": 1,
+        "spreadDelayPerRadian": 0.4
+      },
+      "point": {
+        "x": 0,
+        "y": 9.5,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 2.5,
+      "delay": 1.9229362746909786,
+      "brightness": 0.9794947304006763
+    },
+    {
+      "effect": {
+        "name": "ROTATE",
+        "activeTime": 1,
+        "spreadDelayPerRadian": 0.4
+      },
+      "point": {
+        "x": -7.5,
+        "y": -4.25,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0,
+      "delay": 0.14608057991526913,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "ROTATE",
+        "activeTime": 1,
+        "spreadDelayPerRadian": 0.4
+      },
+      "point": {
+        "x": -7.5,
+        "y": -4.25,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.25,
+      "delay": 0.14608057991526913,
+      "brightness": 0.45110009047475214
+    },
+    {
+      "effect": {
+        "name": "ROTATE",
+        "activeTime": 1,
+        "spreadDelayPerRadian": 0.4
+      },
+      "point": {
+        "x": -7.5,
+        "y": -4.25,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.9,
+      "delay": 0.14608057991526913,
+      "brightness": 0.7777673923987303
+    },
+    {
+      "effect": {
+        "name": "ROTATE",
+        "activeTime": 1,
+        "spreadDelayPerRadian": 0.4
+      },
+      "point": {
+        "x": -7.5,
+        "y": -4.25,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 2.5,
+      "delay": 0.14608057991526913,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "ROTATE",
+        "activeTime": 1,
+        "spreadDelayPerRadian": 0.4
+      },
+      "point": {
+        "x": 3,
+        "y": 4,
+        "z": 6
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0,
+      "delay": 1.73275304130893,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "ROTATE",
+        "activeTime": 1,
+        "spreadDelayPerRadian": 0.4
+      },
+      "point": {
+        "x": 3,
+        "y": 4,
+        "z": 6
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.25,
+      "delay": 1.73275304130893,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "ROTATE",
+        "activeTime": 1,
+        "spreadDelayPerRadian": 0.4
+      },
+      "point": {
+        "x": 3,
+        "y": 4,
+        "z": 6
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.9,
+      "delay": 1.73275304130893,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "ROTATE",
+        "activeTime": 1,
+        "spreadDelayPerRadian": 0.4
+      },
+      "point": {
+        "x": 3,
+        "y": 4,
+        "z": 6
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 2.5,
+      "delay": 1.73275304130893,
+      "brightness": 0.7537736957352907
+    },
+    {
+      "effect": {
+        "name": "SPIRAL",
+        "activeTime": 0.6,
+        "radialSpeed": 8,
+        "angularSpeed": 2.5
+      },
+      "point": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0,
+      "delay": 2.375891552809492,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "SPIRAL",
+        "activeTime": 0.6,
+        "radialSpeed": 8,
+        "angularSpeed": 2.5
+      },
+      "point": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.25,
+      "delay": 2.375891552809492,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "SPIRAL",
+        "activeTime": 0.6,
+        "radialSpeed": 8,
+        "angularSpeed": 2.5
+      },
+      "point": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.9,
+      "delay": 2.375891552809492,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "SPIRAL",
+        "activeTime": 0.6,
+        "radialSpeed": 8,
+        "angularSpeed": 2.5
+      },
+      "point": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 2.5,
+      "delay": 2.375891552809492,
+      "brightness": 0.7034845172561766
+    },
+    {
+      "effect": {
+        "name": "SPIRAL",
+        "activeTime": 0.6,
+        "radialSpeed": 8,
+        "angularSpeed": 2.5
+      },
+      "point": {
+        "x": 12,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0,
+      "delay": 2.6735711434646228,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "SPIRAL",
+        "activeTime": 0.6,
+        "radialSpeed": 8,
+        "angularSpeed": 2.5
+      },
+      "point": {
+        "x": 12,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.25,
+      "delay": 2.6735711434646228,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "SPIRAL",
+        "activeTime": 0.6,
+        "radialSpeed": 8,
+        "angularSpeed": 2.5
+      },
+      "point": {
+        "x": 12,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.9,
+      "delay": 2.6735711434646228,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "SPIRAL",
+        "activeTime": 0.6,
+        "radialSpeed": 8,
+        "angularSpeed": 2.5
+      },
+      "point": {
+        "x": 12,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 2.5,
+      "delay": 2.6735711434646228,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "SPIRAL",
+        "activeTime": 0.6,
+        "radialSpeed": 8,
+        "angularSpeed": 2.5
+      },
+      "point": {
+        "x": -12,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0,
+      "delay": 4.112365967664585,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "SPIRAL",
+        "activeTime": 0.6,
+        "radialSpeed": 8,
+        "angularSpeed": 2.5
+      },
+      "point": {
+        "x": -12,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.25,
+      "delay": 4.112365967664585,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "SPIRAL",
+        "activeTime": 0.6,
+        "radialSpeed": 8,
+        "angularSpeed": 2.5
+      },
+      "point": {
+        "x": -12,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.9,
+      "delay": 4.112365967664585,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "SPIRAL",
+        "activeTime": 0.6,
+        "radialSpeed": 8,
+        "angularSpeed": 2.5
+      },
+      "point": {
+        "x": -12,
+        "y": 0,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 2.5,
+      "delay": 4.112365967664585,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "SPIRAL",
+        "activeTime": 0.6,
+        "radialSpeed": 8,
+        "angularSpeed": 2.5
+      },
+      "point": {
+        "x": 0,
+        "y": 9.5,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0,
+      "delay": 3.24137521904904,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "SPIRAL",
+        "activeTime": 0.6,
+        "radialSpeed": 8,
+        "angularSpeed": 2.5
+      },
+      "point": {
+        "x": 0,
+        "y": 9.5,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.25,
+      "delay": 3.24137521904904,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "SPIRAL",
+        "activeTime": 0.6,
+        "radialSpeed": 8,
+        "angularSpeed": 2.5
+      },
+      "point": {
+        "x": 0,
+        "y": 9.5,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.9,
+      "delay": 3.24137521904904,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "SPIRAL",
+        "activeTime": 0.6,
+        "radialSpeed": 8,
+        "angularSpeed": 2.5
+      },
+      "point": {
+        "x": 0,
+        "y": 9.5,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 2.5,
+      "delay": 3.24137521904904,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "SPIRAL",
+        "activeTime": 0.6,
+        "radialSpeed": 8,
+        "angularSpeed": 2.5
+      },
+      "point": {
+        "x": -7.5,
+        "y": -4.25,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0,
+      "delay": 1.2835977501153502,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "SPIRAL",
+        "activeTime": 0.6,
+        "radialSpeed": 8,
+        "angularSpeed": 2.5
+      },
+      "point": {
+        "x": -7.5,
+        "y": -4.25,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.25,
+      "delay": 1.2835977501153502,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "SPIRAL",
+        "activeTime": 0.6,
+        "radialSpeed": 8,
+        "angularSpeed": 2.5
+      },
+      "point": {
+        "x": -7.5,
+        "y": -4.25,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.9,
+      "delay": 1.2835977501153502,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "SPIRAL",
+        "activeTime": 0.6,
+        "radialSpeed": 8,
+        "angularSpeed": 2.5
+      },
+      "point": {
+        "x": -7.5,
+        "y": -4.25,
+        "z": 0
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 2.5,
+      "delay": 1.2835977501153502,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "SPIRAL",
+        "activeTime": 0.6,
+        "radialSpeed": 8,
+        "angularSpeed": 2.5
+      },
+      "point": {
+        "x": 3,
+        "y": 4,
+        "z": 6
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0,
+      "delay": 2.405898642200743,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "SPIRAL",
+        "activeTime": 0.6,
+        "radialSpeed": 8,
+        "angularSpeed": 2.5
+      },
+      "point": {
+        "x": 3,
+        "y": 4,
+        "z": 6
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.25,
+      "delay": 2.405898642200743,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "SPIRAL",
+        "activeTime": 0.6,
+        "radialSpeed": 8,
+        "angularSpeed": 2.5
+      },
+      "point": {
+        "x": 3,
+        "y": 4,
+        "z": 6
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 0.9,
+      "delay": 2.405898642200743,
+      "brightness": 0
+    },
+    {
+      "effect": {
+        "name": "SPIRAL",
+        "activeTime": 0.6,
+        "radialSpeed": 8,
+        "angularSpeed": 2.5
+      },
+      "point": {
+        "x": 3,
+        "y": 4,
+        "z": 6
+      },
+      "center": {
+        "x": 1,
+        "y": -1,
+        "z": 0
+      },
+      "elapsed": 2.5,
+      "delay": 2.405898642200743,
+      "brightness": 0.5921266839701511
+    }
+  ]
+}

@@ -68,8 +68,8 @@ export function handleAdminSocket(
         break
       }
 
-      case 'EFFECT':
-        event?.publish(data)
+      case 'FIRE_EFFECT':
+        event?.fireEffect(data.effect)
         break
     }
   })
@@ -102,10 +102,13 @@ export async function adminEvent(app: FastifyInstance) {
           messageTable(adminOutbound),
           '',
           `Effects are discriminated by \`name\` — ${effectNames.map(name => `\`${name}\``).join(', ')} —`,
-          'and are relayed untouched: brightness never reaches the simulation.',
+          'and the cue is relayed untouched: brightness never reaches the simulation.',
+          'It comes back as an `EFFECT` rather than the `FIRE_EFFECT` that went out,',
+          'carrying the middle of the field, so the panel draws the pass the crowd is',
+          'lighting rather than one measured from a centre of its own.',
           '',
           '```json',
-          '{ "type": "EFFECT", "effect": {',
+          '{ "type": "FIRE_EFFECT", "effect": {',
           '  "name": "WAVE", "direction": "X",',
           '  "activeTime": 1.5, "spreadDelayPerUnit": 0.02 } }',
           '```',
