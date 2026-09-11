@@ -4,8 +4,8 @@ import { writeOauthState } from '$lib/server/session'
 import type { RequestHandler } from './$types'
 
 /**
- * Starts the OAuth round trip. `user:email` is required: the backend keys
- * users by their GitHub email and refuses accounts without one.
+ * Starts the OAuth round trip. `user:email` lets the backend read the verified
+ * primary address kept with the stable GitHub account identity.
  */
 export const GET: RequestHandler = ({ cookies }) => {
   const authorizeUrl = new URL('https://github.com/login/oauth/authorize')

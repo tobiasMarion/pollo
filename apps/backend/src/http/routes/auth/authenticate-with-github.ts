@@ -14,8 +14,26 @@ const githubUserResponseSchema = z.object({
   id: z.number().int().transform(String),
   avatar_url: z.string(),
   name: z.string().nullable(),
-  email: z.string().nullable(),
 })
+
+const githubEmailsResponseSchema = z.array(
+  z.object({
+    email: z.string().email(),
+    primary: z.boolean(),
+    verified: z.boolean(),
+  }),
+)
+
+async function readGithub<Schema extends z.ZodTypeAny>(response: Response, schema: Schema) {
+  const payload: unknown = await response.json().catch(() => null)
+  const parsed = schema.safeParse(payload)
+
+  if (!response.ok || !parsed.success) {
+    throw new BadRequestError('Could not read the GitHub account.')
+  }
+
+  return parsed.data as z.infer<Schema>
+}
 
 export async function authenticateWithGithub(app: FastifyInstance) {
   app.withTypeProvider<ZodTypeProvider>().post(
@@ -29,8 +47,8 @@ export async function authenticateWithGithub(app: FastifyInstance) {
           'Exchanges the single-use code from the OAuth redirect for a JWT. Signup and',
           'login are the same call: the user is created on first sight.',
           '',
-          'Users are keyed by the GitHub **email**, so an account without one cannot',
-          'authenticate. The token carries the user id in `sub` and expires in 7 days.',
+          'GitHub identity is keyed by its stable account id. A verified primary email is',
+          'kept as profile data; the token carries the Pollo user id in `sub` and expires in 7 days.',
         ].join('\n'),
         body: z.object({
           code: z
@@ -77,14 +95,14 @@ export async function authenticateWithGithub(app: FastifyInstance) {
         headers: { Accept: 'application/json' },
       })
 
-      const tokenPayload = await tokenResponse.json()
+      const tokenPayload: unknown = await tokenResponse.json().catch(() => null)
       const tokenResult = accessTokenResponseSchema.safeParse(tokenPayload)
 
-      if (!tokenResult.success) {
+      if (!tokenResponse.ok || !tokenResult.success) {
         // GitHub answers 200 with `{ error, error_description }` for a reused
         // code, a wrong secret or a redirect_uri that does not match. Without
         // this line every one of them looks identical from the outside.
-        request.log.warn({ github: tokenPayload }, 'GitHub token exchange failed')
+        request.log.warn({ status: tokenResponse.status }, 'GitHub token exchange failed')
         throw new BadRequestError('Could not exchange the GitHub authorization code.')
       }
 
@@ -95,9 +113,14 @@ export async function authenticateWithGithub(app: FastifyInstance) {
       const {
         id: githubId,
         name,
-        email,
         avatar_url: avatarUrl,
-      } = githubUserResponseSchema.parse(await userResponse.json())
+      } = await readGithub(userResponse, githubUserResponseSchema)
+
+      const emailsResponse = await fetch('https://api.github.com/user/emails', {
+        headers: { Authorization: `Bearer ${tokenResult.data.access_token}` },
+      })
+      const emails = await readGithub(emailsResponse, githubEmailsResponseSchema)
+      const email = emails.find(candidate => candidate.primary && candidate.verified)?.email ?? null
 
       if (email === null) {
         throw new BadRequestError('Your GitHub account must have an email to authenticate.')

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import type { ControlMessage, IngestBatch, Location, Message } from '@pollo/contracts'
 import type { Redis } from 'ioredis'
 import RedisMock from 'ioredis-mock'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LiveEvent } from './live-event.js'
 import type { Bus } from './redis/bus.js'
 import { GraphStore } from './redis/graph-store.js'
@@ -20,11 +20,19 @@ const position = {
   simulated: { relative: { x: 0, y: 0, z: 0 }, absolute: { x: 1, y: 1, z: 1 } },
 }
 
+const redis = new RedisMock() as unknown as Redis
+
 class FakeBus implements Bus {
   ingest: Array<{ eventId: string; batch: IngestBatch }> = []
   control: ControlMessage[] = []
+  ingestFailures = 0
 
-  publishIngest(eventId: string, batch: IngestBatch) {
+  async publishIngest(eventId: string, batch: IngestBatch) {
+    if (this.ingestFailures > 0) {
+      this.ingestFailures--
+      throw new Error('stream unavailable')
+    }
+
     this.ingest.push({ eventId, batch })
   }
 
@@ -33,7 +41,7 @@ class FakeBus implements Bus {
     return this.ingest.flatMap(({ batch }) => batch.ops)
   }
 
-  publishControl(message: ControlMessage) {
+  async publishControl(message: ControlMessage) {
     this.control.push(message)
   }
 
@@ -56,10 +64,15 @@ describe('LiveEvent', () => {
       id: eventId,
       location: { latitude: -29.7, longitude: -53.7 },
       adminId: 'admin-1',
-      graphStore: new GraphStore(new RedisMock() as unknown as Redis, eventId),
+      graphStore: new GraphStore(redis, eventId),
       bus,
     })
     service.setAdminConnection(message => adminInbox.push(message))
+  })
+
+  afterEach(async () => {
+    await service.shutdown()
+    await service.discardGraph()
   })
 
   /** The one batch the admin was sent, as the typed frame it is. */
@@ -141,6 +154,26 @@ describe('LiveEvent', () => {
     expect(service.getSubscribers()).toEqual([{ deviceId: 'd1', location: moved }])
   })
 
+  it('a superseded socket cannot disconnect its replacement', () => {
+    const releaseFirst = service.subscribe({
+      deviceId: 'd1',
+      location,
+      sendMessage: () => {},
+    })
+    const replacement = { ...location, altitude: 120 }
+    const releaseSecond = service.subscribe({
+      deviceId: 'd1',
+      location: replacement,
+      sendMessage: () => {},
+    })
+
+    releaseFirst()
+    expect(service.getSubscribers()).toEqual([{ deviceId: 'd1', location: replacement }])
+
+    releaseSecond()
+    expect(service.getSubscribers()).toEqual([])
+  })
+
   /**
    * The worker runs in another process off a snapshot, so it is always a little
    * behind the connection map and will publish a position for somebody who just
@@ -179,6 +212,22 @@ describe('LiveEvent', () => {
     ])
 
     expect((await service.getEventGraph()).edges).toEqual([])
+  })
+
+  it('retries a window without letting a later one pass it', async () => {
+    bus.ingestFailures = 1
+    service.subscribe({ deviceId: 'd1', location, sendMessage: () => {} })
+
+    await service.settled()
+    expect(bus.ops).toEqual([])
+    expect(service.pendingWrites).toBeGreaterThan(0)
+
+    service.updateSubscriberLocation('d1', { ...location, altitude: 120 })
+    await service.settled()
+    await service.settled()
+
+    expect(bus.ops.map(op => op.op)).toEqual(['JOIN', 'LOCATION_UPDATE'])
+    expect(service.pendingWrites).toBe(0)
   })
 
   it('keeps nothing for the panel while no panel is connected', () => {
@@ -348,6 +397,51 @@ describe('LiveEvent', () => {
     service.flushDigest()
 
     expect(adminInbox).toEqual([])
+  })
+
+  it('a superseded admin cannot clear its replacement', () => {
+    const first: Message[] = []
+    const second: Message[] = []
+    const releaseFirst = service.setAdminConnection(message => first.push(message))
+    service.setAdminConnection(message => second.push(message))
+
+    releaseFirst()
+    service.fireEffect({
+      name: 'PULSE',
+      coordinateType: 'RELATIVE',
+      activeTime: 1,
+      spreadDelayPerUnit: 0,
+    })
+
+    expect(first).toEqual([])
+    expect(second).toHaveLength(1)
+  })
+
+  it('closes every owned socket when the event ends', async () => {
+    const closeAdmin = vi.fn()
+    const closeDevice = vi.fn()
+    const rejectLateDevice = vi.fn()
+
+    service.setAdminConnection(() => {}, closeAdmin)
+    service.subscribe({
+      deviceId: 'd1',
+      location,
+      sendMessage: () => {},
+      disconnect: closeDevice,
+    })
+
+    await service.end()
+    service.subscribe({
+      deviceId: 'late',
+      location,
+      sendMessage: () => {},
+      disconnect: rejectLateDevice,
+    })
+
+    expect(closeAdmin).toHaveBeenCalledOnce()
+    expect(closeDevice).toHaveBeenCalledOnce()
+    expect(rejectLateDevice).toHaveBeenCalledOnce()
+    expect(service.subscriberCount).toBe(0)
   })
 
   it('says nothing at all when the field did not change', () => {

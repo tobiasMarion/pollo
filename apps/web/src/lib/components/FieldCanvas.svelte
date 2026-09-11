@@ -1,14 +1,10 @@
 <script lang="ts">
-import {
-  type Edge,
-  type Effect,
-  type EffectName,
-  type EffectOf,
-  effectBrightness,
-} from '@pollo/contracts'
+import { type Edge, type Effect, effectBrightness } from '@pollo/contracts'
 import { type Vector3, vector } from '@pollo/geometry'
 import { onMount } from 'svelte'
 import type { FieldPixel } from '$lib/field'
+import { type CanvasPoint, FieldCamera } from './field-camera'
+import { drawWavefront } from './field-wavefront'
 
 /**
  * The field in meters, relative to the event origin, seen from a raised corner.
@@ -45,36 +41,8 @@ let {
 
 let canvas: HTMLCanvasElement
 
-const PADDING_PX = 48
-const MIN_SCALE = 0.4
-const MAX_SCALE = 60
-const DEFAULT_SCALE = 12
-
-/**
- * The yaw is deliberately not 45°, which would put a corner of the bowl square
- * to the viewer and make the two halves mirror each other; off the diagonal,
- * one straight side reads as the near stand and the shape is legible.
- *
- * The pitch has to clear the rake of the stands, and by more than a little. A
- * lower tier rising 0.45m every 0.8m of depth is a slope of 29.4°: walking
- * outward on the side facing the camera moves a row away (down the screen by
- * sin(pitch)) and up (up the screen by rake·cos(pitch)), and at 29.4° those
- * cancel exactly. Below it the viewer is under the seating surface looking at
- * its underside; just above it the stand is near enough edge-on that the bowl
- * reads inside out. 50° puts the near rows a clear third of a metre down-screen
- * per metre outward, which is unambiguously looking into the bowl, while still
- * leaving the height foreshortened enough to see.
- */
-const DEFAULT_YAW = (32 * Math.PI) / 180
-const DEFAULT_PITCH = (50 * Math.PI) / 180
-
-/** Never quite overhead and never underground: both are disorienting. */
-const MIN_PITCH = (6 * Math.PI) / 180
-const MAX_PITCH = (88 * Math.PI) / 180
-
 const ORBIT_PER_PIXEL = 0.006
 const ORBIT_PER_KEYPRESS = 0.06
-const ZOOM_PER_NOTCH = 1.0015
 
 /**
  * How big a person is, in meters — so a dot is sized from the field rather than
@@ -129,32 +97,6 @@ const LIT_COLOR = { r: 245, g: 242, b: 252 }
 /** The same, for a device the worker has not placed: lighter, and never a pixel. */
 const OUTLINE_REST = { r: 158, g: 151, b: 176 }
 
-/**
- * How much of the frame a re-framing move aims to fill. Short of the padding on
- * purpose: the slack it leaves is the room the crowd then has to move in
- * without the camera following it.
- */
-const REFRAME_FILL = 0.72
-
-/** Below this the crowd has drifted far enough into a corner to come back for. */
-const REFRAME_MIN_FILL = 0.3
-
-/**
- * How far the middle of a crowd too big for the frame may wander before the
- * camera goes after it, as a fraction of the half-frame.
- */
-const STRAY_REACH = 0.35
-
-/** Per frame, so a re-frame glides rather than cuts. */
-const REFRAME_EASE = 0.06
-
-/** A point in canvas pixels, as opposed to the meters `Vector3` carries. */
-type Vector2 = { x: number; y: number }
-
-function centroid(list: FieldPixel[]): Vector3 {
-  return vector.centroid(list.map(pixel => pixel.point))
-}
-
 /** A round number of meters that lands between 60 and 160 pixels. */
 function rulerMeters(scale: number): number {
   const steps = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000]
@@ -173,69 +115,7 @@ onMount(() => {
   let width = 0
   let height = 0
   let frame = 0
-
-  // Damped so a device joining at the edge slides the field instead of
-  // snapping it out from under the operator.
-  let scale = DEFAULT_SCALE
-  let originX = 0
-  let originY = 0
-  let originZ = 0
-
-  let yaw = DEFAULT_YAW
-  let pitch = DEFAULT_PITCH
-
-  let cosYaw = Math.cos(yaw)
-  let sinYaw = Math.sin(yaw)
-  let cosPitch = Math.cos(pitch)
-  let sinPitch = Math.sin(pitch)
-
-  /**
-   * Set once the operator zooms. Until then the view keeps framing itself, and
-   * after it the framing stays where it was put — an auto-fit that overrode a
-   * deliberate zoom every frame would be unusable.
-   */
-  let chosenScale: number | null = null
-
-  /**
-   * Whether the camera is currently moving to a new framing. It starts true so
-   * the first crowd to arrive is framed rather than met with the default zoom.
-   */
-  let reframing = true
-
-  function orbit(byYaw: number, byPitch: number) {
-    yaw += byYaw
-    pitch = Math.min(MAX_PITCH, Math.max(MIN_PITCH, pitch + byPitch))
-
-    cosYaw = Math.cos(yaw)
-    sinYaw = Math.sin(yaw)
-    cosPitch = Math.cos(pitch)
-    sinPitch = Math.sin(pitch)
-  }
-
-  function resetCamera() {
-    yaw = DEFAULT_YAW
-    pitch = DEFAULT_PITCH
-    chosenScale = null
-
-    // Reset means "put it back the way it was", and the way it was includes the
-    // crowd being framed — otherwise a reset from a corner leaves it there.
-    reframing = true
-
-    orbit(0, 0)
-  }
-
-  /** Camera-space coordinates of a field offset, before scale and centering. */
-  function toCamera(dx: number, dy: number, dz: number) {
-    const east = dx * cosYaw - dy * sinYaw
-    const north = dx * sinYaw + dy * cosYaw
-
-    return {
-      u: east,
-      v: -(north * sinPitch + dz * cosPitch),
-      /** Distance along the view direction — larger is further from the camera. */
-      depth: north * cosPitch - dz * sinPitch,
-    }
-  }
+  const camera = new FieldCamera()
 
   function resize() {
     const ratio = window.devicePixelRatio || 1
@@ -245,126 +125,11 @@ onMount(() => {
     canvas.height = height * ratio
     context.setTransform(ratio, 0, 0, ratio, 0, 0)
 
-    // The frame changed shape under the crowd, so whatever framing it had is no
-    // longer the one it was given.
-    reframing = true
+    camera.resize(width, height)
   }
 
-  /**
-   * The framing, measured against the camera as it stands rather than against
-   * the crowd's own bounds: what matters is where the crowd currently falls on
-   * screen.
-   */
-  function framing(list: FieldPixel[]) {
-    // Measured on the projected shape, not on the x/y spans: at this angle a
-    // tall bowl and a flat one of the same footprint need different zoom.
-    let minU = Number.POSITIVE_INFINITY
-    let maxU = Number.NEGATIVE_INFINITY
-    let minV = Number.POSITIVE_INFINITY
-    let maxV = Number.NEGATIVE_INFINITY
-
-    for (const { point } of list) {
-      const { u, v } = toCamera(point.x - originX, point.y - originY, point.z - originZ)
-
-      if (u < minU) minU = u
-      if (u > maxU) maxU = u
-      if (v < minV) minV = v
-      if (v > maxV) maxV = v
-    }
-
-    const usableWidth = Math.max(width - PADDING_PX * 2, 1)
-    const usableHeight = Math.max(height - PADDING_PX * 2, 1)
-
-    // How far the crowd reaches from the middle of the frame, as a fraction of
-    // the half-frame: 1 is exactly touching the padding.
-    const reach = Math.max(
-      (Math.max(maxU, -minU) * scale) / (usableWidth / 2),
-      (Math.max(maxV, -minV) * scale) / (usableHeight / 2),
-    )
-
-    return {
-      spanU: maxU - minU,
-      spanV: maxV - minV,
-      usableWidth,
-      usableHeight,
-      reach,
-      /** How much of the frame the crowd fills, ignoring where it sits in it. */
-      fill: Math.max(((maxU - minU) * scale) / usableWidth, ((maxV - minV) * scale) / usableHeight),
-    }
-  }
-
-  /**
-   * Re-frame the crowd — but only when it has actually gone somewhere.
-   *
-   * Chasing the centroid every frame is what makes the panel unreadable: a
-   * crowd is never still, so a camera that tracks it exactly is a camera that
-   * never stops moving, and the viewer cannot tell whether the field drifted or
-   * the lens did. So the framing is left alone while the crowd stays inside it,
-   * and a move is only started when the crowd reaches the padding or has shrunk
-   * into a corner of the frame.
-   *
-   * Once started, the move aims at `REFRAME_FILL` rather than at the edge, so
-   * it lands with room to spare and does not immediately trip the same test
-   * again — a threshold to leave and a different one to arrive, which is the
-   * only arrangement that settles.
-   */
-  function fit(list: FieldPixel[]) {
-    if (list.length === 0) return
-
-    const view = framing(list)
-
-    if (!reframing) {
-      // A crowd held bigger than the frame can never sit inside it, so testing
-      // its edges would re-frame forever — but that is only a state the
-      // operator can put it in, by zooming in. Left to itself, a crowd that
-      // outgrows its framing is precisely what a re-frame is for.
-      const zoomedIn = chosenScale !== null && view.fill > 1
-
-      const escaped = zoomedIn ? view.reach - view.fill > STRAY_REACH : view.reach > 1
-      const lost = chosenScale === null && view.fill < REFRAME_MIN_FILL
-
-      if (!escaped && !lost) return
-
-      reframing = true
-    }
-
-    const center = centroid(list)
-
-    const target =
-      view.spanU < 0.01 && view.spanV < 0.01
-        ? DEFAULT_SCALE
-        : Math.min(
-            (view.usableWidth * REFRAME_FILL) / Math.max(view.spanU, 0.01),
-            (view.usableHeight * REFRAME_FILL) / Math.max(view.spanV, 0.01),
-          )
-
-    const wanted = chosenScale ?? Math.min(Math.max(target, MIN_SCALE), MAX_SCALE)
-
-    scale += (wanted - scale) * REFRAME_EASE
-    originX += (center.x - originX) * REFRAME_EASE
-    originY += (center.y - originY) * REFRAME_EASE
-    originZ += (center.z - originZ) * REFRAME_EASE
-
-    // Arrived: the zoom is where it was going and the crowd is centred to
-    // within a fraction of its own size. The crowd keeps moving, so this can
-    // never be an exact test.
-    const settled =
-      Math.abs(wanted - scale) < wanted * 0.01 &&
-      Math.hypot(center.x - originX, center.y - originY, center.z - originZ) <
-        Math.max(view.spanU, view.spanV) * 0.02 + 0.01
-
-    if (settled) reframing = false
-  }
-
-  function project(point: Vector3): Vector2 {
-    const { u, v } = toCamera(point.x - originX, point.y - originY, point.z - originZ)
-
-    return { x: width / 2 + u * scale, y: height / 2 + v * scale }
-  }
-
-  function depthOf(point: Vector3) {
-    return toCamera(point.x - originX, point.y - originY, point.z - originZ).depth
-  }
+  const project = (point: Vector3) => camera.project(point)
+  const resetCamera = () => camera.reset()
 
   /**
    * The three field axes through the event origin. Barely visible on purpose —
@@ -493,13 +258,13 @@ onMount(() => {
   function dotRadius(glow: number) {
     const metres = PERSON_RADIUS_M * (1 + glow * GLOW_SWELL)
 
-    return Math.min(MAX_DOT_PX, Math.max(MIN_DOT_PX, metres * scale))
+    return Math.min(MAX_DOT_PX, Math.max(MIN_DOT_PX, metres * camera.scale))
   }
 
   function drawCrowd(list: FieldPixel[], center: Vector3, elapsed: number, now: number) {
-    const bands: Vector2[][] = Array.from({ length: BRIGHTNESS_BANDS + 1 }, () => [])
-    const outlineBands: Vector2[][] = Array.from({ length: BRIGHTNESS_BANDS + 1 }, () => [])
-    const glows: Array<{ at: Vector2; glow: number }> = []
+    const bands: CanvasPoint[][] = Array.from({ length: BRIGHTNESS_BANDS + 1 }, () => [])
+    const outlineBands: CanvasPoint[][] = Array.from({ length: BRIGHTNESS_BANDS + 1 }, () => [])
+    const glows: Array<{ at: CanvasPoint; glow: number }> = []
 
     for (const pixel of list) {
       const at = project(interpolate(pixel, now))
@@ -633,8 +398,7 @@ onMount(() => {
    * crowd has something to sit on rather than floating in the dark.
    */
   function drawGrid(extent: Vector3) {
-    const foreshortening = Math.hypot(cosYaw, sinYaw * sinPitch)
-    const step = rulerMeters(scale * foreshortening)
+    const step = rulerMeters(camera.scale * camera.xForeshortening)
 
     const reachX = Math.ceil(extent.x / step) * step
     const reachY = Math.ceil(extent.y / step) * step
@@ -660,130 +424,6 @@ onMount(() => {
     context.stroke()
   }
 
-  const meters = (seconds: number, perUnit: number) => (perUnit > 0 ? seconds / perUnit : 0)
-
-  /** Two points in the field, projected and stroked as one segment. */
-  function fieldLine(from: Vector3, to: Vector3) {
-    const a = project(from)
-    const b = project(to)
-
-    context.moveTo(a.x, a.y)
-    context.lineTo(b.x, b.y)
-  }
-
-  /**
-   * How each effect's leading edge is drawn, keyed by name rather than
-   * switched on it: a new effect will not compile until it has a shape here.
-   *
-   * Every one of these works in field coordinates and projects on the way out,
-   * so the wavefront sits in the same space as the crowd it is passing through.
-   */
-  const wavefrontByEffect: {
-    [Name in EffectName]: (
-      effect: EffectOf<Name>,
-      elapsed: number,
-      center: Vector3,
-      reach: number,
-    ) => void
-  } = {
-    PULSE: (effect, elapsed, center) => {
-      // The pass is spherical — `hypot(x, y, z)` — and a sphere under an
-      // orthographic camera is a circle from every angle, so this one needs no
-      // projecting beyond its center.
-      const radius = meters(elapsed, effect.spreadDelayPerUnit) * scale
-      const at = project(center)
-
-      context.moveTo(at.x + radius, at.y)
-      context.arc(at.x, at.y, radius, 0, Math.PI * 2)
-    },
-
-    WAVE: (effect, elapsed, center, reach) => {
-      const offset = meters(elapsed, effect.spreadDelayPerUnit)
-
-      for (const sign of [-1, 1]) {
-        const shift = sign * offset
-
-        if (effect.direction === 'X') {
-          fieldLine(
-            { x: center.x + shift, y: center.y - reach, z: center.z },
-            { x: center.x + shift, y: center.y + reach, z: center.z },
-          )
-        } else if (effect.direction === 'Y') {
-          fieldLine(
-            { x: center.x - reach, y: center.y + shift, z: center.z },
-            { x: center.x + reach, y: center.y + shift, z: center.z },
-          )
-        } else {
-          // A vertical pass had no leading edge worth drawing from above. From
-          // here it does: the front is a height, so it reads as a rule floating
-          // at that height.
-          fieldLine(
-            { x: center.x - reach, y: center.y, z: center.z + shift },
-            { x: center.x + reach, y: center.y, z: center.z + shift },
-          )
-        }
-      }
-    },
-
-    ROTATE: (effect, elapsed, center, reach) => {
-      const angle = meters(elapsed, effect.spreadDelayPerRadian) - Math.PI
-
-      fieldLine(center, {
-        x: center.x + Math.cos(angle) * reach,
-        y: center.y + Math.sin(angle) * reach,
-        z: center.z,
-      })
-    },
-
-    SPIRAL: (effect, elapsed, center) => {
-      if (effect.radialSpeed <= 0) return
-
-      let started = false
-
-      for (let step = 0; step <= 90; step += 1) {
-        const angle = (step / 90) * Math.PI * 2
-        const spent = effect.angularSpeed > 0 ? angle / effect.angularSpeed : 0
-        const radius = effect.radialSpeed * (elapsed - spent)
-
-        // The arm has not reached this angle yet — the curve starts later.
-        if (radius <= 0) continue
-
-        const at = project({
-          x: center.x + Math.cos(angle - Math.PI) * radius,
-          y: center.y - Math.sin(angle - Math.PI) * radius,
-          z: center.z,
-        })
-
-        if (started) {
-          context.lineTo(at.x, at.y)
-        } else {
-          context.moveTo(at.x, at.y)
-          started = true
-        }
-      }
-    },
-  }
-
-  /** The cue's own geometry, so the shape of an effect is readable at a glance. */
-  function drawWavefront(effect: Effect, elapsed: number, center: Vector3, reach: number) {
-    context.strokeStyle = 'rgba(245, 242, 252, 0.3)'
-    context.lineWidth = 1.5
-    context.beginPath()
-
-    // The record is keyed by the literal the effect is discriminated on, so
-    // this pairing is sound; TypeScript cannot correlate the two on its own.
-    const drawArm = wavefrontByEffect[effect.name] as (
-      effect: Effect,
-      elapsed: number,
-      center: Vector3,
-      reach: number,
-    ) => void
-
-    drawArm(effect, elapsed, center, reach)
-
-    context.stroke()
-  }
-
   /**
    * Drawn along the projected x axis rather than flat across the screen: at
    * this angle a horizontal line on screen is not a horizontal line in the
@@ -792,14 +432,13 @@ onMount(() => {
   function drawRuler() {
     // How much a meter along x is worth on screen, at the angle it is currently
     // being seen from.
-    const foreshortening = Math.hypot(cosYaw, sinYaw * sinPitch)
-    const step = rulerMeters(scale * foreshortening)
-    const span = toCamera(step, 0, 0)
+    const step = rulerMeters(camera.scale * camera.xForeshortening)
+    const span = camera.toCamera(step, 0, 0)
     const x = 24
     const y = height - 24
 
-    const endX = x + span.u * scale
-    const endY = y + span.v * scale
+    const endX = x + span.u * camera.scale
+    const endY = y + span.v * camera.scale
 
     context.strokeStyle = 'rgba(124, 118, 137, 0.7)'
     context.lineWidth = 1
@@ -836,7 +475,7 @@ onMount(() => {
 
   function draw() {
     context.clearRect(0, 0, width, height)
-    fit(pixels)
+    camera.fit(pixels)
 
     const extent = extentOf(pixels)
     // The flat wavefronts want one generous number, not a per-axis one: a front
@@ -860,12 +499,14 @@ onMount(() => {
     // across the pitch from it. Sorted on the settled position rather than the
     // interpolated one: re-sorting every frame while the crowd glides would
     // make pixels flicker past each other for no visible gain.
-    const sorted = [...pixels].sort((left, right) => depthOf(right.point) - depthOf(left.point))
+    const sorted = [...pixels].sort(
+      (left, right) => camera.depthOf(right.point) - camera.depthOf(left.point),
+    )
 
     drawCrowd(sorted, center, elapsed, now)
 
     if (lastEffect && !reducedMotion) {
-      drawWavefront(lastEffect.effect, elapsed, center, reach)
+      drawWavefront(context, lastEffect.effect, elapsed, center, reach, camera.scale, project)
     }
 
     if (pixels.length > 0) drawRuler()
@@ -903,7 +544,10 @@ onMount(() => {
   const onPointerMove = (event: PointerEvent) => {
     if (dragging !== event.pointerId) return
 
-    orbit(-(event.clientX - lastX) * ORBIT_PER_PIXEL, (event.clientY - lastY) * ORBIT_PER_PIXEL)
+    camera.orbit(
+      -(event.clientX - lastX) * ORBIT_PER_PIXEL,
+      (event.clientY - lastY) * ORBIT_PER_PIXEL,
+    )
 
     lastX = event.clientX
     lastY = event.clientY
@@ -919,13 +563,7 @@ onMount(() => {
   const onWheel = (event: WheelEvent) => {
     event.preventDefault()
 
-    const next = (chosenScale ?? scale) * ZOOM_PER_NOTCH ** -event.deltaY
-    chosenScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, next))
-
-    // Applied here rather than eased into by the framing: a wheel notch is
-    // already a small step, and the framing now holds still most of the time —
-    // waiting for it would mean a wheel that does nothing.
-    scale = chosenScale
+    camera.zoom(event.deltaY)
   }
 
   const onKeyDown = (event: KeyboardEvent) => {
@@ -933,23 +571,23 @@ onMount(() => {
 
     switch (event.key) {
       case 'ArrowLeft':
-        orbit(step, 0)
+        camera.orbit(step, 0)
         break
       case 'ArrowRight':
-        orbit(-step, 0)
+        camera.orbit(-step, 0)
         break
       case 'ArrowUp':
-        orbit(0, -step)
+        camera.orbit(0, -step)
         break
       case 'ArrowDown':
-        orbit(0, step)
+        camera.orbit(0, step)
         break
       // Not a number key: the whole numeric row belongs to the cue pads, and an
       // operator who fires a cue with the field focused must not also have the
       // camera jump.
       case 'r':
       case 'R':
-        resetCamera()
+        camera.reset()
         break
       default:
         return

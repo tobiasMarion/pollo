@@ -101,8 +101,24 @@ export const streamKeys = {
   ingest: (eventId: string) => `event:${eventId}:ingest`,
   /** Position updates, worker -> API, per event. */
   positions: (eventId: string) => `event:${eventId}:positions`,
-  /** Authoritative position snapshot, written by the worker. */
-  snapshot: (eventId: string) => `event:${eventId}:snapshot`,
   /** Global event lifecycle channel, API -> worker. */
   control: () => 'events:control',
+} as const
+
+/**
+ * Redis state shared by the API and worker for recovery.
+ *
+ * Streams say what changed; these keys say what is true now. A worker captures
+ * the stream cursor first, reads this state, then follows the cursor, so a
+ * restart costs one snapshot read rather than the lifetime of an event.
+ */
+export const stateKeys = {
+  openEvents: () => 'events:open',
+  graph: (eventId: string) => ({
+    nodes: `graph:${eventId}:nodes`,
+    locations: `graph:${eventId}:locations`,
+    positions: `graph:${eventId}:positions`,
+    edgesFrom: (node: string) => `graph:${eventId}:edges:${node}`,
+    edgesTo: (node: string) => `graph:${eventId}:edges_in:${node}`,
+  }),
 } as const

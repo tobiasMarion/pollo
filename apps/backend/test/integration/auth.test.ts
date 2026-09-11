@@ -3,7 +3,7 @@ import { createTestApp, createUser, truncateDatabase } from '../helpers.js'
 
 type TestApp = Awaited<ReturnType<typeof createTestApp>>
 
-function stubGithub({ email }: { email: string | null }) {
+function stubGithub({ email, githubId = 12345 }: { email: string | null; githubId?: number }) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: string | URL | Request) => {
@@ -13,13 +13,16 @@ function stubGithub({ email }: { email: string | null }) {
         return Response.json({ access_token: 'gh-token', token_type: 'bearer', scope: '' })
       }
 
-      if (url.startsWith('https://api.github.com/user')) {
+      if (url === 'https://api.github.com/user') {
         return Response.json({
-          id: 12345,
+          id: githubId,
           avatar_url: 'https://avatars.test/u/12345',
           name: 'Octo Cat',
-          email,
         })
+      }
+
+      if (url === 'https://api.github.com/user/emails') {
+        return Response.json(email === null ? [] : [{ email, primary: true, verified: true }])
       }
 
       throw new Error(`Unexpected fetch call in test: ${url}`)
@@ -87,6 +90,30 @@ describe('auth routes', () => {
     expect(second.statusCode).toBe(201)
     expect(await app.prisma.user.count()).toBe(1)
     expect(await app.prisma.account.count()).toBe(1)
+  })
+
+  it('keeps the same user when GitHub changes its primary email', async () => {
+    stubGithub({ email: 'before@test.dev' })
+
+    const first = await app.inject({
+      method: 'POST',
+      url: '/sessions/github',
+      payload: { code: 'code-1' },
+    })
+
+    stubGithub({ email: 'after@test.dev' })
+
+    const second = await app.inject({
+      method: 'POST',
+      url: '/sessions/github',
+      payload: { code: 'code-2' },
+    })
+
+    expect(first.statusCode).toBe(201)
+    expect(second.statusCode).toBe(201)
+    expect(await app.prisma.user.count()).toBe(1)
+    expect(await app.prisma.account.count()).toBe(1)
+    expect(await app.prisma.user.findFirst()).toMatchObject({ email: 'after@test.dev' })
   })
 
   it('POST /sessions/github rejects accounts without a public email', async () => {

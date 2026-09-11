@@ -87,7 +87,9 @@ The reasoning behind the pieces lives in [`docs/adr/`](docs/adr): the
 [Prisma 7](docs/adr/0003-prisma-7.md), the
 [admin panel](docs/adr/0004-admin-panel.md), the
 [contracts package](docs/adr/0005-shared-contracts.md) and the
-[position worker](docs/adr/0006-position-worker-typescript.md). For the story
+[position worker](docs/adr/0006-position-worker-typescript.md), including how
+[live state survives a worker restart](docs/adr/0007-recover-live-state-from-snapshots.md).
+For the story
 around them rather than the decisions themselves, see
 [`docs/articles.md`](docs/articles.md).
 

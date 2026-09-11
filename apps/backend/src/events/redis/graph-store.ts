@@ -5,6 +5,7 @@ import {
   type Node,
   type NodePosition,
   type NodesWithMetadata,
+  stateKeys,
 } from '@pollo/contracts'
 import type { Redis } from 'ioredis'
 import type { GraphBatch } from '../batching/graph-writer.js'
@@ -20,30 +21,34 @@ const TTL_SECONDS = 43_200 // 12 hours
  * Writes arrive as batches rather than one call per change — see `GraphWriter`.
  */
 export class GraphStore {
+  private readonly keys
+
   constructor(
     private readonly redis: Redis,
-    private readonly graphId: string,
-  ) {}
+    graphId: string,
+  ) {
+    this.keys = stateKeys.graph(graphId)
+  }
 
   private keyForEdgesFrom(node: Node) {
-    return `graph:${this.graphId}:edges:${node}`
+    return this.keys.edgesFrom(node)
   }
 
   /** Who has measured this node — the reverse of `edges:<node>`. */
   private keyForEdgesTo(node: Node) {
-    return `graph:${this.graphId}:edges_in:${node}`
+    return this.keys.edgesTo(node)
   }
 
   private keyForNodesSet() {
-    return `graph:${this.graphId}:nodes`
+    return this.keys.nodes
   }
 
   private keyForLocations() {
-    return `graph:${this.graphId}:locations`
+    return this.keys.locations
   }
 
   private keyForPositions() {
-    return `graph:${this.graphId}:positions`
+    return this.keys.positions
   }
 
   /**

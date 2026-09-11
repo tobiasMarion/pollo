@@ -28,20 +28,30 @@ export class UserRepository {
    * One method, because the three states it covers only make sense together.
    */
   async upsertFromGithub({ githubId, name, email, avatarUrl }: GithubIdentity) {
-    const user =
-      (await this.prisma.user.findUnique({ where: { email } })) ??
-      (await this.prisma.user.create({ data: { name, email, avatarUrl } }))
+    return await this.prisma.$transaction(async transaction => {
+      // Provider identity is stable; profile email is not. Looking up the
+      // account first lets a GitHub user change email without becoming a new
+      // Pollo user or colliding with their own account row.
+      const account = await transaction.account.findUnique({
+        where: { providerAccountId: githubId },
+      })
 
-    const account = await this.prisma.account.findUnique({
-      where: { provider_userId: { provider: 'GITHUB', userId: user.id } },
-    })
+      if (account) {
+        return await transaction.user.update({
+          where: { id: account.userId },
+          data: { name, email, avatarUrl },
+        })
+      }
 
-    if (!account) {
-      await this.prisma.account.create({
+      const user =
+        (await transaction.user.findUnique({ where: { email } })) ??
+        (await transaction.user.create({ data: { name, email, avatarUrl } }))
+
+      await transaction.account.create({
         data: { provider: 'GITHUB', providerAccountId: githubId, userId: user.id },
       })
-    }
 
-    return user
+      return user
+    })
   }
 }

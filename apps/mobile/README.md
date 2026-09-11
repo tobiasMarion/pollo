@@ -6,7 +6,7 @@ cues it renders itself.
 
 ```bash
 just mobile-build      # no Apple framework needed
-just mobile-test       # 35 tests, no Xcode needed
+just mobile-test       # 37 tests, no Xcode needed
 just mobile-fixtures   # rewrite the Swift test fixtures from the contract
 ```
 

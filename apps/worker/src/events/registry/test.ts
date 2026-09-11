@@ -6,6 +6,7 @@ import {
   type PositionsMessage,
   positionsMessageSchema,
   STREAM_FIELD,
+  stateKeys,
   streamKeys,
 } from '@pollo/contracts'
 import type { Redis } from 'ioredis'
@@ -17,6 +18,7 @@ import { EventGraph } from '../../ingest/graph/index.js'
 import { PublishLedger } from '../../publish/ledger/index.js'
 import { PositionPublisher } from '../../redis/publisher/index.js'
 import { StreamReader } from '../../redis/reader/index.js'
+import { RecoveryReader } from '../../redis/recovery/index.js'
 import { solverOf } from '../../solve/fixtures/index.js'
 import { LiveEvent } from '../live-event/index.js'
 import { EventRegistry } from './index.js'
@@ -53,10 +55,12 @@ async function until(check: () => boolean | Promise<boolean>, timeoutMs = 2_000)
 describe('EventRegistry', () => {
   let redis: Redis
   let registry: EventRegistry
+  let createdEvents: string[]
 
   beforeEach(async () => {
     // ioredis-mock instances share one keyspace, so every run gets its own ids.
     redis = new RedisMock() as unknown as Redis
+    createdEvents = []
 
     const publisher = new PositionPublisher(redis, logger, {
       maxlen: 1_000,
@@ -65,10 +69,12 @@ describe('EventRegistry', () => {
 
     registry = new EventRegistry({
       reader: new StreamReader(redis, logger, { blockMs: 20, connection: redis }),
+      recovery: new RecoveryReader(redis, logger),
       logger,
       tickMs: 5,
-      createEvent: (eventId, origin) =>
-        new LiveEvent(
+      createEvent: (eventId, origin) => {
+        createdEvents.push(eventId)
+        return new LiveEvent(
           {
             graph: new EventGraph(origin),
             ledger: new PublishLedger(0.05),
@@ -76,7 +82,8 @@ describe('EventRegistry', () => {
             publisher,
           },
           { eventId, origin, keyframeTicks: 90, minDegree: 0 },
-        ),
+        )
+      },
     })
 
     await registry.start()
@@ -122,6 +129,19 @@ describe('EventRegistry', () => {
     await until(() => registry.size === 0)
   })
 
+  it('replaces an event when a restarted API announces a new runtime generation', async () => {
+    const eventId = randomUUID()
+
+    await publishControl({ op: 'EVENT_OPENED', eventId, ...origin })
+    await until(() => createdEvents.length === 1)
+
+    await publishControl({ op: 'EVENT_OPENED', eventId, ...origin })
+    await until(() => createdEvents.length === 2)
+
+    expect(createdEvents).toEqual([eventId, eventId])
+    expect(registry.size).toBe(1)
+  })
+
   /**
    * The whole path, and the reason this suite exists: a device joining over
    * Redis comes back out as a position on the other stream, with nothing but
@@ -149,6 +169,47 @@ describe('EventRegistry', () => {
 
     expect(point).toBeDefined()
     expect(point?.position.simulated.relative.z).toBe(117)
+  })
+
+  it('recovers an event and its graph after the worker restarts', async () => {
+    await registry.stop()
+
+    const eventId = randomUUID()
+    const keys = stateKeys.graph(eventId)
+    const fix = location({ altitude: 117 })
+
+    await redis.hset(stateKeys.openEvents(), eventId, JSON.stringify(origin))
+    await redis.hset(keys.locations, 'device-1', JSON.stringify(fix))
+
+    const publisher = new PositionPublisher(redis, logger, {
+      maxlen: 1_000,
+      pointsPerMessage: 500,
+    })
+
+    registry = new EventRegistry({
+      reader: new StreamReader(redis, logger, { blockMs: 20, connection: redis }),
+      recovery: new RecoveryReader(redis, logger),
+      logger,
+      tickMs: 5,
+      createEvent: (recoveredId, recoveredOrigin) =>
+        new LiveEvent(
+          {
+            graph: new EventGraph(recoveredOrigin),
+            ledger: new PublishLedger(0.05),
+            solver: solverOf({ convergenceM: 0.002 }),
+            publisher,
+          },
+          { eventId: recoveredId, origin: recoveredOrigin, keyframeTicks: 90, minDegree: 0 },
+        ),
+    })
+
+    await registry.start()
+    await until(() => registry.size === 1)
+    await until(async () =>
+      (await readPositions(eventId)).some(message =>
+        message.points.some(point => point.deviceId === 'device-1'),
+      ),
+    )
   })
 
   it('says nothing about an event it was never told about', async () => {

@@ -3,7 +3,6 @@ import type { Origin } from '@pollo/geometry'
 import type { EventGraph } from '../../ingest/graph/index.js'
 import type { PublishLedger } from '../../publish/ledger/index.js'
 import { positionOf } from '../../publish/position/index.js'
-import type { PositionPublisher } from '../../redis/publisher/index.js'
 import type { Solver } from '../../solve/solver/index.js'
 
 export interface LiveEventOptions {
@@ -18,7 +17,11 @@ export interface LiveEventDependencies {
   graph: EventGraph
   ledger: PublishLedger
   solver: Solver
-  publisher: PositionPublisher
+  publisher: PositionSink
+}
+
+export interface PositionSink {
+  publish(eventId: string, kind: 'delta' | 'keyframe', points: readonly PositionPoint[]): void
 }
 
 /**
