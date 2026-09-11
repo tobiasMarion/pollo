@@ -48,6 +48,32 @@ import PolloSensors
         XCTAssertFalse(controller.participating)
         controller.suspend()
     }
+    func testTorchEventFallsBackToTheScreenWithoutATorch() async throws {
+        let light = DemoLight()
+        light.torchAvailable = false
+        let transport = DemoTransport()
+        var time = 0.0
+        let controller = EventController(location: DemoLocation(), ranging: DemoRanging(),
+            api: TorchEvents(), transport: transport, light: light, deviceId: "test", now: { time })
+        controller.activate()
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertTrue(controller.canJoin)
+        XCTAssertEqual(controller.message, "Sua tela fará parte do espetáculo.")
+
+        controller.join()
+        XCTAssertEqual(light.output, .screen)
+        let pair = PositionPair(relative: .zero, absolute: .zero)
+        transport.onInput?(.received(.setPoint(NodePosition(uncorrected: pair, simulated: pair))))
+        let effect = try JSONDecoder().decode(Effect.self, from: Data("""
+        {"name":"PULSE","coordinateType":"RELATIVE","activeTime":2,"spreadDelayPerUnit":0}
+        """.utf8))
+        transport.onInput?(.received(.effect(effect, center: .zero)))
+        time = 1
+        try await Task.sleep(for: .milliseconds(50))
+        XCTAssertTrue(controller.screenMode)
+        XCTAssertGreaterThan(controller.brightness, 0.9)
+        controller.suspend()
+    }
     func testPermissionFailureTearsDownSession() async {
         let location = DemoLocation()
         let controller = EventController(location: location, ranging: DemoRanging(),
@@ -127,4 +153,13 @@ import PolloSensors
     }
     func event(_ id: String) async throws -> Event? { nil }
     func complete(_ event: Event?) { continuation?.resume(returning: event); continuation = nil }
+}
+
+@MainActor private final class TorchEvents: EventService {
+    func nearby(_ location: Location) async throws -> Event? {
+        try JSONDecoder().decode(Event.self, from: Data("""
+        {"id":"torch","name":"Lanternas","type":"TORCH","status":"OPEN","latitude":0,"longitude":0,"userId":"test","createdAt":"2026-09-09T00:00:00Z","updatedAt":"2026-09-09T00:00:00Z"}
+        """.utf8))
+    }
+    func event(_ id: String) async throws -> Event? { try await nearby(Location(latitude: 0, longitude: 0, horizontalAccuracy: 1, altitude: 0, verticalAccuracy: 1)) }
 }

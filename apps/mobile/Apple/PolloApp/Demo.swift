@@ -56,9 +56,10 @@ import PolloSensors
     var torchAvailable = true
     var onError: ((String) -> Void)?
     var started = false
+    var output: Event.Output?
     var brightness = 0.0
-    func begin(_ type: Event.Output) { started = true }
+    func begin(_ type: Event.Output) { started = true; output = type }
     func render(_ brightness: Double) { self.brightness = brightness }
-    func stop() { started = false; brightness = 0 }
+    func stop() { started = false; output = nil; brightness = 0 }
 }
 #endif

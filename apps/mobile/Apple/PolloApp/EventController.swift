@@ -25,8 +25,8 @@ import PolloSensors
     var supported: Bool { ranging.supported }
     var deviceIdentifier: String { deviceId }
     var peerLimit: Int { maxPeers }
-    var canJoin: Bool { phase == .ready && supported && (event?.type != .torch || light.torchAvailable) }
-    var screenMode: Bool { participating && event?.type == .screen && positioned }
+    var canJoin: Bool { phase == .ready && supported }
+    var screenMode: Bool { participating && output == .screen && positioned }
     @ObservationIgnored private let location: any LocationSource
     @ObservationIgnored private let ranging: any RangingSource
     @ObservationIgnored private let api: any EventService
@@ -43,6 +43,10 @@ import PolloSensors
     @ObservationIgnored private var resumeEvent: String?
     @ObservationIgnored private var needsDiscovery = true
     @ObservationIgnored private let maxPeers: Int
+    private var output: Event.Output? {
+        guard let type = event?.type else { return nil }
+        return type == .torch && !light.torchAvailable ? .screen : type
+    }
 
     init(location: any LocationSource, ranging: any RangingSource, api: any EventService,
          transport: any EventTransport, light: any LightOutput, deviceId: String,
@@ -102,7 +106,7 @@ import PolloSensors
                 }
                 self.phase = .ready
                 self.message = !self.supported ? "Este iPhone não oferece medição de distância UWB." :
-                    event.type == .torch && !self.light.torchAvailable ? "A lanterna não está disponível neste aparelho." : "Sua luz faz parte do espetáculo."
+                    event.type == .torch && !self.light.torchAvailable ? "Sua tela fará parte do espetáculo." : "Sua luz faz parte do espetáculo."
                 if resume != nil && self.canJoin { self.join() }
             } catch {
                 guard !Task.isCancelled, current == self.generation else { return }
@@ -111,12 +115,12 @@ import PolloSensors
         }
     }
     func join() {
-        guard canJoin, let fix else { return }
+        guard canJoin, let fix, let output else { return }
         let core = PolloSession(deviceId: deviceId, maxPeers: maxPeers)
         session = core
         participating = true
         phase = .connecting; message = "Conectando ao evento…"
-        light.begin(event!.type)
+        light.begin(output)
         input(.located(fix)); input(.start)
         ticker = Task { [weak self] in
             while !Task.isCancelled {

@@ -44,10 +44,11 @@ and disables participation. Debug launch argument `-maxPeers 4` lowers the
 default cap of 16; that cap is experimental, not a measured radio guarantee.
 
 Discovery is automatic after a valid GPS fix, but light requires **Participar**.
-The app uses the server's event type (screen or torch). **Sair** releases all
-resources. Backgrounding stops the session and lights; returning revalidates the
-event and creates a new session if the user was participating. Permission prompts
-alone do not end participation. No background modes or Live Activities are used.
+The app uses the server's event type (screen or torch); a device without a torch
+falls back to its screen. **Sair** releases all resources. Backgrounding stops the
+session and lights; returning revalidates the event and creates a new session if
+the user was participating. Permission prompts alone do not end participation.
+No background modes or Live Activities are used.
 
 The screen mode restores the previous display brightness when leaving. Both modes
 restore the idle timer and stop at the end of a cue. A transient connection loss
