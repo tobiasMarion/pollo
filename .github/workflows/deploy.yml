@@ -99,7 +99,7 @@ jobs:
             "${VPS_USER}@${VPS_HOST}" \
             "docker login ghcr.io --username '${GITHUB_ACTOR}' --password-stdin"
           ssh -i ~/.ssh/pollo-deploy "${VPS_USER}@${VPS_HOST}" \
-            "cd '${DEPLOY_DIR}' && docker compose --env-file .env --env-file release.env -f infra/compose.prod.yaml pull && docker compose --env-file .env --env-file release.env -f infra/compose.prod.yaml up -d --no-build --remove-orphans --wait"
+            "cd '${DEPLOY_DIR}' && docker compose --env-file .env --env-file release.env -f infra/compose.prod.yaml pull && docker compose --env-file .env --env-file release.env -f infra/compose.prod.yaml up -d --no-build --remove-orphans --wait && docker compose --env-file .env --env-file release.env -f infra/compose.prod.yaml exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile"
 
       - name: Verify the public endpoints
         run: |
@@ -107,3 +107,6 @@ jobs:
             https://pollo.tobiasmarion.com/api/health
           curl --fail --silent --show-error --retry 12 --retry-delay 5 --retry-all-errors \
             https://pollo.tobiasmarion.com/health
+          curl --fail --silent --show-error --retry 12 --retry-delay 5 --retry-all-errors \
+            --location --output /dev/null \
+            https://pollo.tobiasmarion.com/api/docs
