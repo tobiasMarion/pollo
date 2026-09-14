@@ -1,0 +1,109 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/tobiasmarion/pollo
+  VPS_HOST: 69.62.91.208
+  VPS_USER: tobias
+  DEPLOY_DIR: /srv/pollo
+
+jobs:
+  publish:
+    name: Publish ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - service: api
+            dockerfile: infra/docker/backend.Dockerfile
+          - service: web
+            dockerfile: infra/docker/web.Dockerfile
+          - service: worker
+            dockerfile: infra/docker/worker.Dockerfile
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  deploy:
+    name: Deploy production
+    needs: publish
+    if: github.event_name == 'workflow_dispatch' || vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://pollo.tobiasmarion.com/app/
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Configure the verified SSH host and deploy key
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/pollo-deploy
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/pollo-deploy ~/.ssh/known_hosts
+
+      - name: Write the immutable release manifest
+        run: |
+          printf '%s\n' \
+            "POLLO_API_IMAGE=${IMAGE_PREFIX}-api:${GITHUB_SHA}" \
+            "POLLO_WEB_IMAGE=${IMAGE_PREFIX}-web:${GITHUB_SHA}" \
+            "POLLO_WORKER_IMAGE=${IMAGE_PREFIX}-worker:${GITHUB_SHA}" \
+            > release.env
+
+      - name: Upload deployment files
+        run: |
+          ssh -i ~/.ssh/pollo-deploy "${VPS_USER}@${VPS_HOST}" "mkdir -p '${DEPLOY_DIR}/infra'"
+          scp -i ~/.ssh/pollo-deploy \
+            infra/compose.prod.yaml infra/Caddyfile \
+            "${VPS_USER}@${VPS_HOST}:${DEPLOY_DIR}/infra/"
+          scp -i ~/.ssh/pollo-deploy release.env \
+            "${VPS_USER}@${VPS_HOST}:${DEPLOY_DIR}/release.env"
+
+      - name: Pull and start the release
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "$GHCR_TOKEN" | ssh -i ~/.ssh/pollo-deploy \
+            "${VPS_USER}@${VPS_HOST}" \
+            "docker login ghcr.io --username '${GITHUB_ACTOR}' --password-stdin"
+          ssh -i ~/.ssh/pollo-deploy "${VPS_USER}@${VPS_HOST}" \
+            "cd '${DEPLOY_DIR}' && docker compose --env-file .env --env-file release.env -f infra/compose.prod.yaml pull && docker compose --env-file .env --env-file release.env -f infra/compose.prod.yaml up -d --no-build --remove-orphans --wait"
+
+      - name: Verify the public endpoints
+        run: |
+          curl --fail --silent --show-error --retry 12 --retry-delay 5 \
+            https://pollo.tobiasmarion.com/api/health
+          curl --fail --silent --show-error --retry 12 --retry-delay 5 \
+            https://pollo.tobiasmarion.com/app/health

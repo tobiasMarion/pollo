@@ -17,9 +17,15 @@ export function apiBaseUrl(): string {
   return env.PUBLIC_POLLO_API_URL ?? 'http://localhost:3333'
 }
 
+/** Resolve an API path without dropping a public base path such as `/api`. */
+export function apiUrl(path: string, baseUrl = apiBaseUrl()): URL {
+  const directoryBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`
+  return new URL(path.replace(/^\/+/, ''), directoryBase)
+}
+
 /** Same origin as the REST API, upgraded — `http(s)` maps to `ws(s)`. */
 export function apiSocketUrl(path: string): string {
-  const url = new URL(path, apiBaseUrl())
+  const url = apiUrl(path)
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
   return url.toString()
 }
@@ -51,7 +57,7 @@ export function createApiClient({
     let response: Response
 
     try {
-      response = await fetch(new URL(path, baseUrl), { ...init, headers })
+      response = await fetch(apiUrl(path, baseUrl), { ...init, headers })
     } catch (cause) {
       // A dead API is indistinguishable from no network here, and both mean
       // the same thing to the operator: the panel cannot reach Pollo.

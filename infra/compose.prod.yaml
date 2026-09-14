@@ -1,9 +1,7 @@
 name: pollo
 
-# Production stack for a single VPS (ADR 0001). Secrets come from the root
-# .env via --env-file — see the `prod-*` targets in the justfile.
-# Postgres and Redis are intentionally not published to the host.
-
+# Single-VPS production stack. Only Caddy publishes host ports; every other
+# process is reachable solely by service name on its Compose network.
 services:
   postgres:
     image: postgres:16-alpine
@@ -13,6 +11,8 @@ services:
       POSTGRES_DB: pollo
     volumes:
       - pg_data:/var/lib/postgresql/data
+    networks:
+      - data
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U pollo -d pollo']
       interval: 5s
@@ -25,6 +25,8 @@ services:
     command: ['redis-server', '--appendonly', 'yes']
     volumes:
       - redis_data:/data
+    networks:
+      - data
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
@@ -33,6 +35,7 @@ services:
     restart: unless-stopped
 
   api:
+    image: ${POLLO_API_IMAGE:-pollo-api:local}
     build:
       context: ..
       dockerfile: infra/docker/backend.Dockerfile
@@ -47,14 +50,18 @@ services:
       HOST: 0.0.0.0
       PORT: 3333
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_REQUESTS: ${LOG_REQUESTS:-true}
       DATABASE_URL: postgresql://pollo:${POSTGRES_PASSWORD:?}@postgres:5432/pollo?schema=public
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
       GITHUB_OAUTH_CLIENT_ID: ${GITHUB_OAUTH_CLIENT_ID:?}
       GITHUB_OAUTH_CLIENT_SECRET: ${GITHUB_OAUTH_CLIENT_SECRET:?}
       GITHUB_OAUTH_CLIENT_REDIRECT_URI: ${GITHUB_OAUTH_CLIENT_REDIRECT_URI:?}
-    ports:
-      - '3333:3333'
+    expose:
+      - '3333'
+    networks:
+      - edge
+      - data
     depends_on:
       postgres:
         condition: service_healthy
@@ -68,36 +75,93 @@ services:
       start_period: 20s
     restart: unless-stopped
 
+  worker:
+    image: ${POLLO_WORKER_IMAGE:-pollo-worker:local}
+    build:
+      context: ..
+      dockerfile: infra/docker/worker.Dockerfile
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      REDIS_URL: redis://redis:6379
+      WORKER_TICK_MS: ${WORKER_TICK_MS:-33}
+      WORKER_KEYFRAME_TICKS: ${WORKER_KEYFRAME_TICKS:-90}
+      WORKER_PUBLISH_EPSILON_M: ${WORKER_PUBLISH_EPSILON_M:-0.05}
+      WORKER_POSITIONS_MAXLEN: ${WORKER_POSITIONS_MAXLEN:-1000}
+      WORKER_POINTS_PER_MESSAGE: ${WORKER_POINTS_PER_MESSAGE:-500}
+      WORKER_SWEEPS_PER_TICK: ${WORKER_SWEEPS_PER_TICK:-8}
+      WORKER_CONVERGENCE_M: ${WORKER_CONVERGENCE_M:-0.002}
+      WORKER_OMEGA: ${WORKER_OMEGA:-1.5}
+      WORKER_ALPHA_MIN: ${WORKER_ALPHA_MIN:-0.2}
+      WORKER_HUBER_KNEE: ${WORKER_HUBER_KNEE:-2}
+      WORKER_SCALE_BLEND: ${WORKER_SCALE_BLEND:-0.2}
+      WORKER_SAMPLING_STRIDE: ${WORKER_SAMPLING_STRIDE:-7}
+      WORKER_ANCHOR_SCALE: ${WORKER_ANCHOR_SCALE:-1}
+      WORKER_MIN_DEGREE: ${WORKER_MIN_DEGREE:-2}
+    networks:
+      - data
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
   web:
+    image: ${POLLO_WEB_IMAGE:-pollo-web:local}
     build:
       context: ..
       dockerfile: infra/docker/web.Dockerfile
+      args:
+        WEB_BASE_PATH: /app
     environment:
       NODE_ENV: production
       HOST: 0.0.0.0
       PORT: 3000
-      # adapter-node checks the Origin of form posts against this, so it must
-      # be the address the operator actually types.
       ORIGIN: ${WEB_ORIGIN:?set WEB_ORIGIN in .env}
-      # Public: also used by the browser for the admin WebSocket.
       PUBLIC_POLLO_API_URL: ${PUBLIC_POLLO_API_URL:?set PUBLIC_POLLO_API_URL in .env}
-      # Private: inside the compose network the public host does not resolve.
       POLLO_API_INTERNAL_URL: http://api:3333
       GITHUB_OAUTH_CLIENT_ID: ${GITHUB_OAUTH_CLIENT_ID:?}
       GITHUB_OAUTH_CLIENT_REDIRECT_URI: ${GITHUB_OAUTH_CLIENT_REDIRECT_URI:?}
-    ports:
-      - '3000:3000'
+    expose:
+      - '3000'
+    networks:
+      - edge
     depends_on:
       api:
         condition: service_healthy
     healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3000/health']
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3000/app/health']
       interval: 15s
       timeout: 5s
       retries: 5
       start_period: 10s
     restart: unless-stopped
 
+  caddy:
+    image: caddy:2-alpine
+    environment:
+      POLLO_SITE_ADDRESS: ${POLLO_SITE_ADDRESS:-pollo.tobiasmarion.com}
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - edge
+    depends_on:
+      web:
+        condition: service_healthy
+    restart: unless-stopped
+
+networks:
+  edge:
+  data:
+    internal: true
+
 volumes:
   pg_data:
   redis_data:
+  caddy_data:
+  caddy_config:

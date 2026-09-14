@@ -216,21 +216,36 @@ dashboard for NDJSON. The whole thing is written up in
 
 ## 📦 Production <a name="production"></a>
 
-One VPS, one command. Fill the secrets in `.env`, then:
+One VPS, one command. Fill the production secrets and addresses in `.env`, then:
 
 ```bash
 just prod-build
-just prod-up                  # API on :3333, panel on :3000
+just prod-up                  # Caddy on :80/:443; everything else stays private
 ```
 
 Migrations are applied on boot and the panel waits for the API to be healthy.
-Postgres and Redis stay internal to the compose network; only the API and the
-panel are published. `just prod-logs` and `just prod-down` do what they say.
+Postgres, Redis, the worker, API and panel stay internal to Compose; Caddy is
+the only public service. It serves the panel at `/app/`, strips `/api/` before
+proxying the API, carries WebSocket upgrades and manages HTTPS automatically.
+`just prod-logs` and `just prod-down` do what they say.
 
 Two addresses matter and they are not the same one: `PUBLIC_POLLO_API_URL` is
 what the operator's browser uses, WebSocket included, while the panel's own
 server reaches the API inside the network at `http://api:3333`. `WEB_ORIGIN`
 must be the address the panel is served from, or form posts are rejected.
+
+On the hosted deployment those values are
+`https://pollo.tobiasmarion.com/api/` and `https://pollo.tobiasmarion.com`;
+the GitHub OAuth callback is
+`https://pollo.tobiasmarion.com/app/api/auth/callback`. The web image is built
+with SvelteKit's base path set to `/app`, so its assets, forms and redirects do
+not rely on proxy rewrites.
+
+`.github/workflows/deploy.yml` builds API, panel and worker images on GitHub,
+publishes each one to GHCR under the commit SHA, and deploys that immutable set
+over SSH. Push deployments remain disabled until the repository variable
+`DEPLOY_ENABLED` is set to `true`; `workflow_dispatch` can always perform the
+first controlled deployment.
 
 ---
 

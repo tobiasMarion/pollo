@@ -1,4 +1,6 @@
 <script lang="ts">
+import { resolve } from '$app/paths'
+
 let { data } = $props()
 </script>
 
@@ -19,7 +21,7 @@ let { data } = $props()
     {/if}
 
     <a
-      href="/auth/github"
+      href={resolve('/auth/github')}
       data-sveltekit-reload
       class="mt-8 flex items-center justify-center gap-2.5 bg-starlight rounded-lg px-4 py-3 font-medium text-dusk-950 transition-colors hover:bg-starlight-bright"
     >

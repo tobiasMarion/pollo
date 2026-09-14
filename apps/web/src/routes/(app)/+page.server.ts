@@ -1,6 +1,7 @@
 import { eventTypeSchema } from '@pollo/contracts'
 import { fail, redirect } from '@sveltejs/kit'
 import { z } from 'zod'
+import { resolve } from '$app/paths'
 import { ApiError } from '$lib/api/client'
 import { serverApi } from '$lib/server/api'
 import type { Actions, PageServerLoad } from './$types'
@@ -66,6 +67,6 @@ export const actions: Actions = {
 
     // Opening an event is the start of running it, so land the operator on the
     // console rather than back on the list.
-    redirect(303, `/events/${eventId}`)
+    redirect(303, resolve('/(app)/events/[eventId]', { eventId }))
   },
 }

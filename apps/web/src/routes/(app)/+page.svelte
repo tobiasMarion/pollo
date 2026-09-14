@@ -2,6 +2,7 @@
 import type { EventType } from '@pollo/contracts'
 import { untrack } from 'svelte'
 import { enhance } from '$app/forms'
+import { resolve } from '$app/paths'
 import { formatCoordinates, formatTimestamp } from '$lib/format'
 
 let { data, form } = $props()
@@ -59,7 +60,7 @@ function useMyLocation() {
         {#each data.events as event (event.id)}
           <li class="border-dusk-800 border-b">
             <a
-              href="/events/{event.id}"
+              href={resolve('/(app)/events/[eventId]', { eventId: event.id })}
               class="grid grid-cols-[auto_1fr_auto] items-center gap-x-4 gap-y-1 rounded-lg px-3 py-3.5 transition-colors hover:bg-dusk-900 sm:grid-cols-[auto_1fr_5rem_11rem_5rem]"
             >
               {#if event.status === 'OPEN'}

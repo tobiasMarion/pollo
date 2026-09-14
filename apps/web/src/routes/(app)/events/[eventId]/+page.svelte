@@ -1,5 +1,6 @@
 <script lang="ts">
 import { onMount } from 'svelte'
+import { resolve } from '$app/paths'
 import EffectDeck from '$lib/components/EffectDeck.svelte'
 import FieldCanvas from '$lib/components/FieldCanvas.svelte'
 import { type ConnectionStatus, EventConsole } from '$lib/event-console.svelte'
@@ -85,7 +86,7 @@ onMount(() => {
   <div
     class="flex flex-wrap items-center gap-x-6 gap-y-2 border-dusk-800 border-b px-5 py-3 md:px-8"
   >
-    <a href="/" class="text-dusk-500 text-sm transition-colors hover:text-dusk-100">
+    <a href={resolve('/')} class="text-dusk-500 text-sm transition-colors hover:text-dusk-100">
       ← Events
     </a>
 

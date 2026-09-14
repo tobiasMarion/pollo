@@ -15,6 +15,11 @@ const CONNECT_RETRY_MS = 500
 
 const RETRYABLE = new Set(['ECONNREFUSED', 'ECONNRESET', 'EAI_AGAIN', 'ENOTFOUND'])
 
+function apiEndpoint(apiUrl: string, path: string): URL {
+  const directoryBase = apiUrl.endsWith('/') ? apiUrl : `${apiUrl}/`
+  return new URL(path.replace(/^\/+/, ''), directoryBase)
+}
+
 function isTransient(error: unknown): boolean {
   if (error instanceof AggregateError) return error.errors.every(isTransient)
 
@@ -38,7 +43,7 @@ export async function fetchEvent(
   eventId: string,
   onWaiting?: (reason: string) => void,
 ): Promise<EventWire> {
-  const url = new URL(`/events/${eventId}`, apiUrl)
+  const url = apiEndpoint(apiUrl, `/events/${eventId}`)
   const deadline = Date.now() + CONNECT_TIMEOUT_MS
 
   let response: Response | null = null
@@ -108,7 +113,7 @@ function describe(error: unknown): string {
 
 /** Where a device connects, derived from the same helper every client uses. */
 export function joinSocketUrl(apiUrl: string, eventId: string) {
-  const url = new URL(socketPaths.join(eventId), apiUrl)
+  const url = apiEndpoint(apiUrl, socketPaths.join(eventId))
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
 
   return url.toString()

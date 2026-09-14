@@ -1,4 +1,5 @@
 import { redirect } from '@sveltejs/kit'
+import { resolve } from '$app/paths'
 import { ApiError } from '$lib/api/client'
 import { serverApi } from '$lib/server/api'
 import { clearSession } from '$lib/server/session'
@@ -7,7 +8,7 @@ import type { LayoutServerLoad } from './$types'
 /** Everything under this group needs a signed-in admin. */
 export const load: LayoutServerLoad = async ({ locals, fetch, cookies }) => {
   if (!locals.token) {
-    redirect(303, '/login')
+    redirect(303, resolve('/login'))
   }
 
   const api = serverApi({ fetch, locals })
@@ -19,7 +20,7 @@ export const load: LayoutServerLoad = async ({ locals, fetch, cookies }) => {
     // cookie is dead weight, so drop it instead of looping through the guard.
     if (error instanceof ApiError && (error.status === 401 || error.status === 400)) {
       clearSession(cookies)
-      redirect(303, '/login')
+      redirect(303, resolve('/login'))
     }
 
     throw error
