@@ -28,4 +28,15 @@ import XCTest
         app.buttons["leave"].tap()
         XCTAssertTrue(app.buttons["join"].waitForExistence(timeout: 5))
     }
+    func testDiagnosticsKeepsLiveSessionActive() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--demo", "--live"]
+        app.launch()
+        XCTAssertTrue(app.buttons["join"].waitForExistence(timeout: 10))
+        app.buttons["join"].tap()
+        XCTAssertTrue(app.buttons["diagnostics"].waitForExistence(timeout: 5))
+        app.buttons["diagnostics"].tap()
+        XCTAssertTrue(app.navigationBars["Sinal local"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Conectado e posicionado"].exists)
+    }
 }
