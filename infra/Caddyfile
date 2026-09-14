@@ -9,19 +9,7 @@
 		reverse_proxy api:3333
 	}
 
-	handle /app {
-		redir * /app/ 308
-	}
-
-	handle /app/* {
-		reverse_proxy web:3000
-	}
-
-	handle / {
-		redir * /app/ 308
-	}
-
 	handle {
-		respond "Not found" 404
+		reverse_proxy web:3000
 	}
 }

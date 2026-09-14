@@ -13,7 +13,7 @@ authority.
 ## Decisions
 
 - **SvelteKit + Tailwind 4** in `apps/web`, on **port 3000**, because the
-  GitHub OAuth app already redirects to `http://localhost:3000/api/auth/callback`.
+  GitHub OAuth app already redirects to `http://localhost:3000/auth/github/callback`.
   Vite reads the monorepo `.env` through `envDir`, and `$env/*` through
   `kit.env.dir` — both are needed, they are separate settings.
 - **`GET /events` was added to the API.** Discovery (`/events/around`) answers

@@ -140,7 +140,7 @@ it does, geometry first — `just all`, `just dev`, `just web`, `just worker`,
 
 The panel signs in with the same GitHub OAuth app as the API, so the app's
 **Authorization callback URL** must be exactly `GITHUB_OAUTH_CLIENT_REDIRECT_URI`
-(`http://localhost:3000/api/auth/callback` in development). Port 3000 is part of
+(`http://localhost:3000/auth/github/callback` in development). Port 3000 is part of
 that contract — the dev server refuses to move.
 
 ---
@@ -225,7 +225,7 @@ just prod-up                  # Caddy on :80/:443; everything else stays private
 
 Migrations are applied on boot and the panel waits for the API to be healthy.
 Postgres, Redis, the worker, API and panel stay internal to Compose; Caddy is
-the only public service. It serves the panel at `/app/`, strips `/api/` before
+the only public service. It serves the panel at `/`, strips `/api/` before
 proxying the API, carries WebSocket upgrades and manages HTTPS automatically.
 `just prod-logs` and `just prod-down` do what they say.
 
@@ -237,9 +237,8 @@ must be the address the panel is served from, or form posts are rejected.
 On the hosted deployment those values are
 `https://pollo.tobiasmarion.com/api/` and `https://pollo.tobiasmarion.com`;
 the GitHub OAuth callback is
-`https://pollo.tobiasmarion.com/app/api/auth/callback`. The web image is built
-with SvelteKit's base path set to `/app`, so its assets, forms and redirects do
-not rely on proxy rewrites.
+`https://pollo.tobiasmarion.com/auth/github/callback`. Caddy reserves `/api/`
+for Fastify and sends every other path to SvelteKit.
 
 `.github/workflows/deploy.yml` builds API, panel and worker images on GitHub,
 publishes each one to GHCR under the commit SHA, and deploys that immutable set
