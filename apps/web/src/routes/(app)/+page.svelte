@@ -3,6 +3,7 @@ import type { EventType } from '@pollo/contracts'
 import { untrack } from 'svelte'
 import { enhance } from '$app/forms'
 import { resolve } from '$app/paths'
+import Seo from '$lib/components/Seo.svelte'
 import { formatCoordinates, formatTimestamp } from '$lib/format'
 
 let { data, form } = $props()
@@ -38,9 +39,12 @@ function useMyLocation() {
 }
 </script>
 
-<svelte:head>
-  <title>Events · Pollo</title>
-</svelte:head>
+<Seo
+  title="Events — Pollo Control"
+  description="Create and control synchronized light events, then watch every connected device become part of the canvas."
+  path="/"
+  noIndex
+/>
 
 <div
   class="mx-auto grid w-full max-w-6xl flex-1 gap-10 px-5 py-10 md:px-8 lg:grid-cols-[1fr_20rem]"

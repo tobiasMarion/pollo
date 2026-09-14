@@ -1,18 +1,23 @@
 <script lang="ts">
 import { resolve } from '$app/paths'
+import Seo from '$lib/components/Seo.svelte'
 
 let { data } = $props()
 </script>
 
-<svelte:head>
-  <title>Sign in · Pollo</title>
-</svelte:head>
+<Seo
+  title="Pollo — Turn every phone into a pixel"
+  description="Turn a crowd of phones into one synchronized canvas. Open an event, bring nearby devices together, and conduct light across the room."
+  path="/login"
+/>
 
 <main class="flex min-h-svh items-center justify-center px-6">
   <div class="w-full max-w-sm">
     <p class="eyebrow">Control panel</p>
-    <h1 class="mt-3 font-display text-6xl font-bold leading-none tracking-tight">Pollo</h1>
-    <p class="mt-3 text-dusk-400">
+    <h1 class="mt-3 text-balance font-display text-6xl font-bold leading-none tracking-tight">
+      Pollo
+    </h1>
+    <p class="mt-3 text-pretty text-dusk-400">
       Every phone in the crowd is one pixel. Sign in to open an event and drive them.
     </p>
 

@@ -3,6 +3,7 @@ import { onMount } from 'svelte'
 import { resolve } from '$app/paths'
 import EffectDeck from '$lib/components/EffectDeck.svelte'
 import FieldCanvas from '$lib/components/FieldCanvas.svelte'
+import Seo from '$lib/components/Seo.svelte'
 import { type ConnectionStatus, EventConsole } from '$lib/event-console.svelte'
 import { toFieldPixels } from '$lib/field'
 import { formatCoordinates } from '$lib/format'
@@ -71,9 +72,12 @@ onMount(() => {
 })
 </script>
 
-<svelte:head>
-  <title>{data.event.name} · Pollo</title>
-</svelte:head>
+<Seo
+  title={`${data.event.name} — Live control · Pollo`}
+  description={`Control ${data.event.name}, monitor its connected devices, and conduct synchronized light in real time.`}
+  path={`/events/${data.event.id}`}
+  noIndex
+/>
 
 <!--
   Nearly the whole scrolling area, and `shrink-0` so what follows cannot squeeze
