@@ -93,9 +93,10 @@ jobs:
       JWT_SECRET: ci-secret-0123456789abcdef
       GITHUB_OAUTH_CLIENT_ID: ci-client-id
       GITHUB_OAUTH_CLIENT_SECRET: ci-client-secret
-      GITHUB_OAUTH_CLIENT_REDIRECT_URI: http://localhost:3000/api/auth/callback
-      PUBLIC_POLLO_API_URL: http://localhost:3333
-      WEB_ORIGIN: http://localhost:3000
+      GITHUB_OAUTH_CLIENT_REDIRECT_URI: http://localhost/app/api/auth/callback
+      PUBLIC_POLLO_API_URL: http://localhost/api/
+      WEB_ORIGIN: http://localhost
+      POLLO_SITE_ADDRESS: http://localhost
     steps:
       - uses: actions/checkout@v7
 
@@ -105,8 +106,8 @@ jobs:
       - name: Boot the stack and check health
         run: |
           docker compose -f infra/compose.prod.yaml up -d --wait
-          curl -sf http://localhost:3333/health
-          curl -sf http://localhost:3000/health
+          curl -sf http://localhost/api/health
+          curl -sf http://localhost/app/health
 
       - name: Dump logs on failure
         if: failure()

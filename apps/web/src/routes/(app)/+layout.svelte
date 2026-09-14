@@ -1,4 +1,6 @@
 <script lang="ts">
+import { resolve } from '$app/paths'
+
 let { data, children } = $props()
 </script>
 
@@ -12,7 +14,7 @@ let { data, children } = $props()
   <header
     class="flex items-center justify-between gap-4 border-dusk-800 border-b px-5 py-3 md:px-8"
   >
-    <a href="/" class="font-display font-bold text-lg tracking-tight">Pollo</a>
+    <a href={resolve('/')} class="font-display font-bold text-lg tracking-tight">Pollo</a>
 
     <div class="flex items-center gap-3">
       {#if data.user.avatarUrl}
@@ -25,7 +27,7 @@ let { data, children } = $props()
         />
       {/if}
       <span class="hidden text-dusk-400 text-sm sm:inline">{data.user.name ?? data.user.email}</span>
-      <form method="POST" action="/logout">
+      <form method="POST" action={resolve('/logout')}>
         <button
           type="submit"
           class="text-dusk-500 text-sm transition-colors hover:text-dusk-200"

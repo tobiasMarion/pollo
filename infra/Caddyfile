@@ -1,0 +1,27 @@
+{$POLLO_SITE_ADDRESS:pollo.tobiasmarion.com} {
+	encode zstd gzip
+
+	handle /api {
+		redir * /api/ 308
+	}
+
+	handle_path /api/* {
+		reverse_proxy api:3333
+	}
+
+	handle /app {
+		redir * /app/ 308
+	}
+
+	handle /app/* {
+		reverse_proxy web:3000
+	}
+
+	handle / {
+		redir * /app/ 308
+	}
+
+	handle {
+		respond "Not found" 404
+	}
+}

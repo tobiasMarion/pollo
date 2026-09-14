@@ -3,6 +3,8 @@ FROM node:22-alpine AS base
 WORKDIR /app
 
 FROM base AS build
+ARG WEB_BASE_PATH=/app
+ENV WEB_BASE_PATH=$WEB_BASE_PATH
 COPY package.json package-lock.json ./
 COPY apps/web/package.json apps/web/
 COPY apps/backend/package.json apps/backend/

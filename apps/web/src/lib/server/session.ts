@@ -1,5 +1,6 @@
 import type { Cookies } from '@sveltejs/kit'
 import { dev } from '$app/environment'
+import { resolve } from '$app/paths'
 
 /**
  * The JWT never reaches client-side JavaScript: it lives in an httpOnly
@@ -12,7 +13,7 @@ const SESSION_COOKIE = 'pollo_session'
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7
 
 const baseCookieOptions = {
-  path: '/',
+  path: resolve('/'),
   httpOnly: true,
   sameSite: 'lax',
   secure: !dev,
