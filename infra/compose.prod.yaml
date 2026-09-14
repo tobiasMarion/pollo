@@ -110,8 +110,6 @@ services:
     build:
       context: ..
       dockerfile: infra/docker/web.Dockerfile
-      args:
-        WEB_BASE_PATH: /app
     environment:
       NODE_ENV: production
       HOST: 0.0.0.0
@@ -129,7 +127,7 @@ services:
       api:
         condition: service_healthy
     healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3000/app/health']
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3000/health']
       interval: 15s
       timeout: 5s
       retries: 5

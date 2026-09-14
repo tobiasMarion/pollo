@@ -60,7 +60,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: production
-      url: https://pollo.tobiasmarion.com/app/
+      url: https://pollo.tobiasmarion.com/
     steps:
       - uses: actions/checkout@v7
 
@@ -106,4 +106,4 @@ jobs:
           curl --fail --silent --show-error --retry 12 --retry-delay 5 \
             https://pollo.tobiasmarion.com/api/health
           curl --fail --silent --show-error --retry 12 --retry-delay 5 \
-            https://pollo.tobiasmarion.com/app/health
+            https://pollo.tobiasmarion.com/health
