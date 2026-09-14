@@ -6,7 +6,11 @@
 	}
 
 	handle_path /api/* {
-		reverse_proxy api:3333
+		reverse_proxy api:3333 {
+			# The upstream sees paths without `/api`. Put the public prefix back on
+			# every root-relative redirect it returns, not only Scalar's `/docs/`.
+			header_down Location "^/(.*)$" "/api/$1"
+		}
 	}
 
 	handle {
