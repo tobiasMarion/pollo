@@ -13,9 +13,11 @@ just mobile-fixtures   # rewrite the Swift test fixtures from the contract
 ## iOS app
 
 The SwiftUI app lives in `Apple/PolloApp`; `Apple/PolloSensors` contains the GPS,
-WebSocket, HTTP, Nearby Interaction and light adapters. The layout follows the
-Sparkle reference at commit `849b326`: small brand above, central mark and event,
-and Debug diagnostics below. The new mark is a light dot, also used by the icon.
+WebSocket, HTTP, Nearby Interaction and light adapters. Its monochrome proximity
+graph grows from independently moving nodes, connecting and disconnecting as
+distance and link stability change without abrupt transitions.
+Debug builds expose a separate local-signal screen; it observes the same live
+controller and never replaces the phone's session or effect rendering.
 
 Requires full Xcode 26 with iOS SDK and XcodeGen (`brew install xcodegen`). Select
 Xcode with `sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer`,
@@ -37,8 +39,9 @@ just mobile-ios-test    # iPhone 17 simulator, override destination if needed
 Open the generated project, select scheme Pollo and your connected iPhone,
 configure signing and run. Enable Developer Mode on the iPhone if prompted.
 For UI-only simulation, add `--demo` under scheme Run > Arguments; `--empty`
-exercises missing events; `--live` supplies a position and a pulse after joining.
-These fake adapters exist only in Debug builds.
+exercises missing events; `--live` supplies a position and a pulse after joining;
+`--diagnostics` opens the local-signal screen immediately. These fake adapters
+exist only in Debug builds.
 The real simulator path cannot measure UWB; it explains the unsupported hardware
 and disables participation. Debug launch argument `-maxPeers 4` lowers the
 default cap of 16; that cap is experimental, not a measured radio guarantee.

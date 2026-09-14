@@ -5,6 +5,23 @@ import PolloSensors
 import PolloSession
 import PolloWire
 
+enum LocalActivityKind: String, CaseIterable, Identifiable {
+  case connection = "Conexão"
+  case neighbors = "Vizinhos"
+  case distance = "Distância"
+  case position = "Posição"
+  case effect = "Efeito"
+  case location = "Localização"
+  case radio = "Rádio"
+
+  var id: Self { self }
+}
+
+struct LocalActivitySample {
+  var count: Int
+  var lastAt: Date
+}
+
 @MainActor @Observable final class EventController {
   enum Phase: String {
     case locating, searching, empty, ready, connecting, positioning, live, reconnecting, failed
@@ -24,6 +41,9 @@ import PolloWire
   private(set) var receivedFrameCount = 0
   private(set) var commandCount = 0
   private(set) var errorMessage: String?
+  private(set) var localActivity: [LocalActivityKind: LocalActivitySample] = [:]
+  private(set) var seenPeers: Set<String> = []
+  private(set) var peerLastSeenAt: [String: Date] = [:]
   var supported: Bool { ranging.supported }
   var deviceIdentifier: String { deviceId }
   var peerLimit: Int { maxPeers }
@@ -139,6 +159,9 @@ import PolloWire
   }
   func join() {
     guard canJoin, let fix, let output else { return }
+    localActivity = [:]
+    seenPeers = []
+    peerLastSeenAt = [:]
     let core = PolloSession(deviceId: deviceId, maxPeers: maxPeers)
     session = core
     participating = true
@@ -192,6 +215,7 @@ import PolloWire
   }
   private func input(_ value: SessionInput) {
     guard active, let session else { return }
+    record(value)
     lastInput = String(describing: value)
     lastUpdatedAt = Date()
     receivedFrameCount += 1
@@ -215,6 +239,42 @@ import PolloWire
     }
     if case .received(.effect) = value { startFrames() }
     if case .received(.setPoint) = value, session.cue != nil { startFrames() }
+  }
+  private func record(_ input: SessionInput) {
+    let timestamp = Date()
+    if let kind = activityKind(for: input) {
+      let previous = localActivity[kind]
+      localActivity[kind] = LocalActivitySample(count: (previous?.count ?? 0) + 1, lastAt: timestamp)
+    }
+    switch input {
+    case let .received(.setNeighbors(peers)):
+      seenPeers.formUnion(peers)
+    case let .received(.peerToken(peer, _)), let .minted(_, peer), let .measured(_, peer), let .lostPeer(peer):
+      seenPeers.insert(peer)
+      peerLastSeenAt[peer] = timestamp
+    default:
+      break
+    }
+  }
+  private func activityKind(for input: SessionInput) -> LocalActivityKind? {
+    switch input {
+    case .opened, .closed, .network, .start, .stop:
+      .connection
+    case .received(.setNeighbors):
+      .neighbors
+    case .measured:
+      .distance
+    case .received(.setPoint):
+      .position
+    case .received(.effect):
+      .effect
+    case .located:
+      .location
+    case .received(.peerToken), .minted, .lostPeer, .rangingUnavailable:
+      .radio
+    case .tick:
+      nil
+    }
   }
   private func execute(_ commands: [SessionCommand]) {
     commandCount += commands.count
