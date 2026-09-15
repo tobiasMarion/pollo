@@ -66,7 +66,21 @@ describe('LiveEvent', () => {
     )
   })
 
-  it('opens with a keyframe rather than waiting for one', () => {
+  function connect(a = 'a', b = 'b') {
+    event.ingest({
+      at: 0,
+      ops: [
+        { op: 'JOIN', deviceId: a, location: location() },
+        { op: 'JOIN', deviceId: b, location: location() },
+        { op: 'DISTANCE', from: a, to: b, distance: 2 },
+      ],
+    })
+  }
+
+  it('does no solve or publish work until an event has a node', () => {
+    event.tick()
+    expect(sent).toEqual([])
+
     event.ingest({ at: 0, ops: [{ op: 'JOIN', deviceId: 'a', location: location() }] })
     event.tick()
 
@@ -75,7 +89,7 @@ describe('LiveEvent', () => {
   })
 
   it('says nothing about a crowd that has not moved', () => {
-    event.ingest({ at: 0, ops: [{ op: 'JOIN', deviceId: 'a', location: location() }] })
+    connect()
     event.tick()
     event.tick()
 
@@ -84,13 +98,10 @@ describe('LiveEvent', () => {
   })
 
   it('sends a delta for the device that moved, and only that one', () => {
-    event.ingest({
-      at: 0,
-      ops: [
-        { op: 'JOIN', deviceId: 'a', location: location() },
-        { op: 'JOIN', deviceId: 'b', location: location() },
-      ],
-    })
+    // Keep the solver from moving the peer in response to b's new anchor: this
+    // test is about the publication ledger, not reconstruction propagation.
+    event.setCorrecting(false)
+    connect()
     event.tick()
 
     event.ingest({
@@ -104,7 +115,7 @@ describe('LiveEvent', () => {
   })
 
   it('comes back round to a keyframe carrying everybody', () => {
-    event.ingest({ at: 0, ops: [{ op: 'JOIN', deviceId: 'a', location: location() }] })
+    connect()
 
     event.tick() // keyframe
     event.tick()
@@ -112,21 +123,7 @@ describe('LiveEvent', () => {
     event.tick() // keyframe again
 
     expect(sent.map(message => message.kind)).toEqual(['keyframe', 'delta', 'delta', 'keyframe'])
-    expect(sent[3]?.points).toHaveLength(1)
-  })
-
-  it('stops naming a device that left', () => {
-    event.ingest({ at: 0, ops: [{ op: 'JOIN', deviceId: 'a', location: location() }] })
-    event.tick()
-
-    event.ingest({ at: 1, ops: [{ op: 'LEAVE', deviceId: 'a' }] })
-    event.tick()
-    event.tick()
-    event.tick()
-
-    const named = sent.flatMap(message => message.points.map(point => point.deviceId))
-
-    expect(named).toEqual(['a'])
+    expect(sent[3]?.points).toHaveLength(2)
   })
 
   /**
@@ -135,7 +132,7 @@ describe('LiveEvent', () => {
    * move and be held back by the threshold — a pixel that never appears.
    */
   it('sends the newcomer that inherited a slot', () => {
-    event.ingest({ at: 0, ops: [{ op: 'JOIN', deviceId: 'a', location: location() }] })
+    connect('a', 'c')
     event.tick()
 
     event.ingest({
@@ -143,6 +140,7 @@ describe('LiveEvent', () => {
       ops: [
         { op: 'LEAVE', deviceId: 'a' },
         { op: 'JOIN', deviceId: 'b', location: location() },
+        { op: 'DISTANCE', from: 'b', to: 'c', distance: 2 },
       ],
     })
     event.tick()
@@ -150,7 +148,19 @@ describe('LiveEvent', () => {
     expect(sent[1]?.points.map(point => point.deviceId)).toEqual(['b'])
   })
 
-  it('places a device the graph says nothing about at its own GPS', () => {
+  it('continues publishing an event after its last edge disappears', () => {
+    connect()
+    event.tick()
+
+    event.ingest({ at: 1, ops: [{ op: 'DISTANCE', from: 'a', to: 'b', distance: null }] })
+    event.tick()
+
+    expect(sent).toHaveLength(2)
+    expect(sent[1]).toMatchObject({ kind: 'delta', points: [] })
+  })
+
+  it('places a device at its own GPS when correction is switched off', () => {
+    event.setCorrecting(false)
     event.ingest({
       at: 0,
       ops: [

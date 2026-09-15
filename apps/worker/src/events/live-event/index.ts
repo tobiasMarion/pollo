@@ -80,6 +80,11 @@ export class LiveEvent {
   tick() {
     const { graph, solver, ledger, publisher } = this.deps
 
+    // An empty event has neither state to synchronize nor a recipient for an
+    // update. A graph with nodes but no ranging data is still meaningful: the
+    // solver maintains its anchors and the worker publishes its current answer.
+    if (graph.size === 0) return
+
     solver.sync(graph)
     solver.advance(graph)
 

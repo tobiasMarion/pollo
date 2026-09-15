@@ -168,7 +168,7 @@ describe('EventRegistry', () => {
     const point = messages.flatMap(message => message.points).find(p => p.deviceId === 'device-1')
 
     expect(point).toBeDefined()
-    expect(point?.position.simulated.relative.z).toBe(117)
+    expect(point?.position.uncorrected.relative.z).toBe(117)
   })
 
   it('recovers an event and its graph after the worker restarts', async () => {

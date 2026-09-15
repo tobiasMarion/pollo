@@ -3,6 +3,7 @@ import { onMount } from 'svelte'
 import { resolve } from '$app/paths'
 import EffectDeck from '$lib/components/EffectDeck.svelte'
 import FieldCanvas from '$lib/components/FieldCanvas.svelte'
+import MetricsRail from '$lib/components/MetricsRail.svelte'
 import Seo from '$lib/components/Seo.svelte'
 import { type ConnectionStatus, EventConsole } from '$lib/event-console.svelte'
 import { toFieldPixels } from '$lib/field'
@@ -130,15 +131,16 @@ onMount(() => {
       This event is finished. Its devices and distances are no longer in the runtime.
     </p>
   {:else}
-    <section class="relative min-h-0 flex-1">
-      <FieldCanvas
-        {pixels}
-        {edges}
-        lastEffect={live?.lastEffect ?? null}
-        showEdges={layers.edges}
-        showGrid={layers.grid}
-        lightUnplaced={layers.unplaced}
-      />
+    <section class="relative flex min-h-0 flex-1 max-[700px]:flex-col">
+      <div class="relative min-h-0 min-w-0 flex-1">
+        <FieldCanvas
+          {pixels}
+          {edges}
+          lastEffect={live?.lastEffect ?? null}
+          showEdges={layers.edges}
+          showGrid={layers.grid}
+          lightUnplaced={layers.unplaced}
+        />
 
       <div class="pointer-events-none absolute inset-x-5 top-5 flex justify-between gap-4">
         <div class="pointer-events-auto flex gap-1.5">
@@ -164,7 +166,7 @@ onMount(() => {
         {/if}
       </div>
 
-      {#if pixels.length === 0}
+        {#if pixels.length === 0}
         <p
           class="pointer-events-none absolute inset-0 flex items-center justify-center px-8 text-center text-dusk-500"
         >
@@ -174,15 +176,18 @@ onMount(() => {
             No devices yet. Phones within about a kilometre can find this event and join.
           {/if}
         </p>
-      {/if}
+        {/if}
 
-      <button
+        <button
         type="button"
         onclick={showCues}
         class="-translate-x-1/2 absolute bottom-5 left-1/2 rounded-full border border-dusk-800 bg-dusk-950/80 px-4 py-1.5 text-dusk-500 text-xs backdrop-blur transition-colors hover:border-dusk-600 hover:text-dusk-200"
       >
         Cues ↓
-      </button>
+        </button>
+      </div>
+
+      <MetricsRail {devices} {edges} />
     </section>
   {/if}
 </div>
