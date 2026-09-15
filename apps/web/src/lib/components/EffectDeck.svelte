@@ -85,34 +85,31 @@ function onkeydown(event: KeyboardEvent) {
         onclick={() => fire(preset)}
         {disabled}
         aria-keyshortcuts={shortcut}
-        class="group flex aspect-[7/5] flex-col justify-between rounded-lg border border-dusk-700 bg-dusk-900 p-3 text-left transition-colors duration-75 enabled:hover:border-dusk-600 enabled:hover:bg-dusk-800 enabled:active:bg-dusk-700 disabled:cursor-not-allowed"
-        class:fired={flashing === preset.id}
+        class="group flex aspect-7/5 flex-col justify-between rounded-lg border border-dusk-700 bg-dusk-900 p-3 text-left transition-colors duration-75 enabled:hover:border-dusk-600 enabled:hover:bg-dusk-800 enabled:active:bg-dusk-700 disabled:cursor-not-allowed {flashing === preset.id
+          ? 'border-starlight bg-starlight text-dusk-950'
+          : ''}"
       >
         <span class="flex items-baseline justify-between gap-2">
-          <span class="text-[0.625rem] text-dusk-500 uppercase" data-numeric>
+          <span
+            class="text-2xs uppercase {flashing === preset.id ? 'text-dusk-950' : 'text-dusk-500'}"
+            data-numeric
+          >
             {preset.effect.name}
           </span>
           {#if shortcut}
-            <span class="text-[0.625rem] text-dusk-600" data-numeric>{shortcut}</span>
+            <span
+              class="text-2xs {flashing === preset.id ? 'text-dusk-950' : 'text-dusk-600'}"
+              data-numeric
+            >{shortcut}</span>
           {/if}
         </span>
 
         <span class="mt-2 font-medium leading-tight">{preset.label}</span>
-        <span class="text-[0.625rem] text-dusk-500" data-numeric>{preset.hint}</span>
+        <span
+          class="text-2xs {flashing === preset.id ? 'text-dusk-950' : 'text-dusk-500'}"
+          data-numeric
+        >{preset.hint}</span>
       </button>
     {/each}
   </div>
 </section>
-
-<style>
-  /* The pad lights up like the field does: full brightness, then back. */
-  .fired {
-    border-color: var(--color-starlight);
-    background-color: var(--color-starlight);
-    color: var(--color-dusk-950);
-  }
-
-  .fired :global(span) {
-    color: var(--color-dusk-950);
-  }
-</style>

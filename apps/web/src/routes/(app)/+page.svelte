@@ -47,7 +47,7 @@ function useMyLocation() {
 />
 
 <div
-  class="mx-auto grid w-full max-w-6xl flex-1 gap-10 px-5 py-10 md:px-8 lg:grid-cols-[1fr_20rem]"
+  class="mx-auto grid w-full max-w-6xl flex-1 gap-10 px-5 py-10 md:px-8 lg:event-list-layout"
 >
   <section>
     <div class="flex items-baseline justify-between">
@@ -65,7 +65,7 @@ function useMyLocation() {
           <li class="border-dusk-800 border-b">
             <a
               href={resolve('/(app)/events/[eventId]', { eventId: event.id })}
-              class="grid grid-cols-[auto_1fr_auto] items-center gap-x-4 gap-y-1 rounded-lg px-3 py-3.5 transition-colors hover:bg-dusk-900 sm:grid-cols-[auto_1fr_5rem_11rem_5rem]"
+              class="event-row-layout grid items-center gap-x-4 gap-y-1 rounded-lg px-3 py-3.5 transition-colors hover:bg-dusk-900 sm:event-row-layout-wide"
             >
               {#if event.status === 'OPEN'}
                 <span class="size-2 rounded-full bg-starlight" title="Open"></span>
