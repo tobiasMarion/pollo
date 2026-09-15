@@ -1,7 +1,7 @@
 name: Pollo
 options:
   deploymentTarget:
-    iOS: '26.0'
+    iOS: '17.0'
 packages:
   PolloKit:
     path: .
@@ -12,6 +12,8 @@ settings:
   base:
     SWIFT_VERSION: '6.0'
     TARGETED_DEVICE_FAMILY: '1'
+    MARKETING_VERSION: '0.1.0'
+    CURRENT_PROJECT_VERSION: '2'
     CODE_SIGN_STYLE: Automatic
     POLLO_API_URL: https://localhost:3333
     GENERATE_INFOPLIST_FILE: YES
@@ -29,6 +31,12 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.pollo.sensors
+        DEVELOPMENT_TEAM: Q7YVG7LD4N
+        MARKETING_VERSION: '0.1.0'
+        CURRENT_PROJECT_VERSION: '2'
+      configs:
+        Release:
+          CODE_SIGNING_ALLOWED: NO
     dependencies:
       - package: PolloKit
   Pollo:
@@ -40,11 +48,17 @@ targets:
       Release: Config/Release.xcconfig
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.pollo.mobile
+        PRODUCT_BUNDLE_IDENTIFIER: com.tobiasmarion.pollo
+        DEVELOPMENT_TEAM: Q7YVG7LD4N
         MARKETING_VERSION: '0.1.0'
-        CURRENT_PROJECT_VERSION: '1'
+        CURRENT_PROJECT_VERSION: '2'
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_FILE: Config/App-Info.plist
+      configs:
+        Release:
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: '9132CF3F89E0636234197699CCFC9FA393FF89BD'
+          PROVISIONING_PROFILE_SPECIFIER: 'Pollo App Store Distribution'
     dependencies:
       - target: PolloSensors
       - package: PolloKit
