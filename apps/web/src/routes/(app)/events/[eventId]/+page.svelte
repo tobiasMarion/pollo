@@ -87,7 +87,7 @@ onMount(() => {
   that there is something below the fold. A page that ends exactly at the fold
   looks like a page that ends.
 -->
-<div class="flex h-[calc(100%-3.5rem)] min-h-0 shrink-0 flex-col">
+<div class="field-overview-height flex min-h-0 shrink-0 flex-col">
   <div
     class="flex flex-wrap items-center gap-x-6 gap-y-2 border-dusk-800 border-b px-5 py-3 md:px-8"
   >
@@ -131,7 +131,7 @@ onMount(() => {
       This event is finished. Its devices and distances are no longer in the runtime.
     </p>
   {:else}
-    <section class="relative flex min-h-0 flex-1 max-[700px]:flex-col">
+    <section class="relative flex min-h-0 flex-1 max-handset:flex-col">
       <div class="relative min-h-0 min-w-0 flex-1">
         <FieldCanvas
           {pixels}
