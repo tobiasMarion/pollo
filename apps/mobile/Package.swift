@@ -13,7 +13,7 @@ import PackageDescription
  */
 let package = Package(
     name: "PolloKit",
-    platforms: [.iOS(.v26), .macOS(.v14)],
+    platforms: [.iOS(.v17), .macOS(.v14)],
     products: [
         .library(name: "PolloKit", targets: ["PolloWire", "PolloEffects", "PolloSession"])
     ],
